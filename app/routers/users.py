@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/user/{email}", tags=["users"])
-async def get_user(email: str) -> User:
+async def get_user(email: str) -> UserInfo:
 
     # TODO Do lifecycle management for singleton resource
     res = ServiceFactory.get_service("UserResource")
@@ -23,7 +23,7 @@ async def get_user(email: str) -> User:
         raise HTTPException(status_code=404, detail="User not found")
     return result
 
-@router.get('/users', tags=["users"], response_model=List[User])
+@router.get('/users', tags=["users"], response_model=List[UserInfo])
 async def get_users(page: int = 1, pagesize: int = 10) -> List[User]:
     res = ServiceFactory.get_service("UserResource")
     if res is None:

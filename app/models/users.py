@@ -1,17 +1,19 @@
 from __future__ import annotations
-
+from typing import Dict, List, Any
 from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr
 
+class Hatoas(BaseModel):
+    links: Dict[str, Any]
 
 class NewUser(BaseModel):
     email: EmailStr
     last_name: str
     first_name: str
 
-class UserInfo(NewUser):
+class UserInfo(Hatoas):
     id: int
     email: EmailStr
     last_name: str

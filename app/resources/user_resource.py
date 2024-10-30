@@ -23,7 +23,7 @@ class UserResource(BaseResource):
         self.collection = "user"
         self.key_field="email"
 
-    def get_by_key(self, key: str) -> User:
+    def get_by_key(self, key: str) -> UserInfo:
 
         d_service = self.data_service
 
@@ -32,8 +32,12 @@ class UserResource(BaseResource):
         )
         if result is None:
             raise HTTPException(status_code=404, detail="User Not Found")
-        result = User(**result)
-        return result
+        hatoaslinks = {
+            "self": {"href": f"/user/{result['id']}"},
+            "budgets": {"href": f"/user/{result['id']}/budgets"},
+            "expenses": {"href": f"/user/{result['id']}/expenses"}
+        }
+        return UserInfo(**result, links=hatoaslinks)
 
     def get_all(self, page: int = 1, pagesize:int = 10) -> list[User]:
         usersservice = self.data_service
@@ -52,6 +56,11 @@ class UserResource(BaseResource):
             newuser = self.data_service.create_data_object(self.database, self.collection, user_info)
             if newuser is None:
                 raise HTTPException(status_code=500, detail="Registration error")
-            return UserInfo(**newuser)
+            hatoaslinks = {
+                "self": {"href": f"/user/{newuser['id']}"},
+                "budgets":{"href": f"/user/{newuser['id']}/budgets"},
+                "expenses": {"href": f"/user/{newuser['id']}/expenses"}
+            }
+            return UserInfo(**newuser, links =hatoaslinks)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
