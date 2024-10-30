@@ -31,8 +31,6 @@ async def user(email):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str("Internal Server Error"))
 
-'''@app.post("/users/{email}")'''
-
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=3000)
 

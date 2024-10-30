@@ -26,7 +26,3 @@ class ServiceFactory(BaseServiceFactory):
             result = None
 
         return result
-
-
-
-

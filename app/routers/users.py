@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
-from oauthlib.uri_validate import userinfo
+from logging import lastResort
 
-from app.models.users import User,  NewUser
+from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime
+from oauthlib.uri_validate import userinfo
+from app.models.users import User,  NewUser, UserInfo
 from app.resources.user_resource import UserResource
 from app.services.service_factory import ServiceFactory
 from typing import List
@@ -31,14 +33,37 @@ async def get_users() -> List[User]:
         raise HTTPException(status_code=404, detail="No users found")
     return users
 
-'''@router.post("/user", tags=["users"], response_model=User)
-async def newuser(user: User):
+@router.post("/user", tags=["users"], response_model=User)
+async def newuser(newUser: NewUser):
     res = ServiceFactory.get_service("UserResource")
     if res is None:
         raise HTTPException(status_code=500, detail="Internal server error")
-    nuser = res.newuser(userinfo)
-    if not nuser:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    user = User(**nuser)
-    return user'''
 
+    try:
+        new_user = res.new_user(newUser)
+        if not new_user:
+            raise HTTPException(status_code=500, detail="Registration failed")
+        return new_user
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+'''async def newuser(newUser: NewUser):
+    res = ServiceFactory.get_service("UserResource")
+    if res is None:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+    userinfo = User(
+        email=newUser.email,
+        last_name=newUser.last_name,
+        first_name=newUser.first_name,
+        created_at=datetime.now(),
+        modified_at=datetime.now()
+    )
+
+    try:
+        new_user = res.new_user(userinfo)
+        if not new_user:
+            raise HTTPException(status_code=404, detail="Registration failed ")
+        return new_user
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal Server Error")'''

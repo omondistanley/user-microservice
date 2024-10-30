@@ -11,6 +11,10 @@ class NewUser(BaseModel):
     last_name: str
     first_name: str
 
+class UserInfo(NewUser):
+    id: int
+    last_name: str
+    first_name: str
 
 class User(BaseModel):
     id: Optional[int] = None

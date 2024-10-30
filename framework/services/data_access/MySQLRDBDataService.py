@@ -1,4 +1,10 @@
+from fastapi import HTTPException
+from pymysql.err import IntegrityError
+
 import pymysql
+from sqlalchemy.dialects.mssql.information_schema import columns
+from torch.utils.hipify.hipify_python import value
+
 from .BaseDataService import DataDataService
 
 
@@ -47,6 +53,37 @@ class MySQLRDBDataService(DataDataService):
                 connection.close()
 
         return result
+
+    def create_data_object(self, database, table, userdata):
+        connection = None
+        result = None
+        cursor = None
+
+        try:
+            connection = self._get_connection()
+            cursor = connection.cursor()
+
+            columns = ','.join(f"{key}" for key in userdata.keys())
+            placeholders = ','.join(["%s"] * len(userdata.keys()))
+            vals = tuple(userdata.values())
+
+            sqlInsert = f"INSERT INTO {database}.{table} ({columns}) VALUES ({placeholders})"
+            cursor.execute(sqlInsert, vals)
+
+            lastuser = cursor.lastrowid
+            userdata['id'] = lastuser
+            result = userdata
+
+        except IntegrityError as e:
+            raise HTTPException(status_code=400,detail="Email has already been registered")
+        except Exception as e:
+            raise HTTPException(status_code=500,detail="Internal Server Error")
+
+        return result
+
+
+
+
 
 
 
