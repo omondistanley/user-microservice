@@ -24,7 +24,7 @@ async def get_user(email: str) -> UserInfo:
     return result
 
 @router.get('/users', tags=["users"], response_model=List[UserInfo])
-async def get_users(page: int = 1, pagesize: int = 10) -> List[User]:
+async def get_users(page: int = 1, pagesize: int = 10) -> List[UserInfo]:
     res = ServiceFactory.get_service("UserResource")
     if res is None:
         raise HTTPException(status_code=500, detail="Internal server error")
