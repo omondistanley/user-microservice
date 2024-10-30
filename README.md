@@ -1,5 +1,4 @@
 # User Microservice for the expense tracker
-# User Microservice for the expense tracker
 
 Implemented the Crud operations for the user, mainly getting a specific user by email, getting all users(not fully implemented - having a bug with the pagination), and post for registering new users. 
 Implemented Pagination only for cases when we're to get all the users... a page has a limit of ten entries
