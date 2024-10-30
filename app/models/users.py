@@ -13,8 +13,8 @@ class NewUser(BaseModel):
 
 class UserInfo(NewUser):
     id: int
+    email: EmailStr
     last_name: str
-    first_name: str
 
 class User(BaseModel):
     id: Optional[int] = None

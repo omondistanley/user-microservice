@@ -1,8 +1,9 @@
 from fastapi import HTTPException
 from pymysql.err import IntegrityError
-
+from typing import List, Dict
 import pymysql
 from sqlalchemy.dialects.mssql.information_schema import columns
+from sympy.physics.vector.printing import params
 from torch.utils.hipify.hipify_python import value
 
 from .BaseDataService import DataDataService
@@ -53,6 +54,22 @@ class MySQLRDBDataService(DataDataService):
                 connection.close()
 
         return result
+
+    def get_data_objects(self, database_name: str, collection_name: str, limit: int = None, offset: int = None) -> List[Dict]:
+        sql_statement = f"SELECT * FROM {database_name}.{collection_name}"
+        params = []
+        if limit is not None:
+            sql_statement += " LIMIT %s "
+            params.append(limit)
+            if offset is not None:
+                sql_statement += " OFFSET %s "
+                params.append(offset)
+            elif offset is not None:
+                sql_statement += "LIMIT 2147483647 OFFSET %s "
+                params.append(offset)
+            self.cursor.execute(sql_statement, params)
+            result = self.cursor.fetchall()
+            return result
 
     def create_data_object(self, database, table, userdata):
         connection = None

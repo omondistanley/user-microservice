@@ -7,7 +7,7 @@ from sqlalchemy import insert
 from sqlalchemy.testing.suite.test_reflection import users
 
 from framework.resources.base_resource import BaseResource
-from app.models.users import User, NewUser
+from app.models.users import User, NewUser, UserInfo
 from app.services.service_factory import ServiceFactory
 
 
@@ -35,14 +35,15 @@ class UserResource(BaseResource):
         result = User(**result)
         return result
 
-    def get_all(self) -> list[User]:
-        d_service = self.data_service
-        result = d_service.get_data_object(self.database, self.collection)
+    def get_all(self, page: int = 1, pagesize:int = 10) -> list[User]:
+        usersservice = self.data_service
+        offset = (page - 1) * pagesize
+        result = usersservice.get_data_object(self.database, self.collection, limit=pagesize, offset=offset)
         users = [User(**result) for result in result]
         return users
 
 
-    def new_user(self, user: NewUser) -> User:
+    def new_user(self, user: NewUser) -> UserInfo:
         try:
             user_info = user.dict()
             user_info['created_at'] = datetime.now()
@@ -51,6 +52,6 @@ class UserResource(BaseResource):
             newuser = self.data_service.create_data_object(self.database, self.collection, user_info)
             if newuser is None:
                 raise HTTPException(status_code=500, detail="Registration error")
-            return User(**newuser)
+            return UserInfo(**newuser)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

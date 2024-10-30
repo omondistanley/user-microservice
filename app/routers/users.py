@@ -24,16 +24,16 @@ async def get_user(email: str) -> User:
     return result
 
 @router.get('/users', tags=["users"], response_model=List[User])
-async def get_users() -> List[User]:
+async def get_users(page: int = 1, pagesize: int = 10) -> List[User]:
     res = ServiceFactory.get_service("UserResource")
     if res is None:
         raise HTTPException(status_code=500, detail="Internal server error")
-    users = res.get_all()
+    users = res.get_all(page = page, pagesize = pagesize)
     if not users:
         raise HTTPException(status_code=404, detail="No users found")
     return users
 
-@router.post("/user", tags=["users"], response_model=User)
+@router.post("/user", tags=["users"], response_model=UserInfo)
 async def newuser(newUser: NewUser):
     res = ServiceFactory.get_service("UserResource")
     if res is None:
@@ -42,28 +42,8 @@ async def newuser(newUser: NewUser):
     try:
         new_user = res.new_user(newUser)
         if not new_user:
-            raise HTTPException(status_code=500, detail="Registration failed")
+            raise HTTPException(status_code=400, detail="Registration failed")
         return new_user
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-'''async def newuser(newUser: NewUser):
-    res = ServiceFactory.get_service("UserResource")
-    if res is None:
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-    userinfo = User(
-        email=newUser.email,
-        last_name=newUser.last_name,
-        first_name=newUser.first_name,
-        created_at=datetime.now(),
-        modified_at=datetime.now()
-    )
-
-    try:
-        new_user = res.new_user(userinfo)
-        if not new_user:
-            raise HTTPException(status_code=404, detail="Registration failed ")
-        return new_user
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal Server Error")'''
