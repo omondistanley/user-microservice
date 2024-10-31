@@ -20,7 +20,7 @@ app.include_router(users.router)
 async def root():
     return {"message": "Hello Bigger Applications!"}
 
-@app.get("/users/{email}") #to get a specific user from db using the email
+'''@app.get("/users/{email}") #to get a specific user from db using the email
 async def user(email):
     try:
         val = ServiceFactory.get_service("UserResource")
@@ -30,7 +30,7 @@ async def user(email):
         return user
     except Exception as e:
         raise HTTPException(status_code=500, detail=str("Internal Server Error"))
-
+'''
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=3000)
 
