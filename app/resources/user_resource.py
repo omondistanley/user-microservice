@@ -42,7 +42,7 @@ class UserResource(BaseResource):
     def get_all(self, page: int = 1, pagesize:int = 10) -> list[UserInfo]:
         usersservice = self.data_service
         offset = (page - 1) * pagesize
-        result = usersservice.get_data_object(self.database, self.collection, limit=pagesize, offset=offset)
+        result = usersservice.get_data_objects(self.database, self.collection, limit=pagesize, offset=offset)
         users = []
         for user in result:
             hatoaslinks = {
@@ -50,7 +50,7 @@ class UserResource(BaseResource):
                 "budgets": {"href": f"/user/{user['id']}/budgets"},
                 "expenses": {"href": f"/user/{user['id']}/expenses"}
             }
-            users.append(UserInfo(**user, link=hatoaslinks))
+            users.append(UserInfo(**user, links=hatoaslinks))
         return users
 
 

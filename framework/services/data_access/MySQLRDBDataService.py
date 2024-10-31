@@ -56,20 +56,27 @@ class MySQLRDBDataService(DataDataService):
         return result
 
     def get_data_objects(self, database_name: str, collection_name: str, limit: int = None, offset: int = None) -> List[Dict]:
-        sql_statement = f"SELECT * FROM {database_name}.{collection_name}"
-        params = []
-        if limit is not None:
-            sql_statement += " LIMIT %s "
-            params.append(limit)
-            if offset is not None:
-                sql_statement += " OFFSET %s "
-                params.append(offset)
-            elif offset is not None:
-                sql_statement += "LIMIT 2147483647 OFFSET %s "
-                params.append(offset)
-            self.cursor.execute(sql_statement, params)
-            result = self.cursor.fetchall()
-            return result
+        connection = None
+        result = None
+        try:
+            sql_statement = f"SELECT * FROM {database_name}.{collection_name}"
+            connection = self._get_connection()
+            cursor = connection.cursor()
+            params = []
+            if limit is not None:
+                sql_statement += " LIMIT %s "
+                params.append(limit)
+                if offset is not None:
+                    sql_statement += " OFFSET %s "
+                    params.append(offset)
+            cursor.execute(sql_statement, params)
+            result = cursor.fetchall()
+            if result is not None:
+                return result
+            else:
+                raise HTTPException(status_code=404, detail="No users found")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="Internal Server Error")
 
     def create_data_object(self, database, table, userdata):
         connection = None
