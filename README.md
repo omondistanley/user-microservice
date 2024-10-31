@@ -11,7 +11,7 @@ Implemented HATEOAS, using the userID.
 ![Alt text](post1.png)
 ![Alt text](post2.png)
 #Output for getting all the registered users.
-[bug from pagination solved, inconsistent var names]
+[bug from pagination solved, inconsistency between related functions: get_all and get_data_objects_(which get_all calls and is responsible for geting every user from the database)_]
 ![Alt text](getall1.png)
 ![Alt text](getall2.png)
 ![Alt text](getall3.png)
