@@ -10,6 +10,8 @@ Implemented HATEOAS, using the userID.
 #Output for posting a new user:
 ![Alt text](post1.png)
 ![Alt text](post2.png)
-
-
-
+#Output for getting all the registered users.
+[bug from pagination solved, inconsistent var names]
+![Alt text](getall1.png)
+![Alt text](getall2.png)
+![Alt text](getall3.png)
