@@ -1,2 +1,4 @@
 # Markdown
 *.md
+__pycache__/
+*.pyc
