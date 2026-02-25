@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block body_class %}welcome-page{% endblock %}
+{% block title %}Home — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="welcome-section">
+        <h1 id="welcome-title">Expense Tracker</h1>
+        <p class="lead" id="welcome-lead">Manage your spending in one place. Sign up or log in to get started.</p>
+        <div id="welcome-ctas">
+            <a href="/register" class="btn btn-primary">Register</a>
+            <a href="/login" class="btn btn-secondary">Login</a>
+            <a href="/expenses" class="btn btn-secondary">Expenses</a>
+        </div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    if (window.Auth && window.Auth.isLoggedIn && window.Auth.isLoggedIn()) {
+        var lead = document.getElementById('welcome-lead');
+        var ctas = document.getElementById('welcome-ctas');
+        if (lead) lead.textContent = 'Expense Tracker -manage finances:).';
+        if (ctas) ctas.innerHTML = '<a href="/expenses" class="btn btn-primary">Go to Expenses</a>';
+    }
+})();
+</script>
+{% endblock %}

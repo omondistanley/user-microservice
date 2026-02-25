@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block body_class %}link-bank-page{% endblock %}
+{% block title %}Link bank — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <h1>Link bank account</h1>
+        <p class="lead">Connect your bank to automatically import transactions as expenses.</p>
+
+        <div id="plaid-error" class="message-error" style="display: none; margin-bottom: 1rem;"></div>
+        <div id="plaid-success" class="message-success" style="display: none; margin-bottom: 1rem;"></div>
+
+        <div class="link-bank-actions" style="margin-bottom: 1.5rem;">
+            <button type="button" id="plaid-link-btn" class="btn btn-primary">Link bank account</button>
+            <button type="button" id="plaid-sync-btn" class="btn btn-secondary" style="margin-left: 0.5rem;">Sync transactions</button>
+        </div>
+        <p id="plaid-sync-status" style="display: none; font-size: 0.9rem;"></p>
+
+        <h2 style="font-size: 1.25rem; margin-top: 1.5rem;">Linked accounts</h2>
+        <div id="plaid-items-list" class="dashboard-list">Loading…</div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/plaid.js"></script>
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+<script src="/static/js/link_bank.js"></script>
+{% endblock %}

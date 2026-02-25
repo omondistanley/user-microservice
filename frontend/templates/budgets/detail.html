@@ -1,0 +1,166 @@
+{% extends "layout.html" %}
+{% block body_class %}budgets-page{% endblock %}
+{% block title %}Budget — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <p><a href="/budgets" class="btn btn-secondary">&larr; Back to budgets</a></p>
+        <h1>Budget details</h1>
+        <div id="budget-loading" style="display: none;">Loading…</div>
+        <div id="budget-load-error" class="message-error" style="display: none;"></div>
+        <div id="budget-view" style="display: none;">
+            <dl class="expense-detail-dl">
+                <dt>Name</dt><dd id="detail-name"></dd>
+                <dt>Category</dt><dd id="detail-category"></dd>
+                <dt>Amount (limit)</dt><dd id="detail-amount"></dd>
+                <dt>Spent in period</dt><dd id="detail-spent">—</dd>
+                <dt>Start date</dt><dd id="detail-start"></dd>
+                <dt>End date</dt><dd id="detail-end"></dd>
+            </dl>
+            <button type="button" id="btn-edit-toggle" class="btn btn-primary">Edit</button>
+            <button type="button" id="btn-delete" class="btn btn-danger" style="margin-left: 0.5rem;">Delete</button>
+        </div>
+        <form id="budget-edit-form" style="display: none; max-width: 400px; margin: 1rem 0; text-align: left;">
+            <div class="form-group">
+                <label for="edit-name">Name (optional)</label>
+                <input type="text" id="edit-name" name="name" class="form-control" maxlength="255">
+            </div>
+            <div class="form-group">
+                <label for="edit-amount">Amount (limit)</label>
+                <input type="number" id="edit-amount" name="amount" class="form-control" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-start_date">Start date</label>
+                <input type="date" id="edit-start_date" name="start_date" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-end_date">End date</label>
+                <input type="date" id="edit-end_date" name="end_date" class="form-control">
+            </div>
+            <div id="edit-message" class="message-error" style="display: none;"></div>
+            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" id="btn-edit-cancel" class="btn btn-secondary">Cancel</button>
+        </form>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/expenses.js"></script>
+<script src="/static/js/budgets.js"></script>
+<script>
+(function() {
+    var budgetId = ('{{ budget_id }}' || '').trim();
+    var viewEl = document.getElementById('budget-view');
+    var errorEl = document.getElementById('budget-load-error');
+    var loadingEl = document.getElementById('budget-loading');
+    var editForm = document.getElementById('budget-edit-form');
+    var editMsg = document.getElementById('edit-message');
+
+    function showView() {
+        if (viewEl) viewEl.style.display = 'block';
+        if (editForm) editForm.style.display = 'none';
+    }
+    function showEdit() {
+        if (viewEl) viewEl.style.display = 'none';
+        if (editForm) editForm.style.display = 'block';
+    }
+    function setDetail(name, category, amount, start, end, spentText) {
+        var nameEl = document.getElementById('detail-name');
+        var catEl = document.getElementById('detail-category');
+        var amtEl = document.getElementById('detail-amount');
+        var spentEl = document.getElementById('detail-spent');
+        var startEl = document.getElementById('detail-start');
+        var endEl = document.getElementById('detail-end');
+        if (nameEl) nameEl.textContent = name || '—';
+        if (catEl) catEl.textContent = category || '—';
+        if (amtEl) amtEl.textContent = amount != null ? (window.Budgets && window.Budgets.formatAmount ? window.Budgets.formatAmount(amount) : Number(amount).toFixed(2)) : '—';
+        if (spentEl) spentEl.textContent = spentText != null ? spentText : '—';
+        if (startEl) startEl.textContent = start != null ? (window.Budgets && window.Budgets.formatDate ? window.Budgets.formatDate(start) : start) : '—';
+        if (endEl) endEl.textContent = end != null ? (window.Budgets && window.Budgets.formatDate ? window.Budgets.formatDate(end) : end) : '—';
+    }
+    function fillEditForm(data) {
+        document.getElementById('edit-name').value = data.name || '';
+        document.getElementById('edit-amount').value = data.amount != null ? data.amount : '';
+        document.getElementById('edit-start_date').value = (data.start_date || '').toString().slice(0, 10);
+        document.getElementById('edit-end_date').value = (data.end_date || '').toString().slice(0, 10);
+    }
+
+    if (!budgetId) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (errorEl) { errorEl.textContent = 'Invalid budget.'; errorEl.style.display = 'block'; }
+    } else if (window.Budgets && window.Budgets.getById) {
+        if (loadingEl) loadingEl.style.display = 'block';
+        window.Budgets.getById(budgetId).then(function(data) {
+            var dateFrom = (data.start_date || '').toString().slice(0, 10);
+            var dateTo = (data.end_date || '').toString().slice(0, 10);
+            if (!dateTo) dateTo = new Date().toISOString().slice(0, 10);
+            var budgetAmt = data.amount != null ? (window.Budgets && window.Budgets.formatAmount ? window.Budgets.formatAmount(data.amount) : Number(data.amount).toFixed(2)) : '—';
+            function renderWithSpent(spentNum) {
+                var spentStr = spentNum != null ? Number(spentNum).toFixed(2) : '0.00';
+                setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date, 'Spent ' + spentStr + ' / Budget ' + budgetAmt);
+            }
+            if (window.Expenses && window.Expenses.getSummary && dateFrom) {
+                window.Expenses.getSummary('category', dateFrom, dateTo).then(function(sum) {
+                    var items = (sum && sum.items) ? sum.items : [];
+                    var catCode = data.category_code != null ? String(data.category_code) : '';
+                    var item = items.find(function(i) { return String(i.group_key) === catCode; });
+                    var spent = item && item.total_amount != null ? Number(item.total_amount) : 0;
+                    renderWithSpent(spent);
+                }).catch(function() { renderWithSpent(0); });
+            } else {
+                renderWithSpent(0);
+            }
+            if (loadingEl) loadingEl.style.display = 'none';
+            setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date, 'Spent … / Budget ' + budgetAmt);
+            fillEditForm(data);
+            showView();
+        }).catch(function(err) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (errorEl) { errorEl.textContent = err.message || 'Failed to load budget.'; errorEl.style.display = 'block'; }
+        });
+    }
+
+    var btnEditToggle = document.getElementById('btn-edit-toggle');
+    var btnEditCancel = document.getElementById('btn-edit-cancel');
+    if (btnEditToggle) btnEditToggle.addEventListener('click', showEdit);
+    if (btnEditCancel) btnEditCancel.addEventListener('click', showView);
+
+    if (editForm && window.Budgets && window.Budgets.update) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            editMsg.style.display = 'none';
+            var payload = {
+                name: document.getElementById('edit-name').value.trim() || null,
+                amount: parseFloat(document.getElementById('edit-amount').value, 10),
+                start_date: document.getElementById('edit-start_date').value,
+                end_date: document.getElementById('edit-end_date').value || null,
+            };
+            if (!payload.end_date) delete payload.end_date;
+            window.Budgets.update(budgetId, payload).then(function(data) {
+                setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date);
+                fillEditForm(data);
+                showView();
+                if (data.budget_id && data.budget_id !== budgetId) {
+                    window.location.href = '/budgets/' + data.budget_id + '?updated=1';
+                }
+            }).catch(function(err) {
+                editMsg.textContent = err.message || 'Update failed';
+                editMsg.style.display = 'block';
+            });
+        });
+    }
+
+    var btnDelete = document.getElementById('btn-delete');
+    if (btnDelete) {
+        btnDelete.addEventListener('click', function() {
+            if (!confirm('Delete this budget?')) return;
+            window.Budgets.delete(budgetId).then(function() {
+                window.location.href = '/budgets';
+            }).catch(function(err) {
+                alert(err.message || 'Delete failed');
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}

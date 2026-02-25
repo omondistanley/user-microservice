@@ -1,0 +1,234 @@
+/**
+ * Expenses — list/add/detail via expense-microservice API.
+ * Uses EXPENSE_API_BASE when set (e.g. http://localhost:3001), else API_BASE/same origin.
+ */
+(function() {
+    'use strict';
+    var API = window.EXPENSE_API_BASE !== undefined && window.EXPENSE_API_BASE !== ''
+        ? window.EXPENSE_API_BASE
+        : (window.API_BASE || '');
+
+    function request(path, options) {
+        options = options || {};
+        options.headers = options.headers || {};
+        if (window.Auth && window.Auth.getAuthHeaders) {
+            Object.assign(options.headers, window.Auth.getAuthHeaders());
+        }
+        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(options.body);
+        }
+        var doFetch = (window.Auth && window.Auth.requestWithRefresh)
+            ? function() { return window.Auth.requestWithRefresh(API + path, options); }
+            : function() { return fetch(API + path, options); };
+        return doFetch().then(function(r) {
+            if (!r.ok) throw new Error(r.statusText || 'Request failed');
+            return r.json().catch(function() { return null; });
+        });
+    }
+
+    window.Expenses = {
+        getCategories: function() {
+            return request('/api/categories');
+        },
+        createCategory: function(name) {
+            return request('/api/categories', { method: 'POST', body: { name: name } });
+        },
+        fillCategorySelect: function(selectEl, selectedName) {
+            if (!selectEl || !window.Expenses.getCategories) return Promise.resolve();
+            return window.Expenses.getCategories().then(function(cats) {
+                if (!Array.isArray(cats)) return;
+                selectEl.innerHTML = '<option value="">Select category</option>' + cats.map(function(c) {
+                    var n = c.name || '';
+                    var sel = selectedName && (c.name || '').toLowerCase() === (selectedName || '').toLowerCase() ? ' selected' : '';
+                    return '<option value="' + n + '"' + sel + '>' + n + '</option>';
+                }).join('');
+            });
+        },
+        formatAmount: function(val) {
+            if (val == null || val === '') return '';
+            var n = parseFloat(val, 10);
+            return isNaN(n) ? '' : n.toFixed(2);
+        },
+        buildListQuery: function(opts) {
+            opts = opts || {};
+            var q = [];
+            if (opts.date_from) q.push('date_from=' + encodeURIComponent(opts.date_from));
+            if (opts.date_to) q.push('date_to=' + encodeURIComponent(opts.date_to));
+            if (opts.category) q.push('category=' + encodeURIComponent(opts.category));
+            if (opts.min_amount != null && opts.min_amount !== '') q.push('min_amount=' + encodeURIComponent(opts.min_amount));
+            if (opts.max_amount != null && opts.max_amount !== '') q.push('max_amount=' + encodeURIComponent(opts.max_amount));
+            if (opts.page) q.push('page=' + encodeURIComponent(opts.page));
+            if (opts.page_size) q.push('page_size=' + encodeURIComponent(opts.page_size));
+            return q.length ? '?' + q.join('&') : '';
+        },
+        loadList: function(containerEl, balanceEl, opts, paginationCallback) {
+            if (!containerEl) return;
+            containerEl.innerHTML = 'Loading…';
+            var query = window.Expenses.buildListQuery(opts || {});
+            request('/api/expenses' + query).then(function(data) {
+                var list = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+                if (list.length === 0) {
+                    containerEl.innerHTML = 'No expenses yet. Add one to get started.';
+                    containerEl.classList.add('empty-state');
+                    if (balanceEl) balanceEl.textContent = 'Balance: 0.00';
+                    return;
+                }
+                containerEl.classList.remove('empty-state');
+                var grouped = {};
+                list.forEach(function(item) {
+                    var d = item.date || '';
+                    if (!grouped[d]) grouped[d] = [];
+                    grouped[d].push(item);
+                });
+                var dateLabels = Object.keys(grouped).sort().reverse();
+                var html = '';
+                dateLabels.forEach(function(dateKey) {
+                    var items = grouped[dateKey];
+                    var label = dateKey;
+                    if (dateKey.length >= 10) {
+                        var parts = dateKey.split('-');
+                        if (parts.length === 3) {
+                            var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            var mi = parseInt(parts[1], 10) - 1;
+                            label = (months[mi] || parts[1]) + ' ' + parts[2] + ', ' + parts[0];
+                        }
+                    }
+                    html += '<div class="expense-date-group"><h3 class="expense-group-date">' + label + '</h3><ul class="expense-list">';
+                    items.forEach(function(item) {
+                        var amt = item.amount != null ? item.amount : item.value;
+                        var name = (item.description || item.name || '').trim() || (item.category_name || item.category || '');
+                        if (!name) name = '—';
+                        var id = (item.expense_id || '').trim();
+                        var amtStr = window.Expenses && window.Expenses.formatAmount ? window.Expenses.formatAmount(amt) : (amt != null ? Number(amt).toFixed(2) : '');
+                        var link = id ? '<a href="/expenses/' + id + '" class="expense-item-link">' : '';
+                        var linkEnd = id ? '</a>' : '';
+                        var sourceBadge = (item.source === 'plaid') ? ' <span class="badge badge-plaid">From bank</span>' : '';
+                        html += '<li>' + link + '<span class="expense-item-name">' + name + '</span>' + sourceBadge + ' <strong class="expense-item-amount">' + amtStr + '</strong>' + linkEnd + '</li>';
+                    });
+                    html += '</ul></div>';
+                });
+                containerEl.innerHTML = html;
+                if (balanceEl && list.length) {
+                    var first = list[0];
+                    var bal = first.balance_after != null ? first.balance_after : '';
+                    var balStr = window.Expenses && window.Expenses.formatAmount ? window.Expenses.formatAmount(bal) : (bal !== '' ? Number(bal).toFixed(2) : '');
+                    balanceEl.textContent = balStr !== '' ? 'Current balance: ' + balStr : '';
+                }
+                var total = (data && data.total != null) ? data.total : list.length;
+                var page = (opts && opts.page) ? parseInt(opts.page, 10) : 1;
+                var pageSize = (opts && opts.page_size) ? parseInt(opts.page_size, 10) : 20;
+                if (typeof paginationCallback === 'function') paginationCallback(total, page, pageSize);
+            }).catch(function(err) {
+                containerEl.innerHTML = 'Could not load expenses. (' + (err.message || 'API error') + ')';
+                containerEl.classList.add('empty-state');
+                if (balanceEl) balanceEl.textContent = '';
+                if (typeof paginationCallback === 'function') paginationCallback(0, 1, 20);
+            });
+        },
+        getSummary: function(groupBy, dateFrom, dateTo) {
+            var q = ['group_by=' + encodeURIComponent(groupBy || 'category')];
+            if (dateFrom) q.push('date_from=' + encodeURIComponent(dateFrom));
+            if (dateTo) q.push('date_to=' + encodeURIComponent(dateTo));
+            return request('/api/expenses/summary?' + q.join('&'));
+        },
+        getBalanceHistory: function(dateFrom, dateTo, groupBy) {
+            var q = [];
+            if (dateFrom) q.push('date_from=' + encodeURIComponent(dateFrom));
+            if (dateTo) q.push('date_to=' + encodeURIComponent(dateTo));
+            if (groupBy) q.push('group_by=' + encodeURIComponent(groupBy));
+            return request('/api/expenses/balance/history?' + q.join('&'));
+        },
+        loadBalance: function(balanceEl) {
+            if (!balanceEl) return;
+            request('/api/expenses/balance').then(function(data) {
+                var bal = data && data.balance_after != null ? data.balance_after : null;
+                var str = bal != null && window.Expenses.formatAmount ? window.Expenses.formatAmount(bal) : (bal != null ? Number(bal).toFixed(2) : '');
+                balanceEl.textContent = str !== '' ? 'Current balance: ' + str : '';
+            }).catch(function() {
+                balanceEl.textContent = '';
+            });
+        },
+        add: function(payload, idempotencyKey) {
+            var options = { method: 'POST', body: payload };
+            if (idempotencyKey) options.headers = { 'Idempotency-Key': idempotencyKey };
+            return request('/api/expenses', options);
+        },
+        getExpense: function(expenseId) {
+            return request('/api/expenses/' + encodeURIComponent(expenseId));
+        },
+        updateExpense: function(expenseId, payload) {
+            return request('/api/expenses/' + encodeURIComponent(expenseId), {
+                method: 'PATCH',
+                body: payload,
+            });
+        },
+        deleteExpense: function(expenseId) {
+            var headers = {};
+            if (window.Auth && window.Auth.getAuthHeaders) {
+                Object.assign(headers, window.Auth.getAuthHeaders());
+            }
+            return fetch(API + '/api/expenses/' + encodeURIComponent(expenseId), {
+                method: 'DELETE',
+                headers: headers,
+            }).then(function(r) {
+                if (!r.ok) throw new Error(r.statusText || 'Request failed');
+            });
+        },
+        listReceipts: function(expenseId) {
+            return request('/api/expenses/' + encodeURIComponent(expenseId) + '/receipts');
+        },
+        uploadReceipt: function(expenseId, file) {
+            var form = new FormData();
+            form.append('file', file);
+            var headers = {};
+            if (window.Auth && window.Auth.getAuthHeaders) {
+                Object.assign(headers, window.Auth.getAuthHeaders());
+            }
+            return fetch(API + '/api/expenses/' + encodeURIComponent(expenseId) + '/receipts', {
+                method: 'POST',
+                headers: headers,
+                body: form,
+            }).then(function(r) {
+                if (!r.ok) throw new Error(r.statusText || 'Upload failed');
+                return r.json().catch(function() { return null; });
+            });
+        },
+        downloadReceiptUrl: function(receiptId) {
+            return API + '/api/receipts/' + encodeURIComponent(receiptId) + '/download';
+        },
+        downloadReceipt: function(receiptId, fileName) {
+            var headers = {};
+            if (window.Auth && window.Auth.getAuthHeaders) {
+                Object.assign(headers, window.Auth.getAuthHeaders());
+            }
+            return fetch(API + '/api/receipts/' + encodeURIComponent(receiptId) + '/download', { headers: headers })
+                .then(function(r) {
+                    if (!r.ok) throw new Error(r.statusText || 'Download failed');
+                    return r.blob();
+                })
+                .then(function(blob) {
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName || 'receipt';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
+        },
+        deleteReceipt: function(receiptId) {
+            var headers = {};
+            if (window.Auth && window.Auth.getAuthHeaders) {
+                Object.assign(headers, window.Auth.getAuthHeaders());
+            }
+            return fetch(API + '/api/receipts/' + encodeURIComponent(receiptId), {
+                method: 'DELETE',
+                headers: headers,
+            }).then(function(r) {
+                if (!r.ok) throw new Error(r.statusText || 'Delete failed');
+            });
+        },
+    };
+})();

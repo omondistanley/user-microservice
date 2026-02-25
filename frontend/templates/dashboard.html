@@ -1,0 +1,233 @@
+{% extends "layout.html" %}
+{% block body_class %}dashboard-page{% endblock %}
+{% block title %}Dashboard — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <h2>Dashboard</h2>
+
+        <!-- Hero KPIs -->
+        <div class="dashboard-grid" style="display: grid; gap: 1.5rem; margin-top: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Current balance</h2>
+                <p id="dashboard-balance" class="dashboard-balance" style="font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0;">—</p>
+                <div id="dashboard-sparkline" class="chart-container chart-container--sparkline" aria-label="Spending trend">Loading…</div>
+            </div>
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">This month's spending</h2>
+                <p id="dashboard-month-total" class="dashboard-balance" style="font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0;">—</p>
+            </div>
+        </div>
+
+        <!-- Charts grid -->
+        <div class="dashboard-charts-grid">
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Spending by category (this month)</h2>
+                <div id="dashboard-chart-category" class="chart-container" aria-label="Spending by category">Loading…</div>
+            </div>
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Budget vs spent</h2>
+                <div id="dashboard-chart-budget" class="chart-container" aria-label="Budget vs spent">Loading…</div>
+                <p style="margin-top: 0.75rem;"><a href="/budgets" class="btn btn-secondary btn-sm">View all budgets</a></p>
+            </div>
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Spending over time (last 6 months)</h2>
+                <div id="dashboard-chart-monthly" class="chart-container" aria-label="Spending over time">Loading…</div>
+            </div>
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Balance over time</h2>
+                <div id="dashboard-chart-balance" class="chart-container" aria-label="Balance over time">Loading…</div>
+            </div>
+        </div>
+
+        <!-- Budgets list (compact) -->
+        <div class="dashboard-card card-section" style="padding: 1.25rem; margin-top: 1.5rem;">
+            <h2 style="margin-top: 0; font-size: 1.1rem;">Budgets</h2>
+            <div id="dashboard-budgets" class="dashboard-list">Loading…</div>
+            <p style="margin-top: 0.75rem;"><a href="/budgets" class="btn btn-secondary btn-sm">View all budgets</a></p>
+        </div>
+
+        <!-- Recent expenses -->
+        <div class="dashboard-card card-section" style="padding: 1.25rem; margin-top: 1.5rem;">
+            <h2 style="margin-top: 0; font-size: 1.1rem;">Recent expenses</h2>
+            <div id="dashboard-expenses" class="dashboard-list">Loading…</div>
+            <p style="margin-top: 0.75rem;"><a href="/expenses" class="btn btn-secondary btn-sm">View all expenses</a></p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="/static/js/expenses.js"></script>
+<script src="/static/js/budgets.js"></script>
+<script src="/static/js/charts.js"></script>
+<script>
+(function() {
+    var hash = window.location.hash;
+    if (hash && hash.indexOf('access_token=') !== -1) {
+        var params = new URLSearchParams(hash.slice(1));
+        var accessToken = params.get('access_token');
+        var refreshToken = params.get('refresh_token');
+        if (accessToken) {
+            try {
+                localStorage.setItem('access_token', accessToken);
+                if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+            } catch (e) {}
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        }
+    }
+
+    var balanceEl = document.getElementById('dashboard-balance');
+    var monthTotalEl = document.getElementById('dashboard-month-total');
+    var budgetsEl = document.getElementById('dashboard-budgets');
+    var expensesEl = document.getElementById('dashboard-expenses');
+
+    function formatAmount(val) {
+        if (val == null || val === '') return '—';
+        var n = parseFloat(val, 10);
+        return isNaN(n) ? '—' : n.toFixed(2);
+    }
+    function formatDate(val) {
+        if (!val) return '';
+        var s = String(val).slice(0, 10);
+        if (s.length >= 10) {
+            var parts = s.split('-');
+            if (parts.length === 3) {
+                var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                var mi = parseInt(parts[1], 10) - 1;
+                return (months[mi] || parts[1]) + ' ' + parts[2] + ', ' + parts[0];
+            }
+        }
+        return s;
+    }
+
+    function runAfterLayout() {
+        if (!window.Auth || !window.Auth.getAuthHeaders) return;
+        loadBalance();
+        loadDashboardData();
+    }
+
+    function loadBalance() {
+        var api = window.EXPENSE_API_BASE || '';
+        var h = window.Auth.getAuthHeaders();
+        var doFetch = (window.Auth.requestWithRefresh)
+            ? function() { return window.Auth.requestWithRefresh(api + '/api/expenses/balance', { headers: h }); }
+            : function() { return fetch(api + '/api/expenses/balance', { headers: h }); };
+        doFetch().then(function(r) { return r.ok ? r.json() : Promise.reject(new Error(r.statusText)); })
+            .then(function(data) {
+                if (balanceEl) balanceEl.textContent = formatAmount(data && data.balance_after);
+            })
+            .catch(function() { if (balanceEl) balanceEl.textContent = '—'; });
+    }
+
+    function loadDashboardData() {
+        var now = new Date();
+        var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+        var today = now.toISOString().slice(0, 10);
+        var sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().slice(0, 10);
+
+        var promises = [
+            window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page: 1, page_size: 10 }) : Promise.resolve({ items: [], total: 0 }),
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today) : Promise.resolve({ items: [] }),
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('month', firstDay, today) : Promise.resolve({ items: [] }),
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('month', sixMonthsAgo, today) : Promise.resolve({ items: [] })
+        ];
+
+        Promise.all(promises).then(function(results) {
+            var budgetData = results[0];
+            var categorySummary = (results[1] && results[1].items) ? results[1].items : [];
+            var monthSummaryCurrent = (results[2] && results[2].items) ? results[2].items : [];
+            var monthSummarySix = (results[3] && results[3].items) ? results[3].items : [];
+
+            var items = (budgetData && budgetData.items) ? budgetData.items : [];
+
+            if (monthTotalEl) {
+                var total = 0;
+                monthSummaryCurrent.forEach(function(i) { total += Number(i.total_amount || 0); });
+                monthTotalEl.textContent = formatAmount(total);
+            }
+
+            if (window.ExpenseCharts) {
+                window.ExpenseCharts.renderCategoryChart('dashboard-chart-category', categorySummary);
+                var budgetItemsWithSpent = items.map(function(b) {
+                    var catCode = b.category_code != null ? String(b.category_code) : '';
+                    var s = categorySummary.find(function(x) { return String(x.group_key) === catCode; });
+                    var spent = s && s.total_amount != null ? Number(s.total_amount) : 0;
+                    return {
+                        label: b.name || b.category_name || 'Budget',
+                        budgetAmount: Number(b.amount),
+                        spentAmount: spent
+                    };
+                });
+                window.ExpenseCharts.renderBudgetVsSpentChart('dashboard-chart-budget', budgetItemsWithSpent);
+                window.ExpenseCharts.renderMonthlyTrendChart('dashboard-chart-monthly', monthSummarySix);
+                window.ExpenseCharts.renderSparkline('dashboard-sparkline', monthSummarySix.slice(-7));
+            }
+
+            if (window.Expenses && window.Expenses.getBalanceHistory) {
+                window.Expenses.getBalanceHistory(sixMonthsAgo, today, 'week').then(function(history) {
+                    var list = (history && history.items) ? history.items : (Array.isArray(history) ? history : []);
+                    if (window.ExpenseCharts) window.ExpenseCharts.renderBalanceOverTimeChart('dashboard-chart-balance', list);
+                }).catch(function() {
+                    var el = document.getElementById('dashboard-chart-balance');
+                    if (el) el.innerHTML = '<p class="empty-chart-message">No data for this range</p>';
+                });
+            } else {
+                var el = document.getElementById('dashboard-chart-balance');
+                if (el) el.innerHTML = '<p class="empty-chart-message">No data for this range</p>';
+            }
+
+            if (budgetsEl) {
+                if (items.length === 0) {
+                    budgetsEl.innerHTML = '<p class="empty-state" style="margin:0;">No budgets set.</p>';
+                } else {
+                    var summaryItems = categorySummary;
+                    budgetsEl.innerHTML = '<ul class="summary-list">' + items.map(function(b) {
+                        var budgetAmt = window.Budgets && window.Budgets.formatAmount ? window.Budgets.formatAmount(b.amount) : formatAmount(b.amount);
+                        var catCode = b.category_code != null ? String(b.category_code) : '';
+                        var summaryItem = summaryItems.find(function(s) { return String(s.group_key) === catCode; });
+                        var spent = summaryItem && summaryItem.total_amount != null ? Number(summaryItem.total_amount) : 0;
+                        var spentStr = formatAmount(spent);
+                        var label = b.name || b.category_name || 'Budget';
+                        return '<li><span class="summary-label">' + label + '</span> <strong>Spent ' + spentStr + ' / Budget ' + budgetAmt + '</strong></li>';
+                    }).join('') + '</ul>';
+                }
+            }
+        }).catch(function() {
+            if (budgetsEl) budgetsEl.innerHTML = '<p class="empty-state" style="margin:0;">Could not load budgets.</p>';
+        });
+
+        if (window.Expenses && window.Expenses.buildListQuery) {
+            var query = window.Expenses.buildListQuery({ page: 1, page_size: 10 });
+            var api = window.EXPENSE_API_BASE || '';
+            var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+            var doFetch = (window.Auth && window.Auth.requestWithRefresh)
+                ? function() { return window.Auth.requestWithRefresh(api + '/api/expenses' + query, { headers: headers }); }
+                : function() { return fetch(api + '/api/expenses' + query, { headers: headers }); };
+            doFetch().then(function(r) {
+                return r.ok ? r.json() : Promise.reject(new Error(r.statusText));
+            }).then(function(data) {
+                var list = (data && data.items) ? data.items : [];
+                if (!expensesEl) return;
+                if (list.length === 0) {
+                    expensesEl.innerHTML = '<p class="empty-state" style="margin:0;">No expenses yet.</p>';
+                    return;
+                }
+                expensesEl.innerHTML = '<ul class="summary-list">' + list.slice(0, 10).map(function(item) {
+                    var amt = window.Expenses && window.Expenses.formatAmount ? window.Expenses.formatAmount(item.amount) : formatAmount(item.amount);
+                    var label = (item.description || '').trim() || (item.category_name || item.category || 'Expense');
+                    var dateStr = formatDate(item.date);
+                    var link = item.expense_id ? '<a href="/expenses/' + item.expense_id + '">' + label + '</a>' : label;
+                    var sourceBadge = (item.source === 'plaid') ? ' <span class="badge badge-plaid">From bank</span>' : '';
+                    return '<li><span class="summary-label">' + dateStr + ' — ' + link + sourceBadge + '</span> <strong>' + amt + '</strong></li>';
+                }).join('') + '</ul>';
+            }).catch(function() {
+                if (expensesEl) expensesEl.innerHTML = '<p class="empty-state" style="margin:0;">Could not load expenses.</p>';
+            });
+        }
+    }
+
+    setTimeout(runAfterLayout, 0);
+})();
+</script>
+{% endblock %}

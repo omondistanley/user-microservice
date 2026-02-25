@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block body_class %}budgets-page{% endblock %}
+{% block title %}Add budget — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <h1>Add budget</h1>
+        <p class="lead">Set a budget limit for a category and period.</p>
+        <form id="add-budget-form" style="max-width: 400px; margin: 0 auto; text-align: left;">
+            <div class="form-group">
+                <label for="name">Name (optional)</label>
+                <input type="text" id="name" name="name" class="form-control" maxlength="255" placeholder="e.g. Monthly Food">
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount (limit)</label>
+                <input type="number" id="amount" name="amount" class="form-control" step="0.01" min="0" required placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="category">Category</label>
+                <select id="category" name="category_code" class="form-control" required>
+                    <option value="">Select category</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="start_date">Start date</label>
+                <input type="date" id="start_date" name="start_date" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="end_date">End date (optional)</label>
+                <input type="date" id="end_date" name="end_date" class="form-control" placeholder="Leave empty for no end">
+            </div>
+            <div id="add-message" class="message-error" style="display: none;"></div>
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="/budgets" class="btn btn-secondary">Cancel</a>
+        </form>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/budgets.js"></script>
+<script>
+(function() {
+    var form = document.getElementById('add-budget-form');
+    var msg = document.getElementById('add-message');
+    var startInput = document.getElementById('start_date');
+    if (startInput) {
+        var today = new Date().toISOString().slice(0, 10);
+        startInput.value = today;
+    }
+    if (window.Budgets && window.Budgets.fillCategorySelect) {
+        window.Budgets.fillCategorySelect(document.getElementById('category'));
+    }
+    if (form && window.Budgets && typeof window.Budgets.create === 'function') {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            msg.style.display = 'none';
+            var nameEl = document.getElementById('name');
+            var amount = parseFloat(document.getElementById('amount').value, 10);
+            var categoryCode = parseInt(document.getElementById('category').value, 10);
+            var startDate = document.getElementById('start_date').value;
+            var endDateEl = document.getElementById('end_date');
+            var endDate = endDateEl && endDateEl.value ? endDateEl.value : null;
+            if (isNaN(amount) || amount < 0) {
+                msg.textContent = 'Enter a valid amount.';
+                msg.style.display = 'block';
+                return;
+            }
+            if (!categoryCode || isNaN(categoryCode)) {
+                msg.textContent = 'Select a category.';
+                msg.style.display = 'block';
+                return;
+            }
+            var payload = {
+                amount: amount,
+                category_code: categoryCode,
+                start_date: startDate,
+            };
+            if (nameEl && nameEl.value.trim()) payload.name = nameEl.value.trim();
+            if (endDate) payload.end_date = endDate;
+            window.Budgets.create(payload).then(function() {
+                window.location.href = '/budgets?added=1';
+            }).catch(function(err) {
+                msg.textContent = err.message || 'Failed to add budget';
+                msg.style.display = 'block';
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}

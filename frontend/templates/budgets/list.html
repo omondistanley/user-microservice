@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+{% block body_class %}budgets-page{% endblock %}
+{% block title %}Budgets — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <h1>Budgets</h1>
+        <p class="lead">Set and manage budget limits by category.</p>
+        <div id="budgets-added-msg" class="message-success" style="display: none; margin-bottom: 1rem;"></div>
+        <a href="/budgets/add" class="btn btn-primary">Add budget</a>
+
+        <div id="budgets-list" class="empty-state" style="margin-top: 1.5rem;">No budgets yet. Add one to get started.</div>
+        <div id="budgets-pagination" class="expenses-pagination" style="margin-top: 1rem; display: none;">
+            <span id="budgets-pagination-info"></span>
+            <button type="button" id="budgets-pagination-prev" class="btn btn-secondary btn-sm" style="margin-left: 0.5rem;">Previous</button>
+            <button type="button" id="budgets-pagination-next" class="btn btn-secondary btn-sm">Next</button>
+        </div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/budgets.js"></script>
+<script>
+(function() {
+    var listEl = document.getElementById('budgets-list');
+    var paginationEl = document.getElementById('budgets-pagination');
+    var paginationInfo = document.getElementById('budgets-pagination-info');
+    var paginationPrev = document.getElementById('budgets-pagination-prev');
+    var paginationNext = document.getElementById('budgets-pagination-next');
+    var addedMsg = document.getElementById('budgets-added-msg');
+    var listOpts = { page: 1, page_size: 20 };
+    var currentTotal = 0;
+
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('added') && addedMsg) {
+        addedMsg.textContent = 'Budget saved.';
+        addedMsg.style.display = 'block';
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    function updatePagination(total, page, pageSize) {
+        currentTotal = total;
+        if (!paginationEl || !paginationInfo) return;
+        if (total <= 0) {
+            paginationEl.style.display = 'none';
+            return;
+        }
+        var totalPages = Math.ceil(total / pageSize) || 1;
+        paginationEl.style.display = 'block';
+        paginationInfo.textContent = 'Page ' + page + ' of ' + totalPages + ' (' + total + ' total)';
+        if (paginationPrev) paginationPrev.disabled = page <= 1;
+        if (paginationNext) paginationNext.disabled = page >= totalPages;
+    }
+
+    function renderList() {
+        if (window.Budgets && typeof window.Budgets.loadList === 'function') {
+            window.Budgets.loadList(listEl, listOpts, updatePagination);
+        }
+    }
+
+    if (window.Budgets) renderList();
+
+    if (paginationPrev) {
+        paginationPrev.addEventListener('click', function() {
+            if (listOpts.page > 1) {
+                listOpts.page--;
+                renderList();
+            }
+        });
+    }
+    if (paginationNext) {
+        paginationNext.addEventListener('click', function() {
+            var pageSize = listOpts.page_size || 20;
+            if (listOpts.page < Math.ceil(currentTotal / pageSize)) {
+                listOpts.page++;
+                renderList();
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends "layout.html" %}
+{% block body_class %}reports-page{% endblock %}
+{% block title %}Reports — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <h1>Reports</h1>
+        <p class="lead">Spending and balance trends by date range.</p>
+
+        <form id="reports-date-form" class="form-section" style="max-width: 500px; margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="reports-date-from">From</label>
+                <input type="date" id="reports-date-from" name="date_from" class="form-control">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="reports-date-to">To</label>
+                <input type="date" id="reports-date-to" name="date_to" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary">Apply</button>
+        </form>
+
+        <div class="dashboard-charts-grid">
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Spending over time</h2>
+                <div id="reports-chart-monthly" class="chart-container" aria-label="Spending over time">Loading…</div>
+            </div>
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">By category</h2>
+                <div id="reports-chart-category" class="chart-container" aria-label="Spending by category">Loading…</div>
+            </div>
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Budget vs spent</h2>
+                <div id="reports-chart-budget" class="chart-container" aria-label="Budget vs spent">Loading…</div>
+            </div>
+            <div class="dashboard-card card-section" style="padding: 1.25rem;">
+                <h2 style="margin-top: 0; font-size: 1.1rem;">Balance over time</h2>
+                <div id="reports-chart-balance" class="chart-container" aria-label="Balance over time">Loading…</div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="/static/js/expenses.js"></script>
+<script src="/static/js/budgets.js"></script>
+<script src="/static/js/charts.js"></script>
+<script>
+(function() {
+    var form = document.getElementById('reports-date-form');
+    var dateFromEl = document.getElementById('reports-date-from');
+    var dateToEl = document.getElementById('reports-date-to');
+
+    function defaultRange() {
+        var now = new Date();
+        var sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return {
+            dateFrom: sixMonthsAgo.toISOString().slice(0, 10),
+            dateTo: today.toISOString().slice(0, 10)
+        };
+    }
+
+    function getRange() {
+        var from = dateFromEl && dateFromEl.value ? dateFromEl.value : null;
+        var to = dateToEl && dateToEl.value ? dateToEl.value : null;
+        if (!from || !to) {
+            var d = defaultRange();
+            from = from || d.dateFrom;
+            to = to || d.dateTo;
+        }
+        return { dateFrom: from, dateTo: to };
+    }
+
+    function loadReports() {
+        var range = getRange();
+        if (dateFromEl) dateFromEl.value = range.dateFrom;
+        if (dateToEl) dateToEl.value = range.dateTo;
+
+        if (!window.Auth || !window.Auth.getAuthHeaders) return;
+
+        var promises = [
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', range.dateFrom, range.dateTo) : Promise.resolve({ items: [] }),
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('month', range.dateFrom, range.dateTo) : Promise.resolve({ items: [] }),
+            window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page: 1, page_size: 20 }) : Promise.resolve({ items: [] }),
+            window.Expenses && window.Expenses.getBalanceHistory ? window.Expenses.getBalanceHistory(range.dateFrom, range.dateTo, 'week') : Promise.resolve({ items: [] })
+        ];
+
+        Promise.all(promises).then(function(results) {
+            var categoryItems = (results[0] && results[0].items) ? results[0].items : [];
+            var monthItems = (results[1] && results[1].items) ? results[1].items : [];
+            var budgetData = results[2];
+            var balanceHistory = results[3];
+            var budgetList = (budgetData && budgetData.items) ? budgetData.items : [];
+            var balanceItems = (balanceHistory && balanceHistory.items) ? balanceHistory.items : (Array.isArray(balanceHistory) ? balanceHistory : []);
+
+            if (window.ExpenseCharts) {
+                window.ExpenseCharts.renderMonthlyTrendChart('reports-chart-monthly', monthItems);
+                window.ExpenseCharts.renderCategoryChart('reports-chart-category', categoryItems);
+                var budgetItemsWithSpent = budgetList.map(function(b) {
+                    var catCode = b.category_code != null ? String(b.category_code) : '';
+                    var s = categoryItems.find(function(x) { return String(x.group_key) === catCode; });
+                    var spent = s && s.total_amount != null ? Number(s.total_amount) : 0;
+                    return {
+                        label: b.name || b.category_name || 'Budget',
+                        budgetAmount: Number(b.amount),
+                        spentAmount: spent
+                    };
+                });
+                window.ExpenseCharts.renderBudgetVsSpentChart('reports-chart-budget', budgetItemsWithSpent);
+                window.ExpenseCharts.renderBalanceOverTimeChart('reports-chart-balance', balanceItems);
+            }
+        }).catch(function() {
+            ['reports-chart-monthly', 'reports-chart-category', 'reports-chart-budget', 'reports-chart-balance'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.innerHTML = '<p class="empty-chart-message">Unable to load data.</p>';
+            });
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            loadReports();
+        });
+    }
+    var d = defaultRange();
+    if (dateFromEl) dateFromEl.value = d.dateFrom;
+    if (dateToEl) dateToEl.value = d.dateTo;
+    setTimeout(loadReports, 0);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+{% block body_class %}auth-page{% endblock %}
+{% block title %}Login — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <h3>Log in to Expense Tracker</h3>
+        <p style="margin-bottom: 1rem;">
+            <a href="/auth/google" class="btn btn-secondary" style="margin-right: 0.5rem;">Sign in with Google</a>
+            <a href="/auth/apple" class="btn btn-secondary">Sign in with Apple</a>
+        </p>
+        <p style="font-size: 0.9rem; margin: 0.5rem 0;">or</p>
+        <form id="login-form" class="form-section" style="max-width: 400px; margin: 0 auto; text-align: left;">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" class="form-control" required placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-toggle-wrapper">
+                    <input type="password" id="password" name="password" class="form-control" required placeholder="••••••••">
+                    <button type="button" class="btn-password-toggle" id="login-password-toggle" aria-label="Show password" title="Show password">Show</button>
+                </div>
+            </div>
+            <div id="login-message" class="message-error" style="display: none;"></div>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem;">
+                <a href="/forgot-password" class="auth-link">Forgot password?</a>
+            </p>
+            <button type="submit" class="btn btn-primary">Log In</button>
+        </form>
+        <p style="margin-top: 1.5rem; font-size: 0.95rem;">
+            Not on Expense Tracker? <a href="/register" class="auth-link">Create an account</a>
+        </p>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/auth.js"></script>
+<script>
+(function() {
+    var form = document.getElementById('login-form');
+    var msg = document.getElementById('login-message');
+    var params = new URLSearchParams(window.location.search);
+    var verified = params.get('verified');
+    var error = params.get('error');
+    var sessionExpired = params.get('session') === 'expired';
+    if (sessionExpired && msg) {
+        msg.textContent = 'Your session expired. Please sign in again.';
+        msg.classList.add('message-error');
+        msg.style.display = 'block';
+    } else if (error && msg) {
+        var messages = { access_denied: 'Sign-in cancelled.', invalid_state: 'Invalid state. Please try again.', token_exchange_failed: 'Sign-in failed. Try again.', no_email: 'No email from provider.', no_apple_email: 'Apple did not provide email.', server: 'Server error. Try again.', google_not_configured: 'Google sign-in is not configured. Use email and password.', apple_not_configured: 'Apple sign-in is not configured. Use email and password.' };
+        msg.textContent = messages[error] || 'Sign-in failed. Try again.';
+        msg.classList.add('message-error');
+        msg.style.display = 'block';
+    } else if (verified === '1' && msg) {
+        msg.textContent = 'Email verified. You can sign in now.';
+        msg.classList.remove('message-error');
+        msg.classList.add('message-success');
+        msg.style.display = 'block';
+    } else if (verified === '0' && msg) {
+        msg.textContent = 'Verification link invalid or expired.';
+        msg.classList.add('message-error');
+        msg.style.display = 'block';
+    }
+    if (form && window.Auth) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            msg.style.display = 'none';
+            var email = document.getElementById('email').value;
+            var password = document.getElementById('password').value;
+            window.Auth.login(email, password).then(function(data) {
+                msg.textContent = 'Signed in successfully.';
+                msg.classList.remove('message-error');
+                msg.classList.add('message-success');
+                msg.style.display = 'block';
+                if (data && data.access_token) {
+                    try {
+                        localStorage.setItem('access_token', data.access_token);
+                        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+                    } catch (e) {}
+                    var next = (new URLSearchParams(window.location.search)).get('next');
+                    var target = '/dashboard';
+                    if (next && next.startsWith('/') && next.indexOf('//') === -1) {
+                        target = next;
+                    }
+                    setTimeout(function() { window.location.href = target; }, 1000);
+                }
+            }).catch(function(err) {
+                msg.textContent = err.message || 'Login failed';
+                msg.classList.remove('message-success');
+                msg.classList.add('message-error');
+                msg.style.display = 'block';
+            });
+        });
+    }
+    var toggle = document.getElementById('login-password-toggle');
+    var passwordInput = document.getElementById('password');
+    if (toggle && passwordInput) {
+        toggle.addEventListener('click', function() {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggle.textContent = 'Hide';
+                toggle.setAttribute('aria-label', 'Hide password');
+            } else {
+                passwordInput.type = 'password';
+                toggle.textContent = 'Show';
+                toggle.setAttribute('aria-label', 'Show password');
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

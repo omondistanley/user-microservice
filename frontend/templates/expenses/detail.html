@@ -1,0 +1,297 @@
+{% extends "layout.html" %}
+{% block body_class %}expenses-page{% endblock %}
+{% block title %}Expense — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <p><a href="/expenses" class="btn btn-secondary">&larr; Back to expenses</a></p>
+        <h1>Expense details</h1>
+        <div id="expense-loading" style="display: none;">Loading…</div>
+        <div id="expense-load-error" class="message-error" style="display: none;"></div>
+        <div id="expense-view" style="display: none;">
+            <dl class="expense-detail-dl">
+                <dt>Amount</dt><dd id="detail-amount"></dd>
+                <dt>Date</dt><dd id="detail-date"></dd>
+                <dt>Category</dt><dd id="detail-category"></dd>
+                <dt>Description</dt><dd id="detail-description"></dd>
+                <dt>Currency</dt><dd id="detail-currency"></dd>
+                <dt>Balance after</dt><dd id="detail-balance"></dd>
+            </dl>
+            <button type="button" id="btn-edit-toggle" class="btn btn-primary">Edit</button>
+            <button type="button" id="btn-delete" class="btn btn-danger" style="margin-left: 0.5rem;">Delete</button>
+        </div>
+        <form id="expense-edit-form" style="display: none; max-width: 400px; margin: 1rem 0; text-align: left;">
+            <div class="form-group">
+                <label for="edit-amount">Amount</label>
+                <input type="number" id="edit-amount" name="amount" class="form-control" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-date">Date</label>
+                <input type="date" id="edit-date" name="date" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-category">Category</label>
+                <select id="edit-category" name="category" class="form-control" required></select>
+                <div class="form-group" style="margin-top: 0.5rem;">
+                    <button type="button" id="btn-add-category-edit" class="btn btn-secondary btn-sm">+ Create new category</button>
+                    <div id="new-category-inline-edit" style="display: none; margin-top: 0.5rem;">
+                        <input type="text" id="new-category-name-edit" class="form-control" placeholder="Category name" maxlength="64" style="display: inline-block; width: auto; margin-right: 0.5rem;">
+                        <button type="button" id="btn-save-category-edit" class="btn btn-primary btn-sm">Add</button>
+                        <button type="button" id="btn-cancel-category-edit" class="btn btn-secondary btn-sm">Cancel</button>
+                        <span id="new-category-msg-edit" class="message-error" style="display: none; margin-left: 0.5rem;"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="edit-description">Description</label>
+                <input type="text" id="edit-description" name="description" class="form-control">
+            </div>
+            <div id="edit-message" class="message-error" style="display: none;"></div>
+            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" id="btn-edit-cancel" class="btn btn-secondary">Cancel</button>
+        </form>
+        <hr style="margin: 2rem 0;">
+        <h2>Receipts</h2>
+        <div id="receipts-list" style="margin-bottom: 1rem;">Loading…</div>
+        <form id="receipt-upload-form" style="max-width: 400px;">
+            <div class="form-group">
+                <label for="receipt-file">Attach receipt</label>
+                <input type="file" id="receipt-file" name="file" class="form-control" accept="image/*,.pdf">
+            </div>
+            <button type="submit" class="btn btn-primary">Upload receipt</button>
+        </form>
+        <div id="receipt-message" class="message-error" style="display: none; margin-top: 0.5rem;"></div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/expenses.js"></script>
+<script>
+(function() {
+    var expenseId = ('{{ expense_id }}' || '').trim();
+    var viewEl = document.getElementById('expense-view');
+    var errorEl = document.getElementById('expense-load-error');
+    var loadingEl = document.getElementById('expense-loading');
+    var editForm = document.getElementById('expense-edit-form');
+    var editMsg = document.getElementById('edit-message');
+    var receiptsList = document.getElementById('receipts-list');
+    var receiptUploadForm = document.getElementById('receipt-upload-form');
+    var receiptMsg = document.getElementById('receipt-message');
+
+    function formatNum(val) {
+        if (val == null || val === '') return '—';
+        var n = parseFloat(val, 10);
+        return isNaN(n) ? '—' : n.toFixed(2);
+    }
+    function showView(expense) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (errorEl) errorEl.style.display = 'none';
+        document.getElementById('detail-amount').textContent = formatNum(expense.amount);
+        document.getElementById('detail-date').textContent = expense.date ? (expense.date.length >= 10 ? expense.date.slice(0, 10) : expense.date) : '—';
+        document.getElementById('detail-category').textContent = expense.category_name || expense.category || '—';
+        document.getElementById('detail-description').textContent = (expense.description || '').trim() || '—';
+        document.getElementById('detail-currency').textContent = expense.currency || '—';
+        document.getElementById('detail-balance').textContent = formatNum(expense.balance_after);
+        viewEl.style.display = 'block';
+        editForm.style.display = 'none';
+    }
+
+    function loadExpense() {
+        if (!expenseId || expenseId.length < 10) {
+            if (errorEl) {
+                errorEl.innerHTML = 'Invalid expense. <a href="/expenses">Back to expenses</a>';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+        if (loadingEl) loadingEl.style.display = 'block';
+        if (errorEl) errorEl.style.display = 'none';
+        if (!window.Expenses || !window.Expenses.getExpense) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (errorEl) {
+                errorEl.innerHTML = 'Expenses API not loaded. <a href="/expenses">Back to expenses</a>';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+        window.Expenses.getExpense(expenseId).then(function(expense) {
+            showView(expense);
+            document.getElementById('edit-amount').value = expense.amount;
+            document.getElementById('edit-date').value = expense.date ? expense.date.slice(0, 10) : '';
+            document.getElementById('edit-category').value = expense.category_name || expense.category || '';
+            document.getElementById('edit-description').value = expense.description || '';
+        }).catch(function(err) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (errorEl) {
+                errorEl.innerHTML = (err.message || 'Failed to load expense') + '. <a href="/expenses">Back to expenses</a>';
+                errorEl.style.display = 'block';
+            }
+        });
+    }
+
+    function loadReceipts() {
+        if (!window.Expenses || !window.Expenses.listReceipts) {
+            receiptsList.innerHTML = '—';
+            return;
+        }
+        window.Expenses.listReceipts(expenseId).then(function(receipts) {
+            if (!receipts || receipts.length === 0) {
+                receiptsList.innerHTML = '<p>No receipts.</p>';
+                return;
+            }
+            receiptsList.innerHTML = '<ul class="expense-list">' + receipts.map(function(r) {
+                var name = r.file_name || 'Receipt';
+                var delBtn = window.Expenses.deleteReceipt ? '<button type="button" class="btn btn-secondary btn-sm delete-receipt" data-receipt-id="' + r.receipt_id + '">Delete</button>' : '';
+                var downBtn = '<button type="button" class="btn btn-secondary btn-sm download-receipt" data-receipt-id="' + r.receipt_id + '" data-file-name="' + (r.file_name || 'receipt').replace(/"/g, '&quot;') + '">Download</button>';
+                return '<li><span>' + name + '</span> ' + downBtn + ' ' + delBtn + '</li>';
+            }).join('') + '</ul>';
+            receiptsList.querySelectorAll('.download-receipt').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var rid = btn.getAttribute('data-receipt-id');
+                    var fname = btn.getAttribute('data-file-name') || 'receipt';
+                    if (rid && window.Expenses.downloadReceipt) {
+                        window.Expenses.downloadReceipt(rid, fname).catch(function(err) { alert(err.message || 'Download failed'); });
+                    }
+                });
+            });
+            receiptsList.querySelectorAll('.delete-receipt').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var rid = btn.getAttribute('data-receipt-id');
+                    if (!rid || !window.Expenses.deleteReceipt) return;
+                    if (!confirm('Delete this receipt?')) return;
+                    window.Expenses.deleteReceipt(rid).then(function() { loadReceipts(); }).catch(function(err) { alert(err.message || 'Delete failed'); });
+                });
+            });
+        }).catch(function() {
+            receiptsList.innerHTML = '<p>Could not load receipts.</p>';
+        });
+    }
+
+    function refreshEditCategories(selectedName) {
+        var sel = document.getElementById('edit-category');
+        if (window.Expenses && window.Expenses.fillCategorySelect) {
+            window.Expenses.fillCategorySelect(sel, selectedName);
+        }
+    }
+    if (window.Expenses && window.Expenses.getCategories) {
+        window.Expenses.getCategories().then(function(cats) {
+            var sel = document.getElementById('edit-category');
+            if (!sel || !Array.isArray(cats)) return;
+            sel.innerHTML = '<option value="">Select category</option>' + cats.map(function(c) {
+                return '<option value="' + (c.name || '') + '">' + (c.name || '') + '</option>';
+            }).join('');
+        });
+    }
+    var addCatEditBtn = document.getElementById('btn-add-category-edit');
+    var newCatInlineEdit = document.getElementById('new-category-inline-edit');
+    var newCatNameEdit = document.getElementById('new-category-name-edit');
+    var saveCatEditBtn = document.getElementById('btn-save-category-edit');
+    var cancelCatEditBtn = document.getElementById('btn-cancel-category-edit');
+    var newCatMsgEdit = document.getElementById('new-category-msg-edit');
+    if (addCatEditBtn && newCatInlineEdit) {
+        addCatEditBtn.addEventListener('click', function() {
+            newCatInlineEdit.style.display = 'block';
+            addCatEditBtn.style.display = 'none';
+            newCatNameEdit.value = '';
+            newCatMsgEdit.style.display = 'none';
+        });
+    }
+    if (cancelCatEditBtn && newCatInlineEdit && addCatEditBtn) {
+        cancelCatEditBtn.addEventListener('click', function() {
+            newCatInlineEdit.style.display = 'none';
+            addCatEditBtn.style.display = '';
+            newCatMsgEdit.style.display = 'none';
+        });
+    }
+    if (saveCatEditBtn && newCatNameEdit && newCatMsgEdit) {
+        saveCatEditBtn.addEventListener('click', function() {
+            var name = (newCatNameEdit.value || '').trim();
+            if (!name) {
+                newCatMsgEdit.textContent = 'Enter a category name';
+                newCatMsgEdit.style.display = 'inline';
+                return;
+            }
+            newCatMsgEdit.style.display = 'none';
+            if (!window.Expenses || !window.Expenses.createCategory) return;
+            window.Expenses.createCategory(name).then(function(cat) {
+                newCatInlineEdit.style.display = 'none';
+                if (addCatEditBtn) addCatEditBtn.style.display = '';
+                refreshEditCategories(cat && cat.name ? cat.name : name);
+                var sel = document.getElementById('edit-category');
+                if (sel) sel.value = (cat && cat.name) ? cat.name : name;
+            }).catch(function(err) {
+                newCatMsgEdit.textContent = err.message || 'Failed to create category';
+                newCatMsgEdit.style.display = 'inline';
+            });
+        });
+    }
+
+    loadExpense();
+    loadReceipts();
+
+    document.getElementById('btn-edit-toggle').addEventListener('click', function() {
+        viewEl.style.display = 'none';
+        editForm.style.display = 'block';
+    });
+    document.getElementById('btn-edit-cancel').addEventListener('click', function() {
+        editForm.style.display = 'none';
+        viewEl.style.display = 'block';
+    });
+    editForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        editMsg.style.display = 'none';
+        var payload = {
+            amount: parseFloat(document.getElementById('edit-amount').value, 10),
+            date: document.getElementById('edit-date').value,
+            category: document.getElementById('edit-category').value,
+            description: document.getElementById('edit-description').value || undefined
+        };
+        window.Expenses.updateExpense(expenseId, payload).then(function(expense) {
+            showView(expense);
+            editForm.style.display = 'none';
+            viewEl.style.display = 'block';
+            editMsg.textContent = 'Saved.';
+            editMsg.classList.remove('message-error');
+            editMsg.classList.add('message-success');
+            editMsg.style.display = 'block';
+        }).catch(function(err) {
+            editMsg.textContent = err.message || 'Update failed';
+            editMsg.classList.add('message-error');
+            editMsg.style.display = 'block';
+        });
+    });
+    document.getElementById('btn-delete').addEventListener('click', function() {
+        if (!confirm('Delete this expense? This cannot be undone.')) return;
+        window.Expenses.deleteExpense(expenseId).then(function() {
+            window.location.href = '/expenses';
+        }).catch(function(err) {
+            alert(err.message || 'Delete failed');
+        });
+    });
+
+    receiptUploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        receiptMsg.style.display = 'none';
+        var fileInput = document.getElementById('receipt-file');
+        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+            receiptMsg.textContent = 'Please select a file.';
+            receiptMsg.style.display = 'block';
+            return;
+        }
+        window.Expenses.uploadReceipt(expenseId, fileInput.files[0]).then(function() {
+            receiptMsg.textContent = 'Receipt uploaded.';
+            receiptMsg.classList.remove('message-error');
+            receiptMsg.classList.add('message-success');
+            receiptMsg.style.display = 'block';
+            loadReceipts();
+            fileInput.value = '';
+        }).catch(function(err) {
+            receiptMsg.textContent = err.message || 'Upload failed';
+            receiptMsg.classList.add('message-error');
+            receiptMsg.style.display = 'block';
+        });
+    });
+})();
+</script>
+{% endblock %}

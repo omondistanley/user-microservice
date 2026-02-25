@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Expense Tracker{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <script>window.EXPENSE_API_BASE = "{{ expense_api_base | default('') }}"; window.BUDGET_API_BASE = "{{ budget_api_base | default('') }}";</script>
+    <nav class="navbar">
+        <div class="container navbar-inner">
+            <div class="navbar-left">
+                <a href="/dashboard" class="navbar-brand" id="navbar-brand">Expense Tracker</a>
+                <button type="button" id="navbar-filters-toggle" class="navbar-hamburger" aria-label="Menu" style="display: none;">
+                    <span class="hamburger-icon" aria-hidden="true"></span>
+                </button>
+            </div>
+            <ul class="navbar-nav">
+                <li id="nav-login" class="nav-guest"><a href="/login" class="nav-link {% if request.url.path == '/login' %}active{% endif %}">Login</a></li>
+                <li id="nav-register" class="nav-guest"><a href="/register" class="nav-link {% if request.url.path == '/register' %}active{% endif %}">Register</a></li>
+                <li id="nav-logout" class="nav-auth" style="display: none;"><a href="#" class="nav-link" id="nav-logout-link">Log out</a></li>
+            </ul>
+        </div>
+        <div id="navbar-filters-panel" class="navbar-filters-panel" style="display: none;">
+            <div class="container">
+                <div class="navbar-panel-section navbar-panel-nav">
+                    <ul class="navbar-panel-links">
+                        <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
+                        <li><a href="/expenses" class="nav-link">Expenses</a></li>
+                        <li><a href="/link-bank" class="nav-link">Link bank</a></li>
+                        <li><a href="/reports" class="nav-link">Reports</a></li>
+                        <li><a href="/budgets" class="nav-link">Budgets</a></li>
+                    </ul>
+                </div>
+                <div class="navbar-panel-section navbar-panel-filters" id="navbar-filters-section" style="display: none;">
+                    <h2 class="navbar-panel-heading">Filters</h2>
+                    <form id="filter-form" class="navbar-filter-form">
+                        <div class="form-group">
+                            <label for="filter-date-from">Date from</label>
+                            <input type="date" id="filter-date-from" name="date_from" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-date-to">Date to</label>
+                            <input type="date" id="filter-date-to" name="date_to" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-category">Category</label>
+                            <select id="filter-category" name="category" class="form-control">
+                                <option value="">All</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-min-amount">Min amount</label>
+                            <input type="number" id="filter-min-amount" name="min_amount" class="form-control" step="0.01" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-max-amount">Max amount</label>
+                            <input type="number" id="filter-max-amount" name="max_amount" class="form-control" step="0.01" min="0" placeholder="—">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-page-size">Per page</label>
+                            <select id="filter-page-size" name="page_size" class="form-control">
+                                <option value="10">10</option>
+                                <option value="20" selected>20</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Apply</button>
+                    </form>
+                </div>
+                <div id="expenses-summary-wrap" class="navbar-panel-section" style="display: none;">
+                <div id="expenses-summary" class="expenses-summary">
+                    <h2 class="navbar-panel-heading">Summary</h2>
+                    <div class="summary-tabs" style="margin-bottom: 0.75rem;">
+                        <button type="button" class="btn btn-secondary btn-sm summary-tab active" data-group="category">By category</button>
+                        <button type="button" class="btn btn-secondary btn-sm summary-tab" data-group="month">By month</button>
+                    </div>
+                    <div id="summary-by-category" class="summary-content"></div>
+                    <div id="summary-by-month" class="summary-content" style="display: none;"></div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+    (function() {
+        // OAuth callback: store tokens from fragment before any auth check (layout runs before page scripts)
+        var hash = window.location.hash;
+        if (hash && hash.indexOf('access_token=') !== -1) {
+            var params = new URLSearchParams(hash.slice(1));
+            var accessToken = params.get('access_token');
+            var refreshToken = params.get('refresh_token');
+            if (accessToken) {
+                try {
+                    localStorage.setItem('access_token', accessToken);
+                    if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+                } catch (e) {}
+                window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+            }
+        }
+        function applyAuthState() {
+            var guest = document.querySelectorAll('.nav-guest');
+            var authEl = document.getElementById('nav-logout');
+            var logoutLink = document.getElementById('nav-logout-link');
+            if (!window.Auth || !window.Auth.isLoggedIn) return;
+            if (window.Auth.isLoggedIn()) {
+                if (guest.length) guest.forEach(function(el) { el.style.display = 'none'; });
+                if (authEl) authEl.style.display = '';
+                if (logoutLink) {
+                    logoutLink.onclick = function(e) {
+                        e.preventDefault();
+                        window.Auth.logout();
+                    };
+                }
+            } else {
+                if (guest.length) guest.forEach(function(el) { el.style.display = ''; });
+                if (authEl) authEl.style.display = 'none';
+            }
+        }
+        var protectedPaths = ['/dashboard', '/expenses', '/expenses/add', '/link-bank', '/budgets', '/budgets/add', '/reports'];
+        var path = window.location.pathname;
+        var isProtected = protectedPaths.indexOf(path) !== -1 || path.startsWith('/expenses/') || path.startsWith('/budgets/');
+        if (isProtected && window.Auth && !window.Auth.isLoggedIn()) {
+            window.location.href = '/login?next=' + encodeURIComponent(path);
+        } else {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyAuthState);
+            } else {
+                applyAuthState();
+            }
+        }
+        var filtersToggle = document.getElementById('navbar-filters-toggle');
+        var filtersPanel = document.getElementById('navbar-filters-panel');
+        var filtersSection = document.getElementById('navbar-filters-section');
+        var summaryWrap = document.getElementById('expenses-summary-wrap');
+        path = window.location.pathname;
+        var showHamburger = path === '/dashboard' || path === '/expenses' || path === '/expenses/add' || path === '/link-bank' || path === '/budgets' || path === '/budgets/add' || path === '/reports' || path.indexOf('/expenses/') === 0 || path.indexOf('/budgets/') === 0;
+        if (filtersToggle && filtersPanel) {
+            if (showHamburger) filtersToggle.style.display = '';
+            if (filtersSection && path === '/expenses') filtersSection.style.display = 'block';
+            if (summaryWrap && path === '/expenses') summaryWrap.style.display = 'block';
+            filtersToggle.addEventListener('click', function() {
+                var open = filtersPanel.style.display === 'block';
+                filtersPanel.style.display = open ? 'none' : 'block';
+                filtersToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+            });
+            document.addEventListener('click', function(e) {
+                if (filtersPanel.style.display === 'block' && !filtersPanel.contains(e.target) && !filtersToggle.contains(e.target)) {
+                    filtersPanel.style.display = 'none';
+                    filtersToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+    })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
