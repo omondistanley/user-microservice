@@ -1,0 +1,189 @@
+{% extends "layout.html" %}
+{% block body_class %}link-bank-select-page{% endblock %}
+{% block title %}Select Your Bank — Expense Tracker{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#135bec",
+          "background-light": "#f6f6f8",
+          "background-dark": "#101622",
+        },
+        fontFamily: { "display": ["Manrope", "sans-serif"] },
+        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Manrope', sans-serif; min-height: max(884px, 100dvh); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="relative flex h-auto min-h-screen w-full max-w-[430px] mx-auto flex-col bg-white dark:bg-slate-950 overflow-x-hidden shadow-2xl font-display text-slate-900 dark:text-slate-100">
+  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
+  <div class="flex items-center bg-white dark:bg-slate-950 p-4 pb-2 justify-between sticky top-0 z-10">
+    <a href="/link-bank" class="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center justify-center cursor-pointer" aria-label="Back">
+      <span class="material-symbols-outlined text-2xl">arrow_back_ios</span>
+    </a>
+    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Select Your Bank</h2>
+  </div>
+  <div class="px-4 py-3">
+    <label class="flex flex-col min-w-40 h-14 w-full">
+      <div class="flex w-full flex-1 items-stretch rounded-xl h-full shadow-sm border border-slate-200 dark:border-slate-800">
+        <div class="text-slate-400 dark:text-slate-500 flex bg-slate-50 dark:bg-slate-900 items-center justify-center pl-4 rounded-l-xl">
+          <span class="material-symbols-outlined text-2xl">search</span>
+        </div>
+        <input type="text" id="bank-search" class="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-r-xl text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-0 border-none bg-slate-50 dark:bg-slate-900 h-full placeholder:text-slate-400 dark:placeholder:text-slate-500 px-4 pl-2 text-base font-medium leading-normal" placeholder="Search for your institution" />
+      </div>
+    </label>
+  </div>
+  <div class="flex items-center justify-between px-4 pb-2 pt-6">
+    <h3 class="text-slate-900 dark:text-slate-100 text-lg font-extrabold leading-tight tracking-tight">Most popular</h3>
+    <span class="text-primary text-sm font-semibold cursor-pointer">View all</span>
+  </div>
+  <div class="grid grid-cols-2 gap-4 p-4">
+    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Chase">
+      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
+        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
+      </div>
+      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Chase</p>
+    </button>
+    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Wells Fargo">
+      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
+        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
+      </div>
+      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Wells Fargo</p>
+    </button>
+    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Bank of America">
+      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
+        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
+      </div>
+      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Bank of America</p>
+    </button>
+    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Citi">
+      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
+        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
+      </div>
+      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Citi</p>
+    </button>
+    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Capital One">
+      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
+        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
+      </div>
+      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Capital One</p>
+    </button>
+    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="US Bank">
+      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
+        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
+      </div>
+      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">US Bank</p>
+    </button>
+  </div>
+  <div class="px-4 py-4">
+    <h3 class="text-slate-900 dark:text-slate-100 text-lg font-extrabold leading-tight tracking-tight pb-4">Other institutions</h3>
+    <div class="flex flex-col space-y-2">
+      <button type="button" class="plaid-open-link flex items-center p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer border border-transparent hover:border-slate-100 dark:hover:border-slate-800 w-full text-left" data-name="American Express">
+        <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-4">
+          <span class="material-symbols-outlined text-slate-500">account_balance</span>
+        </div>
+        <div class="flex-1">
+          <p class="text-slate-900 dark:text-slate-100 font-semibold">American Express</p>
+          <p class="text-slate-500 text-xs">Credit Cards &amp; Personal Loans</p>
+        </div>
+        <span class="material-symbols-outlined text-slate-400">chevron_right</span>
+      </button>
+      <button type="button" class="plaid-open-link flex items-center p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer border border-transparent hover:border-slate-100 dark:hover:border-slate-800 w-full text-left" data-name="Fidelity Investments">
+        <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-4">
+          <span class="material-symbols-outlined text-slate-500">account_balance</span>
+        </div>
+        <div class="flex-1">
+          <p class="text-slate-900 dark:text-slate-100 font-semibold">Fidelity Investments</p>
+          <p class="text-slate-500 text-xs">Retirement &amp; Brokerage</p>
+        </div>
+        <span class="material-symbols-outlined text-slate-400">chevron_right</span>
+      </button>
+      <button type="button" class="plaid-open-link flex items-center p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer border border-transparent hover:border-slate-100 dark:hover:border-slate-800 w-full text-left" data-name="PNC Bank">
+        <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-4">
+          <span class="material-symbols-outlined text-slate-500">account_balance</span>
+        </div>
+        <div class="flex-1">
+          <p class="text-slate-900 dark:text-slate-100 font-semibold">PNC Bank</p>
+          <p class="text-slate-500 text-xs">Personal &amp; Business Banking</p>
+        </div>
+        <span class="material-symbols-outlined text-slate-400">chevron_right</span>
+      </button>
+    </div>
+  </div>
+  <div class="mt-auto p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky bottom-0 border-t border-slate-100 dark:border-slate-900">
+    <div class="flex flex-col items-center gap-3">
+      <div class="flex items-center gap-2 text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+        <span class="material-symbols-outlined text-sm">lock</span>
+        Secure connection via Plaid
+      </div>
+      <p class="text-[11px] text-slate-500 text-center leading-relaxed">
+        By linking your account, you agree to our <a class="text-primary underline" href="#">Terms of Service</a> and <a class="text-primary underline" href="#">Privacy Policy</a>.
+      </p>
+    </div>
+  </div>
+  <div class="h-8 bg-white dark:bg-slate-950"></div>
+  <div id="plaid-select-error" class="fixed top-20 left-4 right-4 mx-auto max-w-md text-sm text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 p-3 rounded-lg shadow-lg border border-red-200 dark:border-red-900 z-50" style="display: none;"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/plaid.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+  var errorEl = document.getElementById('plaid-select-error');
+  function showError(msg) {
+    if (errorEl) {
+      errorEl.textContent = msg || 'Something went wrong.';
+      errorEl.style.display = 'block';
+      setTimeout(function() { if (errorEl) errorEl.style.display = 'none'; }, 5000);
+    }
+  }
+  function openPlaidLink() {
+    if (!window.PlaidApi || !window.PlaidApi.getLinkToken) {
+      showError('Plaid not loaded.');
+      return;
+    }
+    window.PlaidApi.getLinkToken().then(function(data) {
+      var token = data && data.link_token;
+      if (!token) {
+        showError('Could not get link token.');
+        return;
+      }
+      if (typeof window.Plaid !== 'undefined' && window.Plaid.create) {
+        var handler = window.Plaid.create({
+          token: token,
+          onSuccess: function(publicToken) {
+            window.PlaidApi.exchangeItem(publicToken).then(function() {
+              window.location.href = '/link-bank/success';
+            }).catch(function(e) {
+              showError(e.message || 'Failed to save linked account.');
+            });
+          },
+          onExit: function() {}
+        });
+        if (handler && handler.open) handler.open();
+        else showError('Plaid Link could not open.');
+      } else {
+        showError('Plaid Link script did not load. Please refresh.');
+      }
+    }).catch(function(e) {
+      showError(e.message || 'Failed to get link token.');
+    });
+  }
+  document.querySelectorAll('.plaid-open-link').forEach(function(el) {
+    el.addEventListener('click', openPlaidLink);
+  });
+})();
+</script>
+{% endblock %}

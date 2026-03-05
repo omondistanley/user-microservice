@@ -4,7 +4,7 @@ from app.core.dependencies import get_current_user_id
 from app.models.categories import CategoryCreate, CategoryResponse
 from app.services.service_factory import ServiceFactory
 
-router = APIRouter(prefix="/api", tags=["categories"])
+router = APIRouter(prefix="/api/v1", tags=["categories"])
 
 
 def _get_data_service():

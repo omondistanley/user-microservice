@@ -1,0 +1,145 @@
+Phase 3 Sprint Task Board (Low-Cost / Minimal Subscription)
+
+Guardrails
+- No mandatory paid SaaS in Phase 3.
+- Keep architecture self-hosted: FastAPI + PostgreSQL + frontend (+ optional Redis).
+- Reuse existing JWT/auth, request-id tracing, and `/api/v1` conventions.
+- Prefer built-in/OSS tooling (CSV parser, Postgres jobs, in-app notifications) over subscription dependencies.
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (Households + CSV Import Foundation, 1-2 weeks)
+
+Ticket: P3-S1-T1
+Title: Household Data Model (User Service)
+Status: TODO
+Type: DB
+DB Tasks:
+- Add `users_db.household`:
+  `household_id (uuid pk)`, `owner_user_id`, `name`, `created_at`, `updated_at`.
+- Add `users_db.household_member`:
+  `household_id`, `user_id`, `role (owner|member)`, `status (active|invited|removed)`,
+  `invited_by_user_id`, `created_at`, `updated_at`.
+- Add constraints/indexes:
+  unique (`household_id`, `user_id`), index by `user_id`, index by `status`.
+Acceptance Criteria:
+- Migration is idempotent.
+- One user can belong to multiple households.
+- Owner membership is created automatically when household is created.
+
+Ticket: P3-S1-T2
+Title: Household API (User Service)
+Status: TODO
+Type: API
+API Tasks:
+- Add endpoints:
+  `POST /api/v1/households`
+  `GET /api/v1/households`
+  `GET /api/v1/households/{household_id}`
+  `POST /api/v1/households/{household_id}/members`
+  `PATCH /api/v1/households/{household_id}/members/{user_id}`
+  `DELETE /api/v1/households/{household_id}/members/{user_id}`
+- Add active scope endpoint:
+  `PATCH /api/v1/settings/active-household` with `{ household_id | null }`.
+- Enforce permissions:
+  owner manages members, member has read-only household metadata.
+Acceptance Criteria:
+- Non-members cannot access household data.
+- Member mutation endpoints reject unauthorized users with 403.
+- OpenAPI includes all new household endpoints.
+
+Ticket: P3-S1-T3
+Title: Household Scoping in Expense/Budget Services
+Status: TODO
+Type: DB/API
+DB Tasks:
+- Add nullable `household_id UUID` to:
+  `expenses_db.expense`, `expenses_db.income`, `expenses_db.recurring_expense`,
+  `budgets_db.budget`.
+- Add indexes for (`user_id`, `household_id`, date/effective_date).
+API Tasks:
+- Extend create/list/summary endpoints to accept `household_id` (optional).
+- Enforce scope rules:
+  if `household_id` is set, caller must be active household member.
+- Default behavior remains personal scope when `household_id` is null/absent.
+Acceptance Criteria:
+- Existing personal flows remain backward-compatible.
+- Household-scoped records are isolated from non-member requests.
+- Summary endpoints return correct totals by scope.
+
+Ticket: P3-S1-T4
+Title: CSV Import Pipeline (Expense Service)
+Status: TODO
+Type: DB/API
+DB Tasks:
+- Add `expenses_db.expense_import_job`:
+  `job_id (uuid pk)`, `user_id`, `household_id`, `filename`,
+  `status (uploaded|validated|committed|failed)`, `created_at`, `updated_at`.
+- Add `expenses_db.expense_import_row`:
+  `job_id`, `row_number`, `raw_payload`, `normalized_payload`,
+  `validation_error`, `is_duplicate`, `created_at`.
+API Tasks:
+- Add endpoints:
+  `POST /api/v1/expenses/import?dry_run=true|false` (multipart CSV upload),
+  `GET /api/v1/expenses/import/{job_id}`,
+  `POST /api/v1/expenses/import/{job_id}/commit`.
+- Duplicate detection key:
+  (`user_id`/`household_id`, `date`, `amount`, normalized `description`).
+Acceptance Criteria:
+- Dry-run does not create expenses.
+- Commit only inserts valid non-duplicate rows.
+- API returns counts: `total_rows`, `valid_rows`, `invalid_rows`, `duplicate_rows`, `inserted_rows`.
+
+Ticket: P3-S1-T5
+Title: Household Switcher + CSV Import UI
+Status: TODO
+Type: UI
+UI Tasks:
+- Add household switcher in navbar/settings:
+  personal scope + any joined households.
+- Add expenses import flow:
+  upload CSV, preview validation results, confirm commit.
+- Show clear row-level errors (missing date/amount/category, invalid currency, duplicates).
+Acceptance Criteria:
+- User can switch scope and immediately see filtered expense/budget data.
+- Import preview and commit work without page reload.
+- Empty/error states have clear CTA text.
+
+Ticket: P3-S1-T6
+Title: Audit + Notifications for Household/Import Events
+Status: TODO
+Type: API/DB
+Tasks:
+- Write audit events:
+  `household_created`, `household_member_added`, `household_member_removed`,
+  `expense_import_uploaded`, `expense_import_committed`.
+- Add in-app notification on successful import commit summarizing inserted/skipped rows.
+Acceptance Criteria:
+- Audit entries include `user_id`, `request_id`, and relevant IDs (`household_id`, `job_id`).
+- Notification appears in `/api/v1/notifications` after commit.
+
+Ticket: P3-S1-T7
+Title: Sprint 1 Tests + Runbook
+Status: TODO
+Type: Test/Docs
+Test Tasks:
+- API auth/permission tests for household endpoints.
+- Scope-isolation tests for expense/budget list + summary.
+- CSV import tests: dry-run, duplicate detection, commit idempotency.
+- UI smoke test: household switch + import flow rendering.
+Docs Tasks:
+- Add `docs/phase3_runbook.txt` with:
+  migrations, sample CSV format, import smoke checks, and rollback notes.
+Acceptance Criteria:
+- New Sprint 1 tests pass locally/CI.
+- Team can execute Sprint 1 setup and smoke tests from docs alone.
+
+Phase 3 Sprint 1 Definition of Done
+- Household collaboration model is live with access control.
+- Expense/budget/income/recurring support optional household scope.
+- CSV import is safe (dry-run + validation + duplicate handling).
+- Auditing and notifications cover key household/import actions.
+- Tests and runbook are current.

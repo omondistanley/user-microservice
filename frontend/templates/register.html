@@ -42,8 +42,8 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/auth.js"></script>
-<script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var form = document.getElementById('register-form');
     var msg = document.getElementById('register-message');

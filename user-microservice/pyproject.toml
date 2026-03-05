@@ -1,0 +1,20 @@
+[project]
+name = "user-microservice"
+version = "0.1.0"
+description = "User microservice for the expense tracker"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "fastapi>=0.112.2",
+    "uvicorn>=0.30.6",
+    "pydantic>=2.8.2",
+    "psycopg2-binary>=2.9.9",
+    "bcrypt",
+    "python-dotenv",
+    "python-jose[cryptography]",
+    "python-multipart",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "framework*"]

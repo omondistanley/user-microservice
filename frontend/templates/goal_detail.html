@@ -1,0 +1,123 @@
+{% extends "layout.html" %}
+{% block body_class %}goal-detail-page{% endblock %}
+{% block title %}Goal Detail — Expense Tracker{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = { theme: { extend: { colors: { "primary": "#135bec", "income": "#10b981" }, fontFamily: { "display": ["Manrope", "sans-serif"] } } } };
+</script>
+{% endblock %}
+{% block content %}
+<div class="relative flex min-h-screen w-full flex-col max-w-[430px] mx-auto bg-white dark:bg-slate-900 shadow-2xl overflow-x-hidden font-display text-slate-900 dark:text-slate-100 antialiased pb-24">
+  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
+  <div class="flex items-center bg-white dark:bg-slate-900 p-4 pb-2 justify-between sticky top-0 z-10">
+    <a href="/goals" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Back">
+      <span class="material-symbols-outlined">arrow_back</span>
+    </a>
+    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center truncate" id="goal-detail-title">Goal</h2>
+    <button type="button" class="flex size-10 items-center justify-center rounded-full bg-transparent text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="More">
+      <span class="material-symbols-outlined">more_horiz</span>
+    </button>
+  </div>
+
+  <div class="flex flex-col gap-6 p-4">
+    <div class="flex flex-col items-center py-6">
+      <div id="goal-circular-progress" class="relative size-40 flex items-center justify-center">
+        <svg class="size-full -rotate-90" viewBox="0 0 36 36">
+          <circle class="stroke-slate-200 dark:stroke-slate-700" cx="18" cy="18" fill="none" r="15.9" stroke-width="3"></circle>
+          <circle id="goal-progress-ring" class="stroke-primary" cx="18" cy="18" fill="none" r="15.9" stroke-width="3" stroke-linecap="round" stroke-dasharray="0 100" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <span id="goal-pct" class="text-2xl font-extrabold text-slate-900 dark:text-slate-100">0%</span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">of <span id="goal-target-amount">$0</span></span>
+        </div>
+      </div>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Saved so far</p>
+      <p id="goal-saved-amount" class="text-xl font-bold text-slate-900 dark:text-slate-100">$0</p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3">
+      <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-center">
+        <p class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Monthly</p>
+        <p id="goal-monthly" class="text-sm font-bold text-slate-900 dark:text-slate-100">$0</p>
+      </div>
+      <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-center">
+        <p class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Remaining</p>
+        <p id="goal-remaining-days" class="text-sm font-bold text-slate-900 dark:text-slate-100">— days</p>
+      </div>
+      <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-center">
+        <p class="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Linked Account</p>
+        <p id="goal-linked-account" class="text-sm font-bold text-slate-500 dark:text-slate-400">—</p>
+      </div>
+    </div>
+
+    <section class="bg-white dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+      <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold mb-4">Milestones</h3>
+      <div id="goal-milestones" class="space-y-3">
+        <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto flex gap-3 p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+    <a href="#" class="flex-1 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-bold text-center text-sm">Edit Goal</a>
+    <a href="#" class="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-center text-sm">Add Funds</a>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+  // Mock data per goal_id — no goals API; backend required for persistence.
+  var MOCK_GOALS = {
+    '1': { id: '1', name: 'New Tesla Model 3', saved: 15000, target: 20000, icon: 'directions_car', monthly: 500, remainingDays: 120, linkedAccount: '—', milestones: [
+      { label: 'Starter Fund', target: 5000, done: true },
+      { label: 'Halfway Point', target: 10000, done: true },
+      { label: 'Full 6-Month Coverage', target: 20000, done: false },
+    ]},
+    '2': { id: '2', name: 'Emergency Fund', saved: 6500, target: 10000, icon: 'emergency', monthly: 350, remainingDays: 100, linkedAccount: '—', milestones: [
+      { label: 'Starter Fund', target: 2000, done: true },
+      { label: 'Halfway Point', target: 5000, done: true },
+      { label: 'Full 6-Month Coverage', target: 10000, done: false },
+    ]},
+    '3': { id: '3', name: 'Vacation to Japan', saved: 3850, target: 6000, icon: 'flight', monthly: 200, remainingDays: 110, linkedAccount: '—', milestones: [
+      { label: 'Flights', target: 2000, done: true },
+      { label: 'Halfway', target: 3000, done: true },
+      { label: 'Full trip', target: 6000, done: false },
+    ]},
+  };
+  var goalId = {{ goal_id | tojson }};
+  var g = MOCK_GOALS[String(goalId)] || { name: 'Goal', saved: 0, target: 1, monthly: 0, remainingDays: 0, linkedAccount: '—', milestones: [] };
+
+  document.getElementById('goal-detail-title').textContent = g.name || 'Goal';
+  var saved = Number(g.saved) || 0;
+  var target = Number(g.target) || 1;
+  var pct = Math.min(100, Math.round((saved / target) * 100));
+  var circ = 100;
+  var dash = (pct * circ / 100) + ' ' + circ;
+  var ring = document.getElementById('goal-progress-ring');
+  if (ring) { ring.setAttribute('stroke-dasharray', dash); ring.setAttribute('stroke-dashoffset', '0'); }
+  document.getElementById('goal-pct').textContent = pct + '%';
+  document.getElementById('goal-target-amount').textContent = '$' + target.toLocaleString();
+  document.getElementById('goal-saved-amount').textContent = '$' + saved.toLocaleString();
+  document.getElementById('goal-monthly').textContent = '$' + (Number(g.monthly) || 0);
+  document.getElementById('goal-remaining-days').textContent = (g.remainingDays != null ? g.remainingDays : '—') + ' days';
+  document.getElementById('goal-linked-account').textContent = g.linkedAccount || '—';
+
+  var milestonesEl = document.getElementById('goal-milestones');
+  var milestones = g.milestones || [];
+  if (milestones.length === 0) {
+    milestonesEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No milestones.</p>';
+  } else {
+    milestonesEl.innerHTML = milestones.map(function(m) {
+      var done = m.done === true;
+      return '<div class="flex items-center gap-3">' +
+        '<span class="material-symbols-outlined text-lg ' + (done ? 'text-income' : 'text-slate-300 dark:text-slate-600') + '">' + (done ? 'check_circle' : 'radio_button_unchecked') + '</span>' +
+        '<div class="flex-1"><p class="text-sm font-medium ' + (done ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100') + '">' + (m.label || '') + '</p>' + (m.target != null ? '<p class="text-xs text-slate-500">$' + Number(m.target).toLocaleString() + '</p>' : '') + '</div></div>';
+    }).join('');
+  }
+})();
+</script>
+{% endblock %}

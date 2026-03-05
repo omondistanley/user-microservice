@@ -88,9 +88,8 @@
                     token: token,
                     onSuccess: function(publicToken) {
                         window.PlaidApi.exchangeItem(publicToken).then(function() {
-                            showSuccess('Account linked. You can sync transactions now.');
-                            loadItems();
-                            linkBtn.disabled = false;
+                            window.location.href = '/link-bank/success';
+                            return;
                         }).catch(function(e) {
                             showError(e.message || 'Failed to save linked account.');
                             linkBtn.disabled = false;
@@ -141,5 +140,5 @@
         });
     }
 
-    loadItems();
+    if (itemsList) loadItems();
 })();

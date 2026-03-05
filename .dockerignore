@@ -1,0 +1,16 @@
+.git
+.gitignore
+.venv
+venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+
+# Not needed in user image build context
+expense-microservice
+budget-microservice
+
+# Large local artifacts
+user-microservice/venv
+user-microservice/docs
+user-microservice/*.png

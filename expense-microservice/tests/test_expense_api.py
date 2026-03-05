@@ -23,29 +23,43 @@ def test_health():
     assert r.json().get("status") == "ok"
 
 
-def test_categories_public():
-    try:
-        r = client.get("/api/categories")
-    except Exception as e:
-        if "OperationalError" in type(e).__name__ or "database" in str(e).lower():
-            pytest.skip("DB not available (categories need schema)")
-        raise
-    if r.status_code == 500:
-        pytest.skip("DB not available (categories need schema)")
-    assert r.status_code == 200
-    data = r.json()
-    assert isinstance(data, list)
-    if data:
-        assert "category_code" in data[0] and "name" in data[0]
+def test_categories_require_auth():
+    r = client.get("/api/v1/categories")
+    assert r.status_code == 401
 
 
 def test_expenses_require_auth():
-    r = client.get("/api/expenses")
+    r = client.get("/api/v1/expenses")
     assert r.status_code == 401
-    r = client.post("/api/expenses", json={"amount": 10, "date": "2025-01-01", "category": "Food"})
+    r = client.post("/api/v1/expenses", json={"amount": 10, "date": "2025-01-01", "category": "Food"})
     assert r.status_code == 401
 
 
 def test_summary_requires_auth():
-    r = client.get("/api/expenses/summary?group_by=category")
+    r = client.get("/api/v1/expenses/summary?group_by=category")
+    assert r.status_code == 401
+
+
+def test_income_requires_auth():
+    r = client.get("/api/v1/income")
+    assert r.status_code == 401
+    r = client.post(
+        "/api/v1/income",
+        json={"amount": 1000, "date": "2025-01-01", "income_type": "salary"},
+    )
+    assert r.status_code == 401
+
+
+def test_recurring_requires_auth():
+    r = client.get("/api/v1/recurring-expenses")
+    assert r.status_code == 401
+    r = client.post(
+        "/api/v1/recurring-expenses",
+        json={
+            "amount": 9.99,
+            "category": "Food",
+            "recurrence_rule": "monthly",
+            "next_due_date": "2025-01-01",
+        },
+    )
     assert r.status_code == 401

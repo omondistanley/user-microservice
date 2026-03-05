@@ -1,0 +1,302 @@
+Phase 2 Sprint Task Board (Low-Cost / Minimal Subscription)
+
+Guardrails
+- No mandatory paid SaaS in Phase 2.
+- Keep core capabilities self-hosted: FastAPI + PostgreSQL + frontend + optional Redis.
+- Use free/public data sources where needed (for example ECB exchange rates).
+- Prefer in-app notifications first; optional email uses existing SMTP mode.
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (Tags + Budget Alerts, 1-2 weeks)
+
+Ticket: P2-S1-T1
+Title: Tags Schema (Expense Service)
+Status: DONE
+Type: DB
+DB Tasks:
+- Add table expenses_db.tag:
+  tag_id (uuid pk), user_id (int), name (varchar 64), slug (varchar 80), created_at, updated_at.
+- Add table expenses_db.expense_tag:
+  expense_id (uuid fk), tag_id (uuid fk), created_at.
+- Add constraints/indexes:
+  unique (user_id, lower(name)),
+  unique (user_id, slug),
+  index expense_tag(expense_id),
+  index expense_tag(tag_id).
+Acceptance Criteria:
+- Migration is idempotent.
+- Duplicate tag names per user are rejected.
+
+Ticket: P2-S1-T2
+Title: Tags API + Expense Tag Filtering
+Status: DONE
+Type: API
+API Tasks:
+- Add endpoints:
+  GET /api/v1/tags
+  POST /api/v1/tags
+  DELETE /api/v1/tags/{tag_id}
+- Extend expense APIs:
+  POST/PATCH /api/v1/expenses accepts tag_ids or tags[].
+  GET /api/v1/expenses supports filter by tag_id and tag slug.
+Acceptance Criteria:
+- Users can CRUD only their own tags.
+- Expense list filter returns only matching tagged expenses.
+
+Ticket: P2-S1-T3
+Title: Budget Alert Schema (Budget Service)
+Status: DONE
+Type: DB
+DB Tasks:
+- Add budgets_db.budget_alert_config:
+  config_id (uuid pk), user_id, budget_id, threshold_percent (numeric), channel (in_app|email), is_active, created_at, updated_at.
+- Add budgets_db.budget_alert_event:
+  event_id (uuid pk), user_id, budget_id, period_start, period_end, threshold_percent, spent_amount, budget_amount, channel, sent_at.
+- Add unique guard:
+  unique(user_id, budget_id, period_start, period_end, threshold_percent, channel).
+Acceptance Criteria:
+- Same threshold event is recorded only once per budget period.
+- Migration is idempotent.
+
+Ticket: P2-S1-T4
+Title: Budget Alert Evaluation API/Job
+Status: DONE
+Type: API/Worker
+API Tasks:
+- Add budget service evaluation command:
+  python -m app.jobs.budget_alert_processor --as-of YYYY-MM-DD
+- Evaluation flow:
+  load active budgets + alert config,
+  fetch spend totals (expense summary endpoint),
+  create budget_alert_event when threshold crossed and unsent for period.
+- Optional endpoint:
+  POST /api/v1/budgets/alerts/evaluate (admin/internal use).
+Acceptance Criteria:
+- Running processor twice does not duplicate alert events for same period.
+- Logs include processed_count, sent_count, skipped_count, failed_count.
+
+Ticket: P2-S1-T5
+Title: Notification Inbox (User Service)
+Status: DONE
+Type: DB/API
+DB Tasks:
+- Add users_db.user_notification:
+  notification_id (uuid pk), user_id, type, title, body, is_read, payload_json, created_at, read_at.
+API Tasks:
+- Add endpoints:
+  GET /api/v1/notifications
+  PATCH /api/v1/notifications/{notification_id}/read
+  PATCH /api/v1/notifications/read-all
+- Add internal write path for budget alert events.
+Acceptance Criteria:
+- Notifications are scoped to authenticated user.
+- Mark-as-read and read-all are idempotent.
+
+Ticket: P2-S1-T6
+Title: Tags + Alerts UI
+Status: DONE
+Type: UI
+UI Tasks:
+- Expense add/edit:
+  tag multi-select/autocomplete.
+- Expense list:
+  tag filter chips and tag badges.
+- Budget add/edit:
+  alert threshold input (for example 80% and 100%) and channel toggle.
+- Navbar:
+  unread notification count and dropdown/list.
+Acceptance Criteria:
+- User can assign/remove tags from expense forms.
+- User sees budget alerts in-app without page refresh after fetch.
+
+Ticket: P2-S1-T7
+Title: Sprint 1 Tests
+Status: DONE
+Type: Test
+Test Tasks:
+- Add API tests for tags CRUD and expense tag filters.
+- Add processor tests for budget alert dedupe behavior.
+- Add notification API auth/read behavior tests.
+Acceptance Criteria:
+- New tests pass in CI/local.
+- OpenAPI contains tags/notifications/alerts endpoints.
+
+Sprint 2 (Multi-Currency + Reporting, 1-2 weeks)
+
+Ticket: P2-S2-T1
+Title: Currency Schema + User Currency Preference
+Status: DONE
+Type: DB
+DB Tasks:
+- Add expenses_db.exchange_rate:
+  base_currency, quote_currency, rate, rate_date, source, fetched_at.
+- Add unique constraint:
+  unique(base_currency, quote_currency, rate_date, source).
+- Add users_db.user_settings:
+  user_id (pk/fk), default_currency (char3), updated_at.
+Acceptance Criteria:
+- User default currency persists and can be updated.
+- Exchange rates can be stored for daily snapshots.
+
+Ticket: P2-S2-T2
+Title: Exchange Rate Sync Job (Free Source)
+Status: DONE
+Type: Worker
+Worker Tasks:
+- Add command:
+  python -m app.jobs.exchange_rate_sync --date YYYY-MM-DD
+- Source:
+  free/public feed (ECB) or CSV import fallback.
+- Store normalized rates into expenses_db.exchange_rate.
+Acceptance Criteria:
+- Job is repeatable and upserts same-date rates safely.
+- Job logs fetched_count, upserted_count, failed_count.
+
+Ticket: P2-S2-T3
+Title: Currency Conversion in Summaries
+Status: DONE
+Type: API
+API Tasks:
+- Extend endpoints:
+  GET /api/v1/expenses/summary?convert_to=USD
+  GET /api/v1/income/summary?convert_to=USD
+  GET /api/v1/cashflow/summary?convert_to=USD
+- Response includes:
+  original totals,
+  converted totals,
+  conversion metadata (currency, rate_date, source).
+Acceptance Criteria:
+- If no conversion requested, current behavior is unchanged.
+- If conversion unavailable for date range, API returns clear 422/409 error.
+
+Ticket: P2-S2-T4
+Title: Currency Settings + Dashboard Selector UI
+Status: DONE
+Type: UI
+UI Tasks:
+- Add settings control for default currency.
+- Add dashboard/report currency selector (uses default on first load).
+- Display original amount + source currency where converted value is shown.
+Acceptance Criteria:
+- User can switch display currency and see consistent totals.
+- Preference persists across sessions.
+
+Ticket: P2-S2-T5
+Title: Export Improvements (CSV + JSON parity)
+Status: DONE
+Type: API
+API Tasks:
+- Extend /api/v1/expenses/export and /user/me/export payloads with:
+  original_currency,
+  converted_currency (optional),
+  converted_amount (optional),
+  conversion_rate_date.
+- Keep format backward-compatible for existing consumers.
+Acceptance Criteria:
+- Existing export consumers continue working without changes.
+- Converted fields appear only when conversion mode is requested.
+
+Ticket: P2-S2-T6
+Title: Sprint 2 Tests
+Status: DONE
+Type: Test
+Test Tasks:
+- Add conversion math tests (rounding and deterministic totals).
+- Add missing-rate edge-case tests.
+- Add UI smoke tests for currency selector behavior.
+Acceptance Criteria:
+- Conversion endpoints and UI flows pass automated checks.
+
+Sprint 3 (Security + Hardening + Docs, 1-2 weeks)
+
+Ticket: P2-S3-T1
+Title: Refresh Token Family Reuse Hardening
+Status: DONE
+Type: DB/API
+DB Tasks:
+- Extend users_db.refresh_token with explicit family metadata if needed.
+API Tasks:
+- On old-token reuse:
+  revoke full token family,
+  write audit event token_refresh_reuse_detected,
+  force re-auth.
+Acceptance Criteria:
+- Reuse scenario consistently invalidates active family tokens.
+- Audit log has one event per detected reuse request.
+
+Ticket: P2-S3-T2
+Title: Delete Account Cascade (User + Expense + Budget)
+Status: DONE
+Type: API
+API Tasks:
+- Harden DELETE /user/me:
+  orchestrate expense and budget data purge for user_id,
+  keep trace_id and audit events across service calls.
+- Add internal service endpoints for purge:
+  DELETE /internal/v1/users/{user_id}/expenses
+  DELETE /internal/v1/users/{user_id}/budgets
+Acceptance Criteria:
+- User row and linked business data are deleted/anonymized.
+- Partial failure returns clear rollback/error semantics and logs.
+
+Ticket: P2-S3-T3
+Title: Broader Rate Limiting
+Status: DONE
+Type: API
+API Tasks:
+- Add global per-IP limiter (for example 200 req/min) on gateway API routes.
+- Add per-user limiter for expensive endpoints:
+  summaries, exports, recurring processors trigger routes.
+- Keep in-memory default; optional Redis adapter when enabled.
+Acceptance Criteria:
+- 429 returned with clear error payload when limit exceeded.
+- Limits configurable via env vars per service.
+
+Ticket: P2-S3-T4
+Title: Security Header Hardening + CSP Cleanup
+Status: DONE
+Type: API/UI
+API/UI Tasks:
+- Move remaining inline scripts to static JS where practical.
+- Tighten CSP to reduce unsafe-inline usage.
+- Keep existing headers:
+  HSTS, X-Frame-Options, nosniff, Referrer-Policy.
+Acceptance Criteria:
+- App loads and works under tightened CSP in development profile.
+- Security regression checks pass for core auth/dashboard flows.
+
+Ticket: P2-S3-T5
+Title: Sprint 3 Tests (Security/Compliance)
+Status: DONE
+Type: Test
+Test Tasks:
+- Add token-reuse scenario tests.
+- Add delete-cascade integration test (mocked internal calls).
+- Add rate-limit behavior tests for 429 + reset window.
+Acceptance Criteria:
+- Security regression suite passes in CI/local.
+
+Ticket: P2-S3-T6
+Title: Docs + Runbook (Phase 2)
+Status: DONE
+Type: Docs
+Tasks:
+- Add docs/phase2_runbook.txt:
+  migrations,
+  processor commands,
+  security checks,
+  smoke tests.
+- Update service docs for new `/api/v1` endpoints and settings.
+Acceptance Criteria:
+- Team can execute full Phase 2 from docs only.
+- OpenAPI + docs endpoint lists are consistent.
+
+Phase 2 Definition of Done
+- Tags, alerts, multi-currency, and hardening are delivered without mandatory paid providers.
+- All new endpoints are versioned under `/api/v1`.
+- Processor jobs are idempotent and observable through structured logs.
+- Sprint test suites pass and runbooks are current.

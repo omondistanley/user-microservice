@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="expense-api-base" content="{{ expense_api_base | default('') }}">
+    <meta name="budget-api-base" content="{{ budget_api_base | default('') }}">
     <title>{% block title %}Expense Tracker{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/main.css">
+    {% block head_extra %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
-    <script>window.EXPENSE_API_BASE = "{{ expense_api_base | default('') }}"; window.BUDGET_API_BASE = "{{ budget_api_base | default('') }}";</script>
     <nav class="navbar">
         <div class="container navbar-inner">
             <div class="navbar-left">
-                <a href="/dashboard" class="navbar-brand" id="navbar-brand">Expense Tracker</a>
+                <a href="/dashboard" class="navbar-brand" id="navbar-brand">Expense<span class="brand-dot">.</span></a>
                 <button type="button" id="navbar-filters-toggle" class="navbar-hamburger" aria-label="Menu" style="display: none;">
                     <span class="hamburger-icon" aria-hidden="true"></span>
                 </button>
@@ -22,6 +24,18 @@
             <ul class="navbar-nav">
                 <li id="nav-login" class="nav-guest"><a href="/login" class="nav-link {% if request.url.path == '/login' %}active{% endif %}">Login</a></li>
                 <li id="nav-register" class="nav-guest"><a href="/register" class="nav-link {% if request.url.path == '/register' %}active{% endif %}">Register</a></li>
+                <li id="nav-notifications" class="nav-auth" style="display: none; position: relative;">
+                    <button type="button" id="notifications-toggle" class="nav-link btn-link-reset">
+                        Alerts <span id="notifications-unread-count" class="notification-count" style="display: none;">0</span>
+                    </button>
+                    <div id="notifications-dropdown" class="notifications-dropdown" style="display: none;">
+                        <div class="notifications-header">
+                            <strong>Notifications</strong>
+                            <button type="button" id="notifications-mark-all" class="btn btn-secondary btn-sm">Mark all read</button>
+                        </div>
+                        <div id="notifications-list" class="notifications-list">No notifications yet.</div>
+                    </div>
+                </li>
                 <li id="nav-logout" class="nav-auth" style="display: none;"><a href="#" class="nav-link" id="nav-logout-link">Log out</a></li>
             </ul>
         </div>
@@ -31,8 +45,11 @@
                     <ul class="navbar-panel-links">
                         <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
                         <li><a href="/expenses" class="nav-link">Expenses</a></li>
+                        <li><a href="/income" class="nav-link">Income</a></li>
+                        <li><a href="/recurring" class="nav-link">Recurring</a></li>
                         <li><a href="/link-bank" class="nav-link">Link bank</a></li>
                         <li><a href="/reports" class="nav-link">Reports</a></li>
+                        <li><a href="/goals" class="nav-link">Goals</a></li>
                         <li><a href="/budgets" class="nav-link">Budgets</a></li>
                     </ul>
                 </div>
@@ -52,6 +69,11 @@
                             <select id="filter-category" name="category" class="form-control">
                                 <option value="">All</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-tag">Tag</label>
+                            <input type="text" id="filter-tag" name="tag" class="form-control" list="filter-tag-suggestions" placeholder="Any tag">
+                            <datalist id="filter-tag-suggestions"></datalist>
                         </div>
                         <div class="form-group">
                             <label for="filter-min-amount">Min amount</label>
@@ -91,79 +113,66 @@
         {% block content %}{% endblock %}
     </main>
 
-    <script src="/static/js/auth.js"></script>
-    <script src="/static/js/app.js"></script>
-    <script>
+    <!-- Mobile bottom navigation (hidden on desktop via CSS) -->
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Mobile navigation">
+        <ul class="bottom-nav-items">
+            <li class="bottom-nav-item">
+                <a href="/dashboard" class="bottom-nav-link {% if request.url.path == '/dashboard' %}active{% endif %}">
+                    <span class="bottom-nav-icon">🏠</span>
+                    <span>Home</span>
+                </a>
+            </li>
+            <li class="bottom-nav-item">
+                <a href="/expenses" class="bottom-nav-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
+                    <span class="bottom-nav-icon">💸</span>
+                    <span>Expenses</span>
+                </a>
+            </li>
+            <li class="bottom-nav-item">
+                <a href="/budgets" class="bottom-nav-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
+                    <span class="bottom-nav-icon">💰</span>
+                    <span>Budgets</span>
+                </a>
+            </li>
+            <li class="bottom-nav-item">
+                <a href="/reports" class="bottom-nav-link {% if request.url.path == '/reports' %}active{% endif %}">
+                    <span class="bottom-nav-icon">📊</span>
+                    <span>Reports</span>
+                </a>
+            </li>
+            <li class="bottom-nav-item">
+                <a href="#" class="bottom-nav-link" id="bottom-nav-menu-toggle">
+                    <span class="bottom-nav-icon">☰</span>
+                    <span>More</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <script nonce="{{ csp_nonce | default('') }}">
     (function() {
-        // OAuth callback: store tokens from fragment before any auth check (layout runs before page scripts)
-        var hash = window.location.hash;
-        if (hash && hash.indexOf('access_token=') !== -1) {
-            var params = new URLSearchParams(hash.slice(1));
-            var accessToken = params.get('access_token');
-            var refreshToken = params.get('refresh_token');
-            if (accessToken) {
-                try {
-                    localStorage.setItem('access_token', accessToken);
-                    if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
-                } catch (e) {}
-                window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-            }
+        // Hide bottom nav on auth / welcome pages
+        var bodyClass = document.body.className;
+        if (bodyClass.indexOf('auth-page') !== -1 || bodyClass.indexOf('welcome-page') !== -1) {
+            var bn = document.getElementById('bottom-nav');
+            if (bn) bn.style.display = 'none';
         }
-        function applyAuthState() {
-            var guest = document.querySelectorAll('.nav-guest');
-            var authEl = document.getElementById('nav-logout');
-            var logoutLink = document.getElementById('nav-logout-link');
-            if (!window.Auth || !window.Auth.isLoggedIn) return;
-            if (window.Auth.isLoggedIn()) {
-                if (guest.length) guest.forEach(function(el) { el.style.display = 'none'; });
-                if (authEl) authEl.style.display = '';
-                if (logoutLink) {
-                    logoutLink.onclick = function(e) {
-                        e.preventDefault();
-                        window.Auth.logout();
-                    };
-                }
-            } else {
-                if (guest.length) guest.forEach(function(el) { el.style.display = ''; });
-                if (authEl) authEl.style.display = 'none';
-            }
-        }
-        var protectedPaths = ['/dashboard', '/expenses', '/expenses/add', '/link-bank', '/budgets', '/budgets/add', '/reports'];
-        var path = window.location.pathname;
-        var isProtected = protectedPaths.indexOf(path) !== -1 || path.startsWith('/expenses/') || path.startsWith('/budgets/');
-        if (isProtected && window.Auth && !window.Auth.isLoggedIn()) {
-            window.location.href = '/login?next=' + encodeURIComponent(path);
-        } else {
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', applyAuthState);
-            } else {
-                applyAuthState();
-            }
-        }
-        var filtersToggle = document.getElementById('navbar-filters-toggle');
-        var filtersPanel = document.getElementById('navbar-filters-panel');
-        var filtersSection = document.getElementById('navbar-filters-section');
-        var summaryWrap = document.getElementById('expenses-summary-wrap');
-        path = window.location.pathname;
-        var showHamburger = path === '/dashboard' || path === '/expenses' || path === '/expenses/add' || path === '/link-bank' || path === '/budgets' || path === '/budgets/add' || path === '/reports' || path.indexOf('/expenses/') === 0 || path.indexOf('/budgets/') === 0;
-        if (filtersToggle && filtersPanel) {
-            if (showHamburger) filtersToggle.style.display = '';
-            if (filtersSection && path === '/expenses') filtersSection.style.display = 'block';
-            if (summaryWrap && path === '/expenses') summaryWrap.style.display = 'block';
-            filtersToggle.addEventListener('click', function() {
-                var open = filtersPanel.style.display === 'block';
-                filtersPanel.style.display = open ? 'none' : 'block';
-                filtersToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
-            });
-            document.addEventListener('click', function(e) {
-                if (filtersPanel.style.display === 'block' && !filtersPanel.contains(e.target) && !filtersToggle.contains(e.target)) {
-                    filtersPanel.style.display = 'none';
-                    filtersToggle.setAttribute('aria-expanded', 'false');
-                }
+        // Wire "More" button to the existing hamburger panel
+        var moreBtn = document.getElementById('bottom-nav-menu-toggle');
+        if (moreBtn) {
+            moreBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var toggle = document.getElementById('navbar-filters-toggle');
+                if (toggle) toggle.click();
             });
         }
     })();
     </script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/settings.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/notifications.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/app.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/layout.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

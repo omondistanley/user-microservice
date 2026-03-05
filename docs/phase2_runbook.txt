@@ -1,0 +1,133 @@
+Phase 2 Runbook (Security + Hardening)
+======================================
+
+Local startup
+-------------
+
+1) Start full stack:
+
+   docker compose up --build
+
+2) (Optional) run migrations again:
+
+   docker compose run --rm user-migrations
+   docker compose run --rm expense-migrations
+   docker compose run --rm budget-migrations
+
+Core health/readiness
+---------------------
+
+   curl -s http://localhost:8000/health
+   curl -s http://localhost:8000/ready
+   curl -s http://localhost:3001/health
+   curl -s http://localhost:3001/ready
+   curl -s http://localhost:3002/health
+   curl -s http://localhost:3002/ready
+
+Phase 2 processor commands
+--------------------------
+
+Expense exchange-rate sync:
+
+   docker compose run --rm expense python -m app.jobs.exchange_rate_sync --date 2026-02-27
+
+Budget alert evaluation job:
+
+   docker compose run --rm budget python -m app.jobs.budget_alert_processor --as-of 2026-02-27
+
+Recurring due processor (from Phase 1, still required by Phase 2 dashboards):
+
+   docker compose run --rm expense python -m app.jobs.recurring_due_processor --as-of 2026-02-27
+
+Security settings (env)
+-----------------------
+
+User service:
+- RATE_LIMIT_API_PER_MINUTE (default 200)
+- RATE_LIMIT_EXPENSIVE_PER_USER_PER_MINUTE (default 60)
+- CSP_POLICY (nonce placeholder supported via {nonce})
+- INTERNAL_API_KEY (shared with expense/budget internal endpoints)
+
+Expense service:
+- INTERNAL_API_KEY (required for /internal/v1/users/{user_id}/expenses when key is set)
+
+Budget service:
+- INTERNAL_API_KEY (required for /internal/v1/users/{user_id}/budgets when key is set)
+
+Security smoke checks
+---------------------
+
+1) CSP + security headers:
+
+   curl -I http://localhost:8000/dashboard
+
+Expected headers include:
+- Content-Security-Policy (nonce-based script-src)
+- Strict-Transport-Security (when enabled)
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY
+
+2) Gateway rate limit (per-IP):
+
+   for i in {1..210}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000/api/v1/notifications; done
+
+Expected:
+- After configured threshold, responses return 429
+- Payload contains detail, scope, limit, window_seconds, retry_after_seconds
+
+3) Delete-account cascade:
+
+Call:
+
+   curl -X DELETE -H "Authorization: Bearer <access_token>" http://localhost:8000/user/me -i
+
+Expected:
+- 204 when user row + linked expense/budget data are purged
+- 502 with rollback semantics if dependent service purge fails
+- Audit events: delete_account_requested, delete_account_purge_failed or delete_account
+
+4) Refresh-token reuse detection:
+
+Use same consumed refresh token twice against:
+
+   POST /token/refresh
+
+Expected:
+- second call returns 401 "Refresh token reuse detected"
+- audit event token_refresh_reuse_detected written once per request
+
+OpenAPI spot checks
+-------------------
+
+User service:
+- /token/refresh
+- /user/me
+- /user/me/export
+- /api/v1/notifications
+
+Expense service:
+- /api/v1/expenses/export
+- /api/v1/expenses/summary
+- /internal/v1/users/{user_id}/expenses (internal, excluded from schema)
+
+Budget service:
+- /api/v1/budgets/alerts/evaluate
+- /internal/v1/users/{user_id}/budgets (internal, excluded from schema)
+
+Targeted test commands
+----------------------
+
+User service security suite:
+
+   cd user-microservice
+   pytest tests/test_phase2_security_hardening.py
+
+Budget service regression:
+
+   cd budget-microservice
+   pytest tests/test_budget_alert_processor.py
+
+Expense service regression:
+
+   cd expense-microservice
+   pytest tests/test_phase2_currency_conversion.py tests/test_phase2_tags_endpoints.py

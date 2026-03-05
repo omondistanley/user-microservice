@@ -39,7 +39,15 @@ def get_cors_origins() -> list[str]:
         return ["*"]
     return [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
 
-# Rate limiting (requests per minute per IP for POST /api/expenses)
+# Security headers
+SECURITY_HEADERS_ENABLED: bool = os.environ.get("SECURITY_HEADERS_ENABLED", "true").lower() in ("1", "true", "yes")
+HSTS_MAX_AGE_SECONDS: int = int(os.environ.get("HSTS_MAX_AGE_SECONDS", "31536000"))
+API_CSP_POLICY: str = os.environ.get(
+    "API_CSP_POLICY",
+    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+)
+
+# Rate limiting (requests per minute per IP for POST /api/v1/expenses)
 RATE_LIMIT_EXPENSES_PER_MINUTE: int = int(os.environ.get("RATE_LIMIT_EXPENSES_PER_MINUTE", "60"))
 
 # Plaid (empty = Plaid routes disabled or return 503)
@@ -48,3 +56,6 @@ PLAID_SECRET: str = os.environ.get("PLAID_SECRET", "")
 PLAID_ENV: str = os.environ.get("PLAID_ENV", "sandbox")  # sandbox, development, production
 # Fernet key for encrypting access_token (32 bytes base64). Generate: from cryptography.fernet import Fernet; Fernet.generate_key()
 ENCRYPTION_KEY: Optional[str] = os.environ.get("ENCRYPTION_KEY", "")
+
+# Internal API key used by trusted peer services (e.g. user-microservice purge orchestration).
+INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")

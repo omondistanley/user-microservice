@@ -82,20 +82,20 @@
         },
         getList: function(params) {
             var query = this.buildListQuery(params || {});
-            return request('/api/budgets' + query);
+            return request('/api/v1/budgets' + query);
         },
         getEffective: function(categoryCode, dateStr) {
             var q = 'category_code=' + encodeURIComponent(categoryCode) + '&date=' + encodeURIComponent(dateStr);
-            return request('/api/budgets/effective?' + q);
+            return request('/api/v1/budgets/effective?' + q);
         },
         create: function(payload) {
-            return request('/api/budgets', { method: 'POST', body: payload });
+            return request('/api/v1/budgets', { method: 'POST', body: payload });
         },
         getById: function(id) {
-            return request('/api/budgets/' + encodeURIComponent(id));
+            return request('/api/v1/budgets/' + encodeURIComponent(id));
         },
         update: function(id, payload) {
-            return request('/api/budgets/' + encodeURIComponent(id), {
+            return request('/api/v1/budgets/' + encodeURIComponent(id), {
                 method: 'PATCH',
                 body: payload,
             });
@@ -105,7 +105,7 @@
             if (window.Auth && window.Auth.getAuthHeaders) {
                 Object.assign(headers, window.Auth.getAuthHeaders());
             }
-            return fetch(API + '/api/budgets/' + encodeURIComponent(id), {
+            return fetch(API + '/api/v1/budgets/' + encodeURIComponent(id), {
                 method: 'DELETE',
                 headers: headers,
             }).then(function(r) {

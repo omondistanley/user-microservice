@@ -27,12 +27,46 @@
         });
     }
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     window.Expenses = {
+        getTags: function() {
+            return request('/api/v1/tags');
+        },
+        createTag: function(name) {
+            return request('/api/v1/tags', { method: 'POST', body: { name: name } });
+        },
+        fillTagSuggestions: function(inputEl, datalistEl) {
+            if (!inputEl || !datalistEl || !window.Expenses.getTags) return Promise.resolve();
+            return window.Expenses.getTags().then(function(tags) {
+                if (!Array.isArray(tags)) return;
+                datalistEl.innerHTML = tags.map(function(t) {
+                    return '<option value="' + escapeHtml(t.name || '') + '"></option>';
+                }).join('');
+            });
+        },
+        parseTagInput: function(value) {
+            if (!value) return [];
+            var seen = {};
+            return value.split(',').map(function(v) { return v.trim(); }).filter(function(v) {
+                var key = v.toLowerCase();
+                if (!key || seen[key]) return false;
+                seen[key] = true;
+                return true;
+            });
+        },
         getCategories: function() {
-            return request('/api/categories');
+            return request('/api/v1/categories');
         },
         createCategory: function(name) {
-            return request('/api/categories', { method: 'POST', body: { name: name } });
+            return request('/api/v1/categories', { method: 'POST', body: { name: name } });
         },
         fillCategorySelect: function(selectEl, selectedName) {
             if (!selectEl || !window.Expenses.getCategories) return Promise.resolve();
@@ -56,6 +90,8 @@
             if (opts.date_from) q.push('date_from=' + encodeURIComponent(opts.date_from));
             if (opts.date_to) q.push('date_to=' + encodeURIComponent(opts.date_to));
             if (opts.category) q.push('category=' + encodeURIComponent(opts.category));
+            if (opts.tag_id) q.push('tag_id=' + encodeURIComponent(opts.tag_id));
+            if (opts.tag) q.push('tag=' + encodeURIComponent(opts.tag));
             if (opts.min_amount != null && opts.min_amount !== '') q.push('min_amount=' + encodeURIComponent(opts.min_amount));
             if (opts.max_amount != null && opts.max_amount !== '') q.push('max_amount=' + encodeURIComponent(opts.max_amount));
             if (opts.page) q.push('page=' + encodeURIComponent(opts.page));
@@ -66,7 +102,7 @@
             if (!containerEl) return;
             containerEl.innerHTML = 'Loading…';
             var query = window.Expenses.buildListQuery(opts || {});
-            request('/api/expenses' + query).then(function(data) {
+            request('/api/v1/expenses' + query).then(function(data) {
                 var list = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
                 if (list.length === 0) {
                     containerEl.innerHTML = 'No expenses yet. Add one to get started.';
@@ -104,7 +140,13 @@
                         var link = id ? '<a href="/expenses/' + id + '" class="expense-item-link">' : '';
                         var linkEnd = id ? '</a>' : '';
                         var sourceBadge = (item.source === 'plaid') ? ' <span class="badge badge-plaid">From bank</span>' : '';
-                        html += '<li>' + link + '<span class="expense-item-name">' + name + '</span>' + sourceBadge + ' <strong class="expense-item-amount">' + amtStr + '</strong>' + linkEnd + '</li>';
+                        var tagBadges = '';
+                        if (Array.isArray(item.tags) && item.tags.length) {
+                            tagBadges = ' <span class="expense-item-tags">' + item.tags.map(function(tag) {
+                                return '<span class="tag-badge">' + escapeHtml(tag.name || tag.slug || '') + '</span>';
+                            }).join(' ') + '</span>';
+                        }
+                        html += '<li>' + link + '<span class="expense-item-name">' + escapeHtml(name) + '</span>' + sourceBadge + tagBadges + ' <strong class="expense-item-amount">' + amtStr + '</strong>' + linkEnd + '</li>';
                     });
                     html += '</ul></div>';
                 });
@@ -126,22 +168,23 @@
                 if (typeof paginationCallback === 'function') paginationCallback(0, 1, 20);
             });
         },
-        getSummary: function(groupBy, dateFrom, dateTo) {
+        getSummary: function(groupBy, dateFrom, dateTo, convertTo) {
             var q = ['group_by=' + encodeURIComponent(groupBy || 'category')];
             if (dateFrom) q.push('date_from=' + encodeURIComponent(dateFrom));
             if (dateTo) q.push('date_to=' + encodeURIComponent(dateTo));
-            return request('/api/expenses/summary?' + q.join('&'));
+            if (convertTo) q.push('convert_to=' + encodeURIComponent(convertTo));
+            return request('/api/v1/expenses/summary?' + q.join('&'));
         },
         getBalanceHistory: function(dateFrom, dateTo, groupBy) {
             var q = [];
             if (dateFrom) q.push('date_from=' + encodeURIComponent(dateFrom));
             if (dateTo) q.push('date_to=' + encodeURIComponent(dateTo));
             if (groupBy) q.push('group_by=' + encodeURIComponent(groupBy));
-            return request('/api/expenses/balance/history?' + q.join('&'));
+            return request('/api/v1/expenses/balance/history?' + q.join('&'));
         },
         loadBalance: function(balanceEl) {
             if (!balanceEl) return;
-            request('/api/expenses/balance').then(function(data) {
+            request('/api/v1/expenses/balance').then(function(data) {
                 var bal = data && data.balance_after != null ? data.balance_after : null;
                 var str = bal != null && window.Expenses.formatAmount ? window.Expenses.formatAmount(bal) : (bal != null ? Number(bal).toFixed(2) : '');
                 balanceEl.textContent = str !== '' ? 'Current balance: ' + str : '';
@@ -152,13 +195,13 @@
         add: function(payload, idempotencyKey) {
             var options = { method: 'POST', body: payload };
             if (idempotencyKey) options.headers = { 'Idempotency-Key': idempotencyKey };
-            return request('/api/expenses', options);
+            return request('/api/v1/expenses', options);
         },
         getExpense: function(expenseId) {
-            return request('/api/expenses/' + encodeURIComponent(expenseId));
+            return request('/api/v1/expenses/' + encodeURIComponent(expenseId));
         },
         updateExpense: function(expenseId, payload) {
-            return request('/api/expenses/' + encodeURIComponent(expenseId), {
+            return request('/api/v1/expenses/' + encodeURIComponent(expenseId), {
                 method: 'PATCH',
                 body: payload,
             });
@@ -168,7 +211,7 @@
             if (window.Auth && window.Auth.getAuthHeaders) {
                 Object.assign(headers, window.Auth.getAuthHeaders());
             }
-            return fetch(API + '/api/expenses/' + encodeURIComponent(expenseId), {
+            return fetch(API + '/api/v1/expenses/' + encodeURIComponent(expenseId), {
                 method: 'DELETE',
                 headers: headers,
             }).then(function(r) {
@@ -176,7 +219,7 @@
             });
         },
         listReceipts: function(expenseId) {
-            return request('/api/expenses/' + encodeURIComponent(expenseId) + '/receipts');
+            return request('/api/v1/expenses/' + encodeURIComponent(expenseId) + '/receipts');
         },
         uploadReceipt: function(expenseId, file) {
             var form = new FormData();
@@ -185,7 +228,7 @@
             if (window.Auth && window.Auth.getAuthHeaders) {
                 Object.assign(headers, window.Auth.getAuthHeaders());
             }
-            return fetch(API + '/api/expenses/' + encodeURIComponent(expenseId) + '/receipts', {
+            return fetch(API + '/api/v1/expenses/' + encodeURIComponent(expenseId) + '/receipts', {
                 method: 'POST',
                 headers: headers,
                 body: form,
@@ -195,14 +238,14 @@
             });
         },
         downloadReceiptUrl: function(receiptId) {
-            return API + '/api/receipts/' + encodeURIComponent(receiptId) + '/download';
+            return API + '/api/v1/receipts/' + encodeURIComponent(receiptId) + '/download';
         },
         downloadReceipt: function(receiptId, fileName) {
             var headers = {};
             if (window.Auth && window.Auth.getAuthHeaders) {
                 Object.assign(headers, window.Auth.getAuthHeaders());
             }
-            return fetch(API + '/api/receipts/' + encodeURIComponent(receiptId) + '/download', { headers: headers })
+            return fetch(API + '/api/v1/receipts/' + encodeURIComponent(receiptId) + '/download', { headers: headers })
                 .then(function(r) {
                     if (!r.ok) throw new Error(r.statusText || 'Download failed');
                     return r.blob();
@@ -223,7 +266,7 @@
             if (window.Auth && window.Auth.getAuthHeaders) {
                 Object.assign(headers, window.Auth.getAuthHeaders());
             }
-            return fetch(API + '/api/receipts/' + encodeURIComponent(receiptId), {
+            return fetch(API + '/api/v1/receipts/' + encodeURIComponent(receiptId), {
                 method: 'DELETE',
                 headers: headers,
             }).then(function(r) {

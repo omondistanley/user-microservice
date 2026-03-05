@@ -1,0 +1,352 @@
+{% extends "layout.html" %}
+{% block title %}Income — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <section class="card-section">
+        <h2>Income</h2>
+        <p class="lead">Track salary, freelance, and other earnings.</p>
+        <p><a href="/income/add" class="btn btn-primary">Add income</a></p>
+
+        <form id="income-filter-form" style="display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:1rem;">
+            <div class="form-group">
+                <label for="income-date-from">Date from</label>
+                <input id="income-date-from" class="form-control" type="date">
+            </div>
+            <div class="form-group">
+                <label for="income-date-to">Date to</label>
+                <input id="income-date-to" class="form-control" type="date">
+            </div>
+            <div class="form-group">
+                <label for="income-type">Type</label>
+                <select id="income-type" class="form-control">
+                    <option value="">All</option>
+                    <option value="salary">Salary</option>
+                    <option value="freelance">Freelance</option>
+                    <option value="dividend">Dividend</option>
+                    <option value="interest">Interest</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="income-page-size">Per page</label>
+                <select id="income-page-size" class="form-control">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;">
+                <button type="submit" class="btn btn-secondary">Apply filters</button>&nbsp;
+                <button type="button" id="income-clear-filters" class="btn btn-secondary">Clear</button>
+            </div>
+        </form>
+
+        <p id="income-list-message" class="note" style="display:none;margin-bottom:1rem;"></p>
+        <div id="income-list" class="expense-list-wrap">Loading…</div>
+        <div id="income-pagination" style="margin-top:1rem;"></div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/income.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var state = {
+        page: 1,
+        page_size: 20,
+        total: 0
+    };
+
+    function esc(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    function fmtAmount(v) {
+        var n = Number(v);
+        return isNaN(n) ? '0.00' : n.toFixed(2);
+    }
+    function fmtDate(v) {
+        return v ? String(v).slice(0, 10) : '';
+    }
+    function buildTypeOptions(selected) {
+        var types = ['salary', 'freelance', 'dividend', 'interest', 'other'];
+        return types.map(function(t) {
+            return '<option value="' + t + '"' + (t === selected ? ' selected' : '') + '>' +
+                t.charAt(0).toUpperCase() + t.slice(1) + '</option>';
+        }).join('');
+    }
+    function showMessage(text, ok) {
+        var el = document.getElementById('income-list-message');
+        if (!el) return;
+        el.style.display = 'block';
+        el.textContent = text;
+        el.style.borderColor = ok ? '#28a745' : '#dc3545';
+    }
+    function renderPagination() {
+        var wrap = document.getElementById('income-pagination');
+        if (!wrap) return;
+        var total = Number(state.total || 0);
+        if (!total) {
+            wrap.innerHTML = '';
+            return;
+        }
+        var pages = Math.max(1, Math.ceil(total / state.page_size));
+        if (state.page > pages) state.page = pages;
+        wrap.innerHTML =
+            '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
+            '<button type="button" class="btn btn-secondary btn-sm" id="income-prev-page"' + (state.page <= 1 ? ' disabled' : '') + '>Previous</button>' +
+            '<span class="note">Page ' + state.page + ' of ' + pages + ' · ' + total + ' total</span>' +
+            '<button type="button" class="btn btn-secondary btn-sm" id="income-next-page"' + (state.page >= pages ? ' disabled' : '') + '>Next</button>' +
+            '</div>';
+    }
+    function incomeRow(item) {
+        var incomeId = esc(item.income_id);
+        var incomeType = item.income_type || 'other';
+        var sourceLabel = item.source_label || '';
+        var description = item.description || '';
+        var currency = (item.currency || 'USD').toUpperCase();
+        var dateVal = fmtDate(item.date);
+        return (
+            '<li data-income-id="' + incomeId + '" style="padding-bottom:0.75rem;">' +
+                '<div style="display:flex;justify-content:space-between;gap:0.5rem;align-items:flex-start;flex-wrap:wrap;">' +
+                    '<span class="summary-label">' +
+                        esc(dateVal) + ' — ' + esc(incomeType) +
+                        (sourceLabel ? (' (' + esc(sourceLabel) + ')') : '') +
+                        (description ? (' — ' + esc(description)) : '') +
+                    '</span>' +
+                    '<strong>' + fmtAmount(item.amount) + ' ' + esc(currency) + '</strong>' +
+                '</div>' +
+                '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                    '<button type="button" class="btn btn-secondary btn-sm income-edit-toggle" data-income-id="' + incomeId + '">Edit</button>' +
+                    '<button type="button" class="btn btn-secondary btn-sm income-delete" data-income-id="' + incomeId + '">Delete</button>' +
+                '</div>' +
+                '<form class="income-edit-form" data-income-id="' + incomeId + '" style="display:none;margin-top:0.75rem;padding:0.75rem;border:1px solid #ddd;border-radius:8px;">' +
+                    '<div style="display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">' +
+                        '<div class="form-group">' +
+                            '<label>Amount</label>' +
+                            '<input name="amount" class="form-control" type="number" min="0" step="0.01" required value="' + esc(item.amount) + '">' +
+                        '</div>' +
+                        '<div class="form-group">' +
+                            '<label>Date</label>' +
+                            '<input name="date" class="form-control" type="date" required value="' + esc(dateVal) + '">' +
+                        '</div>' +
+                        '<div class="form-group">' +
+                            '<label>Currency</label>' +
+                            '<input name="currency" class="form-control" type="text" maxlength="3" required value="' + esc(currency) + '">' +
+                        '</div>' +
+                        '<div class="form-group">' +
+                            '<label>Type</label>' +
+                            '<select name="income_type" class="form-control" required>' + buildTypeOptions(incomeType) + '</select>' +
+                        '</div>' +
+                        '<div class="form-group">' +
+                            '<label>Source</label>' +
+                            '<input name="source_label" class="form-control" type="text" maxlength="255" value="' + esc(sourceLabel) + '">' +
+                        '</div>' +
+                        '<div class="form-group" style="grid-column:1/-1;">' +
+                            '<label>Description</label>' +
+                            '<input name="description" class="form-control" type="text" maxlength="2000" value="' + esc(description) + '">' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                        '<button type="submit" class="btn btn-primary btn-sm">Save</button>' +
+                        '<button type="button" class="btn btn-secondary btn-sm income-edit-cancel" data-income-id="' + incomeId + '">Cancel</button>' +
+                    '</div>' +
+                '</form>' +
+            '</li>'
+        );
+    }
+    function closeAllEditors() {
+        document.querySelectorAll('.income-edit-form').forEach(function(form) {
+            form.style.display = 'none';
+        });
+        document.querySelectorAll('.income-edit-toggle').forEach(function(btn) {
+            btn.textContent = 'Edit';
+        });
+    }
+    function readFilters() {
+        return {
+            date_from: document.getElementById('income-date-from').value || undefined,
+            date_to: document.getElementById('income-date-to').value || undefined,
+            income_type: document.getElementById('income-type').value || undefined,
+            page: state.page,
+            page_size: state.page_size
+        };
+    }
+    function load() {
+        var wrap = document.getElementById('income-list');
+        if (!wrap || !window.Income) return;
+        var opts = readFilters();
+        wrap.textContent = 'Loading…';
+        window.Income.list(opts).then(function(data) {
+            var items = (data && data.items) ? data.items : [];
+            state.total = Number((data && data.total) || 0);
+            if (!items.length) {
+                wrap.innerHTML = '<p class="empty-state">No income entries found. <a href="/income/add">Add your first income</a>.</p>';
+                renderPagination();
+                return;
+            }
+            var html = '<ul class="summary-list">';
+            items.forEach(function(item) {
+                html += incomeRow(item);
+            });
+            html += '</ul>';
+            wrap.innerHTML = html;
+            renderPagination();
+        }).catch(function(err) {
+            state.total = 0;
+            wrap.innerHTML = '<p class="empty-state">Could not load income (' + (err.message || 'error') + ')</p>';
+            renderPagination();
+        });
+    }
+
+    var form = document.getElementById('income-filter-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            state.page = 1;
+            load();
+        });
+    }
+    var pageSize = document.getElementById('income-page-size');
+    if (pageSize) {
+        pageSize.addEventListener('change', function() {
+            state.page_size = Number(pageSize.value || 20);
+            state.page = 1;
+            load();
+        });
+    }
+    var clearFiltersBtn = document.getElementById('income-clear-filters');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', function() {
+            document.getElementById('income-date-from').value = '';
+            document.getElementById('income-date-to').value = '';
+            document.getElementById('income-type').value = '';
+            state.page = 1;
+            load();
+        });
+    }
+    var listWrap = document.getElementById('income-list');
+    if (listWrap) {
+        listWrap.addEventListener('click', function(e) {
+            var target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+
+            var toggleBtn = target.closest('.income-edit-toggle');
+            if (toggleBtn) {
+                var incomeId = toggleBtn.getAttribute('data-income-id');
+                if (!incomeId) return;
+                var editForm = listWrap.querySelector('.income-edit-form[data-income-id="' + incomeId + '"]');
+                if (!(editForm instanceof HTMLElement)) return;
+                var isOpen = editForm.style.display !== 'none';
+                closeAllEditors();
+                if (!isOpen) {
+                    editForm.style.display = 'block';
+                    toggleBtn.textContent = 'Close';
+                }
+                return;
+            }
+
+            var cancelBtn = target.closest('.income-edit-cancel');
+            if (cancelBtn) {
+                closeAllEditors();
+                return;
+            }
+
+            var deleteBtn = target.closest('.income-delete');
+            if (deleteBtn) {
+                var deleteId = deleteBtn.getAttribute('data-income-id');
+                if (!deleteId) return;
+                if (!window.confirm('Delete this income entry?')) return;
+                deleteBtn.setAttribute('disabled', 'disabled');
+                window.Income.remove(deleteId).then(function() {
+                    if (state.page > 1 && Number(state.total) > 0 && (Number(state.total) - 1) <= ((state.page - 1) * state.page_size)) {
+                        state.page -= 1;
+                    }
+                    showMessage('Income entry deleted.', true);
+                    load();
+                }).catch(function(err) {
+                    deleteBtn.removeAttribute('disabled');
+                    showMessage('Could not delete income: ' + (err.message || 'error'), false);
+                });
+            }
+        });
+
+        listWrap.addEventListener('submit', function(e) {
+            var formEl = e.target;
+            if (!(formEl instanceof HTMLFormElement)) return;
+            if (!formEl.classList.contains('income-edit-form')) return;
+            e.preventDefault();
+            var incomeId = formEl.getAttribute('data-income-id');
+            if (!incomeId) return;
+
+            var amountEl = formEl.querySelector('input[name="amount"]');
+            var dateEl = formEl.querySelector('input[name="date"]');
+            var currencyEl = formEl.querySelector('input[name="currency"]');
+            var typeEl = formEl.querySelector('select[name="income_type"]');
+            var sourceEl = formEl.querySelector('input[name="source_label"]');
+            var descEl = formEl.querySelector('input[name="description"]');
+
+            if (!(amountEl instanceof HTMLInputElement) ||
+                !(dateEl instanceof HTMLInputElement) ||
+                !(currencyEl instanceof HTMLInputElement) ||
+                !(typeEl instanceof HTMLSelectElement) ||
+                !(sourceEl instanceof HTMLInputElement) ||
+                !(descEl instanceof HTMLInputElement)) {
+                return;
+            }
+
+            var amount = Number(amountEl.value);
+            if (!isFinite(amount) || amount < 0) {
+                showMessage('Amount must be a valid number greater than or equal to 0.', false);
+                return;
+            }
+            if (!dateEl.value) {
+                showMessage('Date is required.', false);
+                return;
+            }
+            var payload = {
+                amount: amountEl.value,
+                date: dateEl.value,
+                currency: (currencyEl.value || 'USD').toUpperCase(),
+                income_type: typeEl.value || 'other',
+                source_label: sourceEl.value || null,
+                description: descEl.value || null
+            };
+
+            var saveBtn = formEl.querySelector('button[type="submit"]');
+            if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = true;
+            window.Income.update(incomeId, payload).then(function() {
+                showMessage('Income entry updated.', true);
+                closeAllEditors();
+                load();
+            }).catch(function(err) {
+                if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+                showMessage('Could not update income: ' + (err.message || 'error'), false);
+            });
+        });
+    }
+    var pagination = document.getElementById('income-pagination');
+    if (pagination) {
+        pagination.addEventListener('click', function(e) {
+            var target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            if (target.id === 'income-prev-page' && state.page > 1) {
+                state.page -= 1;
+                load();
+            } else if (target.id === 'income-next-page') {
+                var pages = Math.max(1, Math.ceil(Number(state.total || 0) / state.page_size));
+                if (state.page < pages) {
+                    state.page += 1;
+                    load();
+                }
+            }
+        });
+    }
+    load();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,114 @@
+Phase 8 Sprint Task Board (DevOps + Scale + Reliability)
+
+Guardrails
+- No mandatory paid SaaS in Phase 8.
+- Prioritize reliability improvements with open-source tooling.
+- Keep deployments reproducible via containers and scripts.
+- Measure first, then optimize (metrics + load tests before major refactors).
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (Pipeline + Queue + Scale Foundations, 1-2 weeks)
+
+Ticket: P8-S1-T1
+Title: CI Pipeline Standardization
+Status: TODO
+Type: DevOps
+Tasks:
+- Create/update CI pipeline to run:
+  lint, unit tests, integration smoke tests, migration checks.
+- Add matrix by service (`user`, `expense`, `budget`, `frontend` smoke).
+- Add artifact upload for coverage and test reports.
+Acceptance Criteria:
+- Every PR runs full required checks before merge.
+- Migration scripts are validated against clean ephemeral DB in CI.
+
+Ticket: P8-S1-T2
+Title: Feature Flags Infrastructure
+Status: TODO
+Type: DB/API
+DB Tasks:
+- Add `users_db.feature_flag` with:
+  `flag_key`, `is_enabled`, `scope (global|user|household)`, `scope_id`, `updated_at`.
+API Tasks:
+- Add internal/admin endpoints to read/update flags.
+- Add lightweight flag evaluation helper used in services/UI.
+Acceptance Criteria:
+- Features can be toggled per environment and targeted scope.
+- Flag changes are reflected without redeploy (cache with short TTL).
+
+Ticket: P8-S1-T3
+Title: Redis Adapter for Rate Limit + Caching + Queue
+Status: TODO
+Type: Platform
+Tasks:
+- Add optional Redis-backed adapters for:
+  rate limiting, summary caching, background-job queue.
+- Keep in-memory fallback when Redis is unavailable.
+- Add env switch flags and health/readiness checks for Redis mode.
+Acceptance Criteria:
+- Multi-instance deployments maintain consistent rate limits in Redis mode.
+- Service continues in fallback mode when Redis is disabled.
+
+Ticket: P8-S1-T4
+Title: Worker Service + Scheduler
+Status: TODO
+Type: Worker/DevOps
+Tasks:
+- Add dedicated worker container/service in docker-compose.
+- Schedule jobs:
+  recurring due processor, budget alerts, exchange-rate sync, digests, retention purge.
+- Add dead-letter handling + retry/backoff policy.
+Acceptance Criteria:
+- Jobs run on schedule without manual commands.
+- Failed jobs are observable and retry according to policy.
+
+Ticket: P8-S1-T5
+Title: Observability Baseline (Metrics + Structured Logs)
+Status: TODO
+Type: API/DevOps
+Tasks:
+- Add Prometheus-compatible metrics endpoint per service.
+- Add common metrics:
+  request_count, request_latency, error_count, job_duration, queue_depth.
+- Standardize structured log fields across services:
+  `service`, `request_id`, `user_id`, `path`, `status_code`, `duration_ms`.
+Acceptance Criteria:
+- Metrics are scrapeable locally and in staging.
+- Key SLO indicators are available from metrics without log parsing.
+
+Ticket: P8-S1-T6
+Title: Backup/Restore + Disaster Recovery Drill
+Status: TODO
+Type: Ops
+Tasks:
+- Add DB backup scripts (full + incremental strategy) with retention policy.
+- Add restore script and verification command set.
+- Run disaster recovery drill in staging/local rehearsal environment.
+Acceptance Criteria:
+- Restore procedure is documented and tested end-to-end.
+- RPO/RTO targets are measured and recorded in docs.
+
+Ticket: P8-S1-T7
+Title: Sprint 1 Load Tests + Runbook
+Status: TODO
+Type: Test/Docs
+Test Tasks:
+- Add load test scenarios (k6/Locust OSS):
+  auth burst, summary endpoints, import commit, delete cascade.
+- Define performance budgets and alert thresholds.
+Docs Tasks:
+- Add `docs/phase8_runbook.txt` with:
+  CI gates, Redis mode, worker ops, backup/restore, load-test commands.
+Acceptance Criteria:
+- Load tests run in CI/staging profile and produce trendable reports.
+- Runbook supports operational handoff without undocumented steps.
+
+Phase 8 Sprint 1 Definition of Done
+- CI/CD and operational controls are consistent across services.
+- Redis-backed scale modes and worker scheduling are production-ready.
+- Metrics, load testing, and backup/restore workflows are fully documented.
+- Reliability improvements are measurable and repeatable.

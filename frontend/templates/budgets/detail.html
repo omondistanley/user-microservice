@@ -14,6 +14,7 @@
                 <dt>Category</dt><dd id="detail-category"></dd>
                 <dt>Amount (limit)</dt><dd id="detail-amount"></dd>
                 <dt>Spent in period</dt><dd id="detail-spent">—</dd>
+                <dt>Alerts</dt><dd id="detail-alerts">—</dd>
                 <dt>Start date</dt><dd id="detail-start"></dd>
                 <dt>End date</dt><dd id="detail-end"></dd>
             </dl>
@@ -37,6 +38,18 @@
                 <label for="edit-end_date">End date</label>
                 <input type="date" id="edit-end_date" name="end_date" class="form-control">
             </div>
+            <fieldset class="form-group">
+                <legend style="font-weight: 600; margin-bottom: 0.35rem;">Alerts</legend>
+                <label><input type="checkbox" id="edit-alert-80"> Notify at 80%</label><br>
+                <label><input type="checkbox" id="edit-alert-100"> Notify at 100%</label>
+            </fieldset>
+            <div class="form-group">
+                <label for="edit-alert-channel">Alert channel</label>
+                <select id="edit-alert-channel" class="form-control">
+                    <option value="in_app">In-app</option>
+                    <option value="email">Email</option>
+                </select>
+            </div>
             <div id="edit-message" class="message-error" style="display: none;"></div>
             <button type="submit" class="btn btn-primary">Save</button>
             <button type="button" id="btn-edit-cancel" class="btn btn-secondary">Cancel</button>
@@ -45,9 +58,9 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/expenses.js"></script>
-<script src="/static/js/budgets.js"></script>
-<script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/budgets.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var budgetId = ('{{ budget_id }}' || '').trim();
     var viewEl = document.getElementById('budget-view');
@@ -64,17 +77,19 @@
         if (viewEl) viewEl.style.display = 'none';
         if (editForm) editForm.style.display = 'block';
     }
-    function setDetail(name, category, amount, start, end, spentText) {
+    function setDetail(name, category, amount, start, end, spentText, alertText) {
         var nameEl = document.getElementById('detail-name');
         var catEl = document.getElementById('detail-category');
         var amtEl = document.getElementById('detail-amount');
         var spentEl = document.getElementById('detail-spent');
+        var alertsEl = document.getElementById('detail-alerts');
         var startEl = document.getElementById('detail-start');
         var endEl = document.getElementById('detail-end');
         if (nameEl) nameEl.textContent = name || '—';
         if (catEl) catEl.textContent = category || '—';
         if (amtEl) amtEl.textContent = amount != null ? (window.Budgets && window.Budgets.formatAmount ? window.Budgets.formatAmount(amount) : Number(amount).toFixed(2)) : '—';
         if (spentEl) spentEl.textContent = spentText != null ? spentText : '—';
+        if (alertsEl) alertsEl.textContent = alertText || '—';
         if (startEl) startEl.textContent = start != null ? (window.Budgets && window.Budgets.formatDate ? window.Budgets.formatDate(start) : start) : '—';
         if (endEl) endEl.textContent = end != null ? (window.Budgets && window.Budgets.formatDate ? window.Budgets.formatDate(end) : end) : '—';
     }
@@ -83,6 +98,16 @@
         document.getElementById('edit-amount').value = data.amount != null ? data.amount : '';
         document.getElementById('edit-start_date').value = (data.start_date || '').toString().slice(0, 10);
         document.getElementById('edit-end_date').value = (data.end_date || '').toString().slice(0, 10);
+        var thresholds = Array.isArray(data.alert_configs) ? data.alert_configs.map(function(c) { return Number(c.threshold_percent); }) : [];
+        var has80 = thresholds.some(function(v) { return Math.round(v) === 80; });
+        var has100 = thresholds.some(function(v) { return Math.round(v) === 100; });
+        var channel = (Array.isArray(data.alert_configs) && data.alert_configs.length) ? data.alert_configs[0].channel : 'in_app';
+        var alert80 = document.getElementById('edit-alert-80');
+        var alert100 = document.getElementById('edit-alert-100');
+        var alertChannel = document.getElementById('edit-alert-channel');
+        if (alert80) alert80.checked = has80;
+        if (alert100) alert100.checked = has100;
+        if (alertChannel) alertChannel.value = channel || 'in_app';
     }
 
     if (!budgetId) {
@@ -97,7 +122,10 @@
             var budgetAmt = data.amount != null ? (window.Budgets && window.Budgets.formatAmount ? window.Budgets.formatAmount(data.amount) : Number(data.amount).toFixed(2)) : '—';
             function renderWithSpent(spentNum) {
                 var spentStr = spentNum != null ? Number(spentNum).toFixed(2) : '0.00';
-                setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date, 'Spent ' + spentStr + ' / Budget ' + budgetAmt);
+                var alertText = (Array.isArray(data.alert_configs) && data.alert_configs.length)
+                    ? data.alert_configs.map(function(c) { return Number(c.threshold_percent).toFixed(0) + '% (' + c.channel + ')'; }).join(', ')
+                    : 'Disabled';
+                setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date, 'Spent ' + spentStr + ' / Budget ' + budgetAmt, alertText);
             }
             if (window.Expenses && window.Expenses.getSummary && dateFrom) {
                 window.Expenses.getSummary('category', dateFrom, dateTo).then(function(sum) {
@@ -111,7 +139,10 @@
                 renderWithSpent(0);
             }
             if (loadingEl) loadingEl.style.display = 'none';
-            setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date, 'Spent … / Budget ' + budgetAmt);
+            var initialAlertText = (Array.isArray(data.alert_configs) && data.alert_configs.length)
+                ? data.alert_configs.map(function(c) { return Number(c.threshold_percent).toFixed(0) + '% (' + c.channel + ')'; }).join(', ')
+                : 'Disabled';
+            setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date, 'Spent … / Budget ' + budgetAmt, initialAlertText);
             fillEditForm(data);
             showView();
         }).catch(function(err) {
@@ -134,10 +165,17 @@
                 amount: parseFloat(document.getElementById('edit-amount').value, 10),
                 start_date: document.getElementById('edit-start_date').value,
                 end_date: document.getElementById('edit-end_date').value || null,
+                alert_thresholds: [],
+                alert_channel: document.getElementById('edit-alert-channel').value,
             };
+            if (document.getElementById('edit-alert-80').checked) payload.alert_thresholds.push(80);
+            if (document.getElementById('edit-alert-100').checked) payload.alert_thresholds.push(100);
             if (!payload.end_date) delete payload.end_date;
             window.Budgets.update(budgetId, payload).then(function(data) {
-                setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date);
+                var alertText = (Array.isArray(data.alert_configs) && data.alert_configs.length)
+                    ? data.alert_configs.map(function(c) { return Number(c.threshold_percent).toFixed(0) + '% (' + c.channel + ')'; }).join(', ')
+                    : 'Disabled';
+                setDetail(data.name, data.category_name, data.amount, data.start_date, data.end_date, null, alertText);
                 fillEditForm(data);
                 showView();
                 if (data.budget_id && data.budget_id !== budgetId) {

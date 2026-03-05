@@ -1,0 +1,117 @@
+Phase 7 Sprint Task Board (Integrations + Ecosystem)
+
+Guardrails
+- No mandatory paid SaaS in Phase 7.
+- All integrations must be optional and replaceable.
+- Keep provider-specific logic behind adapters/interfaces.
+- Enforce idempotency and signed request validation for inbound events.
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (Connector Abstractions + External Workflows, 1-2 weeks)
+
+Ticket: P7-S1-T1
+Title: Bank Connector Abstraction Layer
+Status: TODO
+Type: API/Architecture
+Tasks:
+- Define provider interface:
+  `create_link_session`, `exchange_public_token`, `sync_transactions`, `disconnect_item`.
+- Refactor existing Plaid flow behind adapter implementation.
+- Add `provider` field to linked bank items.
+Acceptance Criteria:
+- Existing Plaid integration remains functional.
+- New providers can be added without changing core expense sync logic.
+
+Ticket: P7-S1-T2
+Title: Webhook Ingestion Endpoint + Signature Validation
+Status: TODO
+Type: API/Security
+Tasks:
+- Add `POST /api/v1/integrations/webhooks/{provider}`.
+- Validate provider signature + timestamp window.
+- Ensure idempotency by storing event IDs and skipping duplicates.
+- Queue webhook payload for async processing.
+Acceptance Criteria:
+- Invalid signatures are rejected with 401/403.
+- Duplicate webhook events are no-ops with clear logs.
+
+Ticket: P7-S1-T3
+Title: Calendar Reminder Export (ICS + Optional Provider Sync)
+Status: TODO
+Type: API/UI
+Tasks:
+- Add endpoint:
+  `GET /api/v1/reminders/calendar.ics` (personal/household scope).
+- Add reminder types:
+  budget threshold review, recurring due date, monthly report reminder.
+- Optional provider push remains feature-flagged; ICS is baseline.
+Acceptance Criteria:
+- User can subscribe calendar via ICS URL.
+- Reminder dates/timezones are correct and deterministic.
+
+Ticket: P7-S1-T4
+Title: Slack/Email Digest Integration
+Status: TODO
+Type: API/Worker
+Tasks:
+- Add digest config:
+  frequency (weekly/monthly), channel (email|slack_webhook), scope.
+- Add digest job command:
+  `python -m app.jobs.digest_sender --as-of YYYY-MM-DD`.
+- Reuse existing SMTP path for email; Slack uses webhook URL only.
+Acceptance Criteria:
+- Digests are idempotent for same period.
+- Failures are retried and logged without duplicating sends.
+
+Ticket: P7-S1-T5
+Title: Integration Management UI
+Status: TODO
+Type: UI
+UI Tasks:
+- Add `/settings/integrations` page for:
+  connected bank items, webhook/digest status, reminder config.
+- Add connect/disconnect actions and last-sync timestamps.
+- Add digest preview panel.
+Acceptance Criteria:
+- User can manage integration lifecycle without direct API calls.
+- UI reflects provider errors with actionable remediation steps.
+
+Ticket: P7-S1-T6
+Title: Import/Export Interop Enhancements
+Status: TODO
+Type: API
+Tasks:
+- Extend CSV import mapping presets by provider/app type.
+- Add export option for ecosystem portability:
+  normalized JSON bundle with schema version metadata.
+- Add endpoint:
+  `GET /api/v1/export/portable?format=json`.
+Acceptance Criteria:
+- Export contains schema version + metadata for round-trip compatibility.
+- Import mapping presets reduce manual column mapping effort.
+
+Ticket: P7-S1-T7
+Title: Sprint 1 Tests + Runbook
+Status: TODO
+Type: Test/Docs
+Test Tasks:
+- Connector abstraction contract tests.
+- Webhook signature/idempotency tests.
+- Digest job idempotency and failure retry tests.
+- Integration settings UI smoke tests.
+Docs Tasks:
+- Add `docs/phase7_runbook.txt` with:
+  integration setup matrix, webhook troubleshooting, digest verification.
+Acceptance Criteria:
+- Integration test suite passes locally/CI.
+- Runbook supports onboarding of a new provider with minimal code touchpoints.
+
+Phase 7 Sprint 1 Definition of Done
+- Integration architecture supports optional multi-provider ecosystem growth.
+- Webhooks and digests are secure, idempotent, and observable.
+- Users can manage integrations from the UI.
+- Interop/import/export paths are documented and tested.

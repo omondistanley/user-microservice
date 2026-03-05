@@ -6,6 +6,21 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TagCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+
+
+class TagResponse(BaseModel):
+    tag_id: UUID
+    user_id: int
+    name: str
+    slug: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ExpenseCreate(BaseModel):
     amount: Decimal = Field(..., ge=0)
     date: date
@@ -14,6 +29,8 @@ class ExpenseCreate(BaseModel):
     currency: str = "USD"
     budget_category_id: Optional[str] = None
     description: Optional[str] = Field(None, max_length=2000)
+    tag_ids: Optional[list[UUID]] = None
+    tags: Optional[list[str]] = None
 
 
 class ExpenseUpdate(BaseModel):
@@ -24,6 +41,8 @@ class ExpenseUpdate(BaseModel):
     currency: Optional[str] = None
     budget_category_id: Optional[str] = None
     description: Optional[str] = Field(None, max_length=2000)
+    tag_ids: Optional[list[UUID]] = None
+    tags: Optional[list[str]] = None
 
 
 class ExpenseResponse(BaseModel):
@@ -41,6 +60,7 @@ class ExpenseResponse(BaseModel):
     updated_at: datetime
     source: Optional[str] = None
     plaid_transaction_id: Optional[str] = None
+    tags: list[TagResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -52,6 +72,8 @@ class ExpenseListParams(BaseModel):
     category: Optional[str] = None
     min_amount: Optional[Decimal] = None
     max_amount: Optional[Decimal] = None
+    tag_id: Optional[str] = None
+    tag: Optional[str] = None
     page: int = 1
     page_size: int = 20
 

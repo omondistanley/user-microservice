@@ -7,7 +7,7 @@ from app.core.dependencies import get_current_user_id
 from app.models.receipts import ReceiptCreate, ReceiptResponse
 from app.services.service_factory import ServiceFactory
 
-router = APIRouter(prefix="/api", tags=["receipts"])
+router = APIRouter(prefix="/api/v1", tags=["receipts"])
 
 
 def _get_receipt_service():

@@ -2,14 +2,15 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.core.dependencies import get_current_user_id
+from app.jobs.budget_alert_processor import evaluate_budget_alerts
 from app.models.budgets import BudgetCreate, BudgetListParams, BudgetResponse, BudgetUpdate
 from app.resources.budget_resource import BudgetResource
 from app.services.service_factory import ServiceFactory
 
-router = APIRouter(prefix="/api", tags=["budgets"])
+router = APIRouter(prefix="/api/v1", tags=["budgets"])
 
 
 def _get_budget_resource() -> BudgetResource:
@@ -97,3 +98,18 @@ async def delete_budget(
         raise HTTPException(status_code=400, detail="Invalid budget id")
     resource = _get_budget_resource()
     resource.delete(bid, user_id)
+
+
+@router.post("/budgets/alerts/evaluate", response_model=dict)
+async def evaluate_alerts(
+    request: Request,
+    user_id: int = Depends(get_current_user_id),
+    as_of: Optional[date] = Query(None),
+):
+    request_id = str(getattr(request.state, "request_id", "") or "")
+    result = evaluate_budget_alerts(
+        as_of_date=as_of or date.today(),
+        user_id=user_id,
+        request_id=request_id or None,
+    )
+    return result

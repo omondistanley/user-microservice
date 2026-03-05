@@ -1,0 +1,72 @@
+Phase 1 Runbook (Sprint 2 + 3)
+================================
+
+Local startup
+-------------
+
+1) Start stack:
+
+   docker compose up --build
+
+2) (Optional) re-run migrations:
+
+   docker compose run --rm user-migrations
+   docker compose run --rm expense-migrations
+   docker compose run --rm budget-migrations
+
+API/OpenAPI verification
+------------------------
+
+Health checks:
+
+   curl -s http://localhost:8000/health
+   curl -s http://localhost:3001/health
+   curl -s http://localhost:3002/health
+
+Readiness checks:
+
+   curl -s http://localhost:8000/ready
+   curl -s http://localhost:3001/ready
+   curl -s http://localhost:3002/ready
+
+OpenAPI:
+
+   curl -s http://localhost:3001/openapi.json > /tmp/expense_openapi.json
+   curl -s http://localhost:3002/openapi.json > /tmp/budget_openapi.json
+   curl -s http://localhost:8000/openapi.json > /tmp/user_openapi.json
+
+Expected expense paths in OpenAPI:
+
+   /api/v1/income
+   /api/v1/income/summary
+   /api/v1/cashflow/summary
+   /api/v1/recurring-expenses
+   /api/v1/recurring-expenses/{recurring_id}/run
+   /api/v1/expenses/export
+
+Auth smoke tests (expected 401 without token)
+---------------------------------------------
+
+   curl -i http://localhost:3001/api/v1/income
+   curl -i http://localhost:3001/api/v1/recurring-expenses
+   curl -i http://localhost:3002/api/v1/budgets
+
+Recurring due processor
+-----------------------
+
+Manual run:
+
+   docker compose run --rm expense python -m app.jobs.recurring_due_processor
+
+Custom run:
+
+   docker compose run --rm expense \
+     python -m app.jobs.recurring_due_processor --as-of 2026-02-27 --limit 500 --job-id nightly-2026-02-27
+
+Test suite
+----------
+
+Expense service:
+
+   cd expense-microservice
+   pytest -q tests/test_expense_api.py tests/test_recurring_due_processor.py tests/test_phase1_endpoints.py

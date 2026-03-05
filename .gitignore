@@ -2,3 +2,6 @@
 *.md
 __pycache__/
 *.pyc
+*.env
+*.env.compose.example
+*.env.compose

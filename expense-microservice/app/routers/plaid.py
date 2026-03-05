@@ -24,7 +24,7 @@ from app.services.plaid_service import (
 )
 from app.services.service_factory import ServiceFactory
 
-router = APIRouter(prefix="/api/plaid", tags=["plaid"])
+router = APIRouter(prefix="/api/v1/plaid", tags=["plaid"])
 
 
 class PlaidItemExchangeBody(BaseModel):

@@ -1,0 +1,214 @@
+Phase 1 Sprint Task Board (Low-Cost / Minimal Subscription)
+
+Guardrails
+- No mandatory paid SaaS in Phase 1.
+- Keep all core features self-hosted (FastAPI + Postgres + frontend).
+- Optional third-party integrations (Plaid/email providers) remain optional and feature-flagged.
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (Backend Foundation, 1 week)
+
+Ticket: P1-S1-T1
+Title: Recurring Expenses Schema
+Status: DONE
+Type: DB
+DB Tasks:
+- Add table expenses_db.recurring_expense with:
+  recurring_id (uuid pk), user_id (int), amount (numeric), currency (char(3)),
+  category_code (smallint), category_name (varchar), description (varchar),
+  recurrence_rule (weekly|monthly|yearly), next_due_date (date),
+  last_run_at (timestamptz), last_created_expense_id (uuid),
+  is_active (bool), created_at, updated_at.
+- Add indexes:
+  idx_recurring_user_active_due(user_id, is_active, next_due_date),
+  idx_recurring_user(user_id).
+Acceptance Criteria:
+- Migration is idempotent.
+- Fresh DB and existing DB apply migration successfully.
+
+Ticket: P1-S1-T2
+Title: Income Schema
+Status: DONE
+Type: DB
+DB Tasks:
+- Add table expenses_db.income with:
+  income_id (uuid pk), user_id (int), amount (numeric), date (date),
+  currency (char(3)), income_type (varchar), source_label (varchar),
+  description (varchar), created_at, updated_at, deleted_at.
+- Add indexes:
+  idx_income_user_date(user_id, date),
+  idx_income_user_type(user_id, income_type),
+  idx_income_user_active(user_id) where deleted_at is null.
+Acceptance Criteria:
+- Migration is idempotent.
+- Soft-delete semantics supported through deleted_at.
+
+Ticket: P1-S1-T3
+Title: Income API (CRUD + Summary + Cashflow)
+Status: DONE
+Type: API
+API Tasks:
+- Implement:
+  POST /api/v1/income
+  GET /api/v1/income
+  GET /api/v1/income/{income_id}
+  PATCH /api/v1/income/{income_id}
+  DELETE /api/v1/income/{income_id}
+  GET /api/v1/income/summary?group_by=month|type&date_from=&date_to=
+  GET /api/v1/cashflow/summary?date_from=&date_to=
+- Enforce auth user scope on all operations.
+Acceptance Criteria:
+- Users can only access their own rows.
+- Summary returns grouped totals and counts.
+- Cashflow returns income_total, expense_total, savings.
+
+Ticket: P1-S1-T4
+Title: Recurring Templates API (CRUD + Run Now)
+Status: DONE
+Type: API
+API Tasks:
+- Implement:
+  POST /api/v1/recurring-expenses
+  GET /api/v1/recurring-expenses
+  GET /api/v1/recurring-expenses/{recurring_id}
+  PATCH /api/v1/recurring-expenses/{recurring_id}
+  DELETE /api/v1/recurring-expenses/{recurring_id}
+  POST /api/v1/recurring-expenses/{recurring_id}/run
+- Resolve category from category_code/category name.
+- On run: create expense with source=recurring and advance next_due_date.
+Acceptance Criteria:
+- Invalid category is rejected with 400.
+- Run-now creates one expense and updates recurring metadata.
+
+Ticket: P1-S1-T5
+Title: Expense Export API
+Status: DONE
+Type: API
+API Tasks:
+- Add GET /api/v1/expenses/export
+- Query params: date_from, date_to, format=csv|json (default csv).
+- CSV columns include expense_id,user_id,amount,date,currency,category,description,source.
+Acceptance Criteria:
+- CSV returns attachment response.
+- JSON returns machine-readable payload for full export aggregation.
+
+Sprint 2 (Gateway + UI, 1 week)
+
+Ticket: P1-S2-T1
+Title: Gateway Proxy Wiring
+Status: DONE
+Type: API/Gateway
+API Tasks:
+- Add user service proxy routes for:
+  /api/v1/income*
+  /api/v1/cashflow*
+  /api/v1/recurring-expenses*
+Acceptance Criteria:
+- Frontend calls same-origin /api/v1/* via gateway.
+- Request ID propagation pattern is preserved in proxy layer.
+
+Ticket: P1-S2-T2
+Title: Full Data Export Endpoint
+Status: DONE
+Type: API
+API Tasks:
+- Add GET /user/me/export in user service.
+- Aggregate user profile + expense export + budgets into export.json inside ZIP.
+- Write audit action=export with user_id/ip/request_id.
+Acceptance Criteria:
+- Authenticated user receives downloadable zip attachment.
+- Audit log entry created on success.
+
+Ticket: P1-S2-T3
+Title: Income UI
+Status: DONE
+Type: UI
+UI Tasks:
+- Add /income list page with filters and list rendering.
+- Add /income/add form page.
+- Add frontend client helpers in static/js/income.js.
+- Add navbar links and auth guard routing.
+Acceptance Criteria:
+- User can create, list, edit, and delete income entries from UI.
+- Validation and API errors are shown to user.
+- Pagination controls are present for list navigation.
+- Empty-state includes clear CTA to create the first income entry.
+
+Ticket: P1-S2-T4
+Title: Recurring UI
+Status: DONE
+Type: UI
+UI Tasks:
+- Add /recurring page with create form and list section.
+- Add run-now action button.
+- Add frontend client helpers in static/js/recurring.js.
+Acceptance Criteria:
+- User can create recurring entries and run one manually.
+- User can edit and delete recurring entries from list view.
+- Page displays next due and last run metadata.
+- Active-only filter, recurrence badges, and pagination controls are present.
+
+Ticket: P1-S2-T5
+Title: Dashboard Cashflow Widgets
+Status: DONE
+Type: UI
+UI Tasks:
+- Add dashboard cards:
+  This month income
+  Savings (income - spending)
+- Source values from /api/v1/cashflow/summary.
+Acceptance Criteria:
+- Values load for authenticated users.
+- Fallback state displayed when request fails.
+- Currency formatting matches shared expense formatting helper.
+- Loading skeleton and clearer dashboard error copy are implemented.
+
+Sprint 3 (Ops + Quality, 1 week)
+
+Ticket: P1-S3-T1
+Title: Recurring Due Processor Job (Cron-Friendly)
+Status: DONE
+Type: API/Worker
+DB/API Tasks:
+- Add script/command that:
+  finds due recurring rows (next_due_date <= today and is_active=true),
+  creates corresponding expenses,
+  advances next_due_date inside transaction,
+  records last_run_at and last_created_expense_id.
+- Make processing idempotent for same due window.
+Acceptance Criteria:
+- Running processor twice does not duplicate same due item.
+- Job logs processed_count, skipped_count, failed_count.
+
+Ticket: P1-S3-T2
+Title: Phase 1 API Tests
+Status: DONE
+Type: Test
+Test Tasks:
+- Add auth-required tests for /api/v1/income and /api/v1/recurring-expenses.
+- Add happy-path tests for income summary, cashflow summary, recurring run-now.
+Acceptance Criteria:
+- New tests run in CI/local and pass.
+- Edge cases include invalid UUID and inactive recurring run.
+
+Ticket: P1-S3-T3
+Title: Docs + OpenAPI Cleanup
+Status: DONE
+Type: Docs
+Tasks:
+- Ensure endpoint docs/examples are reflected under /api/v1.
+- Update quickstart with new migration and feature usage steps.
+Acceptance Criteria:
+- OpenAPI lists new endpoints with request/response schema.
+- Local runbook includes migration and smoke-test commands.
+
+Phase 1 Completion Status
+- Completed backend foundation tickets P1-S1-T1..T5.
+- Completed gateway export/proxy tickets P1-S2-T1..T2.
+- Completed UI tickets P1-S2-T3..T5.
+- Completed P1-S3-T1 recurring due processor command and atomic processing flow.
+- Completed tests/docs tickets P1-S3-T2..T3.

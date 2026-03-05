@@ -29,16 +29,16 @@
 
     window.PlaidApi = {
         getLinkToken: function() {
-            return request('/api/plaid/link-token', { method: 'POST' });
+            return request('/api/v1/plaid/link-token', { method: 'POST' });
         },
         exchangeItem: function(publicToken) {
-            return request('/api/plaid/item', {
+            return request('/api/v1/plaid/item', {
                 method: 'POST',
                 body: { public_token: publicToken },
             });
         },
         getItems: function() {
-            return request('/api/plaid/items');
+            return request('/api/v1/plaid/items');
         },
         deleteItem: function(itemId) {
             var headers = {};
@@ -46,8 +46,8 @@
                 Object.assign(headers, window.Auth.getAuthHeaders());
             }
             var doFetch = (window.Auth && window.Auth.requestWithRefresh)
-                ? function() { return window.Auth.requestWithRefresh(API + '/api/plaid/items/' + encodeURIComponent(itemId), { method: 'DELETE', headers: headers }); }
-                : function() { return fetch(API + '/api/plaid/items/' + encodeURIComponent(itemId), { method: 'DELETE', headers: headers }); };
+                ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/plaid/items/' + encodeURIComponent(itemId), { method: 'DELETE', headers: headers }); }
+                : function() { return fetch(API + '/api/v1/plaid/items/' + encodeURIComponent(itemId), { method: 'DELETE', headers: headers }); };
             return doFetch().then(function(r) {
                 if (!r.ok) throw new Error(r.statusText || 'Request failed');
                 return r.json().catch(function() { return {}; });
@@ -57,7 +57,7 @@
             var body = {};
             if (dateFrom) body.date_from = dateFrom;
             if (dateTo) body.date_to = dateTo;
-            return request('/api/plaid/sync', {
+            return request('/api/v1/plaid/sync', {
                 method: 'POST',
                 body: Object.keys(body).length ? body : undefined,
             });

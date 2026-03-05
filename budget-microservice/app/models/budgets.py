@@ -27,6 +27,8 @@ class BudgetCreate(BaseModel):
     category_code: int = Field(..., ge=1, le=8)
     start_date: date
     end_date: Optional[date] = None  # default applied in resource
+    alert_thresholds: Optional[list[Decimal]] = None
+    alert_channel: str = Field(default="in_app", pattern="^(in_app|email)$")
 
 
 class BudgetUpdate(BaseModel):
@@ -34,6 +36,20 @@ class BudgetUpdate(BaseModel):
     amount: Optional[Decimal] = Field(None, ge=0)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    alert_thresholds: Optional[list[Decimal]] = None
+    alert_channel: Optional[str] = Field(default=None, pattern="^(in_app|email)$")
+
+
+class BudgetAlertConfigResponse(BaseModel):
+    config_id: UUID
+    budget_id: UUID
+    threshold_percent: Decimal
+    channel: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BudgetResponse(BaseModel):
@@ -47,6 +63,7 @@ class BudgetResponse(BaseModel):
     end_date: date
     created_at: datetime
     updated_at: datetime
+    alert_configs: list[BudgetAlertConfigResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,68 +1,149 @@
 {% extends "layout.html" %}
-{% block body_class %}dashboard-page{% endblock %}
+{% block body_class %}dashboard-page dashboard-new{% endblock %}
 {% block title %}Dashboard — Expense Tracker{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#135bec",
+          "background-light": "#f6f6f8",
+          "background-dark": "#101622",
+        },
+        fontFamily: {
+          "display": ["Manrope", "sans-serif"]
+        },
+        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+    body { font-family: 'Manrope', sans-serif; }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+</style>
+{% endblock %}
 {% block content %}
-<div class="container">
-    <section class="card-section">
-        <h2>Dashboard</h2>
-
-        <!-- Hero KPIs -->
-        <div class="dashboard-grid" style="display: grid; gap: 1.5rem; margin-top: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-            <div class="dashboard-card card-section" style="padding: 1.25rem;">
-                <h2 style="margin-top: 0; font-size: 1.1rem;">Current balance</h2>
-                <p id="dashboard-balance" class="dashboard-balance" style="font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0;">—</p>
-                <div id="dashboard-sparkline" class="chart-container chart-container--sparkline" aria-label="Spending trend">Loading…</div>
-            </div>
-            <div class="dashboard-card card-section" style="padding: 1.25rem;">
-                <h2 style="margin-top: 0; font-size: 1.1rem;">This month's spending</h2>
-                <p id="dashboard-month-total" class="dashboard-balance" style="font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0;">—</p>
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden max-w-[480px] mx-auto border-x border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark pb-[72px]">
+    <!-- Header -->
+    <div class="flex items-center p-4 pb-2 justify-between sticky top-0 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur z-10">
+        <div class="flex size-12 shrink-0 items-center">
+            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-primary/20" data-alt="User profile avatar image" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%236b7280%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E');"></div>
+        </div>
+        <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Dashboard</h2>
+        <div class="flex w-12 items-center justify-end">
+            <button type="button" id="notifications-toggle" class="flex items-center justify-center size-10 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors" aria-label="Notifications">
+                <span class="material-symbols-outlined text-2xl">notifications</span>
+            </button>
+        </div>
+    </div>
+    <!-- Total Balance Card -->
+    <div class="px-4 py-3">
+        <div class="flex flex-col gap-2 rounded-xl bg-gradient-to-br from-primary to-blue-700 p-6 items-center text-center shadow-lg shadow-primary/20 relative overflow-hidden">
+            <div class="absolute -right-10 -top-10 size-40 bg-white/10 rounded-full blur-2xl"></div>
+            <div class="absolute -left-10 -bottom-10 size-40 bg-black/10 rounded-full blur-2xl"></div>
+            <p class="text-blue-100 text-sm font-medium leading-normal relative z-10">Total Balance (Net Worth)</p>
+            <p id="dashboard-total-balance" class="text-white tracking-tight text-4xl font-extrabold leading-tight relative z-10">—</p>
+            <div id="dashboard-balance-trend" class="flex items-center gap-1 mt-2 bg-white/20 px-3 py-1 rounded-full relative z-10 backdrop-blur-sm" style="display: none;">
+                <span class="material-symbols-outlined text-emerald-300 text-sm">trending_up</span>
+                <span class="text-white text-xs font-semibold"></span>
             </div>
         </div>
-
-        <!-- Charts grid -->
-        <div class="dashboard-charts-grid">
-            <div class="dashboard-card card-section" style="padding: 1.25rem;">
-                <h2 style="margin-top: 0; font-size: 1.1rem;">Spending by category (this month)</h2>
-                <div id="dashboard-chart-category" class="chart-container" aria-label="Spending by category">Loading…</div>
-            </div>
-            <div class="dashboard-card card-section" style="padding: 1.25rem;">
-                <h2 style="margin-top: 0; font-size: 1.1rem;">Budget vs spent</h2>
-                <div id="dashboard-chart-budget" class="chart-container" aria-label="Budget vs spent">Loading…</div>
-                <p style="margin-top: 0.75rem;"><a href="/budgets" class="btn btn-secondary btn-sm">View all budgets</a></p>
-            </div>
-            <div class="dashboard-card card-section" style="padding: 1.25rem;">
-                <h2 style="margin-top: 0; font-size: 1.1rem;">Spending over time (last 6 months)</h2>
-                <div id="dashboard-chart-monthly" class="chart-container" aria-label="Spending over time">Loading…</div>
-            </div>
-            <div class="dashboard-card card-section" style="padding: 1.25rem;">
-                <h2 style="margin-top: 0; font-size: 1.1rem;">Balance over time</h2>
-                <div id="dashboard-chart-balance" class="chart-container" aria-label="Balance over time">Loading…</div>
+    </div>
+    <!-- Monthly Budget Progress -->
+    <div class="flex flex-col gap-3 px-4 py-3">
+        <div class="flex justify-between items-end mb-1">
+            <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-normal">Monthly Budget</p>
+            <p class="text-slate-500 dark:text-slate-400 text-sm font-medium leading-normal"><span id="dashboard-budget-spent" class="text-slate-900 dark:text-slate-100 font-bold">$0.00</span> / <span id="dashboard-budget-limit">$0</span></p>
+        </div>
+        <div class="rounded-full bg-slate-200 dark:bg-slate-800 h-2.5 overflow-hidden">
+            <div id="dashboard-budget-bar" class="h-full rounded-full bg-primary transition-[width]" style="width: 0%;"></div>
+        </div>
+        <p class="text-slate-500 dark:text-slate-400 text-xs font-medium leading-normal text-right"><span id="dashboard-budget-pct">0</span>% used</p>
+    </div>
+    <!-- Cashflow Card -->
+    <div class="px-4 py-3">
+        <div class="flex flex-col gap-4 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700/50">
+            <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight">Cashflow</h3>
+            <div class="flex gap-4">
+                <div class="flex-1 flex flex-col gap-1 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
+                    <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
+                        <div class="bg-emerald-100 dark:bg-emerald-500/20 p-1 rounded-full"><span class="material-symbols-outlined text-sm">arrow_downward</span></div>
+                        <span class="text-xs font-semibold uppercase tracking-wider">Income</span>
+                    </div>
+                    <p id="dashboard-income" class="text-slate-900 dark:text-slate-100 font-bold text-lg">—</p>
+                </div>
+                <div class="flex-1 flex flex-col gap-1 p-3 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20">
+                    <div class="flex items-center gap-2 text-rose-600 dark:text-rose-400 mb-1">
+                        <div class="bg-rose-100 dark:bg-rose-500/20 p-1 rounded-full"><span class="material-symbols-outlined text-sm">arrow_upward</span></div>
+                        <span class="text-xs font-semibold uppercase tracking-wider">Expenses</span>
+                    </div>
+                    <p id="dashboard-expenses" class="text-slate-900 dark:text-slate-100 font-bold text-lg">—</p>
+                </div>
             </div>
         </div>
-
-        <!-- Budgets list (compact) -->
-        <div class="dashboard-card card-section" style="padding: 1.25rem; margin-top: 1.5rem;">
-            <h2 style="margin-top: 0; font-size: 1.1rem;">Budgets</h2>
-            <div id="dashboard-budgets" class="dashboard-list">Loading…</div>
-            <p style="margin-top: 0.75rem;"><a href="/budgets" class="btn btn-secondary btn-sm">View all budgets</a></p>
+    </div>
+    <!-- Quick Actions -->
+    <div class="px-4 py-4">
+        <h3 class="text-slate-900 dark:text-slate-100 text-sm font-bold leading-tight mb-4">Quick Actions</h3>
+        <div class="grid grid-cols-4 gap-3">
+            <a href="/expenses/add" class="flex flex-col items-center gap-2">
+                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                    <span class="material-symbols-outlined text-2xl">add</span>
+                </span>
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Add Expense</span>
+            </a>
+            <a href="/link-bank" class="flex flex-col items-center gap-2">
+                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                    <span class="material-symbols-outlined text-2xl">account_balance</span>
+                </span>
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Link Bank</span>
+            </a>
+            <a href="/expenses/add" class="flex flex-col items-center gap-2">
+                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                    <span class="material-symbols-outlined text-2xl">receipt_long</span>
+                </span>
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Scan Receipt</span>
+            </a>
+            <a href="#" class="flex flex-col items-center gap-2">
+                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                    <span class="material-symbols-outlined text-2xl">swap_horiz</span>
+                </span>
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Transfer</span>
+            </a>
         </div>
-
-        <!-- Recent expenses -->
-        <div class="dashboard-card card-section" style="padding: 1.25rem; margin-top: 1.5rem;">
-            <h2 style="margin-top: 0; font-size: 1.1rem;">Recent expenses</h2>
-            <div id="dashboard-expenses" class="dashboard-list">Loading…</div>
-            <p style="margin-top: 0.75rem;"><a href="/expenses" class="btn btn-secondary btn-sm">View all expenses</a></p>
+    </div>
+    <!-- Recent Transactions -->
+    <div class="px-4 py-3 flex-1">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight">Recent Transactions</h3>
+            <a class="text-primary text-sm font-semibold hover:underline" href="/expenses">See All</a>
         </div>
-    </section>
+        <div id="dashboard-recent-transactions" class="flex flex-col gap-4">
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-<script src="/static/js/expenses.js"></script>
-<script src="/static/js/budgets.js"></script>
-<script src="/static/js/charts.js"></script>
-<script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/income.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/budgets.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
 (function() {
+    // Enable dark mode on dashboard
+    document.documentElement.classList.add('dark');
+
+    // OAuth token from hash
     var hash = window.location.hash;
     if (hash && hash.indexOf('access_token=') !== -1) {
         var params = new URLSearchParams(hash.slice(1));
@@ -77,157 +158,195 @@
         }
     }
 
-    var balanceEl = document.getElementById('dashboard-balance');
-    var monthTotalEl = document.getElementById('dashboard-month-total');
-    var budgetsEl = document.getElementById('dashboard-budgets');
+    var totalBalanceEl = document.getElementById('dashboard-total-balance');
+    var balanceTrendEl = document.getElementById('dashboard-balance-trend');
+    var budgetSpentEl = document.getElementById('dashboard-budget-spent');
+    var budgetLimitEl = document.getElementById('dashboard-budget-limit');
+    var budgetBarEl = document.getElementById('dashboard-budget-bar');
+    var budgetPctEl = document.getElementById('dashboard-budget-pct');
+    var incomeEl = document.getElementById('dashboard-income');
     var expensesEl = document.getElementById('dashboard-expenses');
+    var recentEl = document.getElementById('dashboard-recent-transactions');
+    var currentCurrency = 'USD';
 
-    function formatAmount(val) {
+    function fmt(val) {
         if (val == null || val === '') return '—';
+        if (window.Expenses && typeof window.Expenses.formatAmount === 'function') {
+            var s = window.Expenses.formatAmount(val);
+            return s !== '' ? s : '—';
+        }
         var n = parseFloat(val, 10);
         return isNaN(n) ? '—' : n.toFixed(2);
     }
-    function formatDate(val) {
-        if (!val) return '';
-        var s = String(val).slice(0, 10);
-        if (s.length >= 10) {
-            var parts = s.split('-');
-            if (parts.length === 3) {
-                var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                var mi = parseInt(parts[1], 10) - 1;
-                return (months[mi] || parts[1]) + ' ' + parts[2] + ', ' + parts[0];
-            }
-        }
-        return s;
+
+    function fmtMoney(val, currency) {
+        var s = fmt(val);
+        return s === '—' ? s : '$' + s;
     }
 
-    function runAfterLayout() {
-        if (!window.Auth || !window.Auth.getAuthHeaders) return;
+    function fmtDateShort(val) {
+        if (!val) return '';
+        var s = String(val).slice(0, 10);
+        var p = s.split('-');
+        if (p.length !== 3) return s;
+        var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var d = parseInt(p[2], 10);
+        var m = parseInt(p[1], 10) - 1;
+        var y = parseInt(p[0], 10);
+        var today = new Date();
+        var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        if (s === todayStr) return 'Today';
+        var yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        var yesterdayStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
+        if (s === yesterdayStr) return 'Yesterday';
+        return (mon[m] || p[1]) + ' ' + d;
+    }
+
+    function getCategoryIcon(categoryName) {
+        var c = (categoryName || '').toLowerCase();
+        if (c.indexOf('food') !== -1 || c.indexOf('grocery') !== -1) return { icon: 'restaurant', bgClass: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' };
+        if (c.indexOf('entertainment') !== -1 || c.indexOf('subscription') !== -1 || c.indexOf('netflix') !== -1) return { icon: 'subscriptions', bgClass: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400' };
+        if (c.indexOf('transport') !== -1 || c.indexOf('gas') !== -1) return { icon: 'local_gas_station', bgClass: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' };
+        if (c.indexOf('salary') !== -1 || c.indexOf('income') !== -1) return { icon: 'work', bgClass: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' };
+        return { icon: 'receipt_long', bgClass: 'bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400' };
+    }
+
+    function initCurrency() {
+        try {
+            var stored = localStorage.getItem('default_currency');
+            if (stored) currentCurrency = stored.toUpperCase();
+        } catch (e) {}
+        if (window.Settings && window.Settings.get) {
+            window.Settings.get().then(function(s) {
+                if (s && s.default_currency) {
+                    currentCurrency = s.default_currency.toUpperCase();
+                    try { localStorage.setItem('default_currency', currentCurrency); } catch (e) {}
+                }
+                loadAll();
+            }).catch(function() { loadAll(); });
+        } else {
+            loadAll();
+        }
+    }
+
+    function loadAll() {
         loadBalance();
-        loadDashboardData();
+        loadBudgetAndCashflow();
+        loadRecentTransactions();
     }
 
     function loadBalance() {
+        if (!totalBalanceEl) return;
         var api = window.EXPENSE_API_BASE || '';
-        var h = window.Auth.getAuthHeaders();
-        var doFetch = (window.Auth.requestWithRefresh)
-            ? function() { return window.Auth.requestWithRefresh(api + '/api/expenses/balance', { headers: h }); }
-            : function() { return fetch(api + '/api/expenses/balance', { headers: h }); };
-        doFetch().then(function(r) { return r.ok ? r.json() : Promise.reject(new Error(r.statusText)); })
-            .then(function(data) {
-                if (balanceEl) balanceEl.textContent = formatAmount(data && data.balance_after);
+        var h = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        var fn = (window.Auth && window.Auth.requestWithRefresh)
+            ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses/balance', { headers: h }); }
+            : function() { return fetch(api + '/api/v1/expenses/balance', { headers: h }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d) {
+                var bal = d && d.balance_after != null ? d.balance_after : null;
+                totalBalanceEl.textContent = fmtMoney(bal);
+                if (balanceTrendEl) balanceTrendEl.style.display = 'none';
             })
-            .catch(function() { if (balanceEl) balanceEl.textContent = '—'; });
+            .catch(function() {
+                totalBalanceEl.textContent = '—';
+            });
     }
 
-    function loadDashboardData() {
+    function loadBudgetAndCashflow() {
         var now = new Date();
         var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
         var today = now.toISOString().slice(0, 10);
-        var sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().slice(0, 10);
 
-        var promises = [
-            window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page: 1, page_size: 10 }) : Promise.resolve({ items: [], total: 0 }),
-            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today) : Promise.resolve({ items: [] }),
-            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('month', firstDay, today) : Promise.resolve({ items: [] }),
-            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('month', sixMonthsAgo, today) : Promise.resolve({ items: [] })
-        ];
+        Promise.all([
+            window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page: 1, page_size: 10 }) : Promise.resolve({ items: [] }),
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today, currentCurrency) : Promise.resolve({ items: [] }),
+            window.Income && window.Income.getCashflow ? window.Income.getCashflow(firstDay, today, currentCurrency) : Promise.resolve(null)
+        ]).then(function(res) {
+            var budgetData = res[0];
+            var catSummary = (res[1] && res[1].items) || [];
+            var cashflow = res[2];
+            var budgets = (budgetData && budgetData.items) || [];
 
-        Promise.all(promises).then(function(results) {
-            var budgetData = results[0];
-            var categorySummary = (results[1] && results[1].items) ? results[1].items : [];
-            var monthSummaryCurrent = (results[2] && results[2].items) ? results[2].items : [];
-            var monthSummarySix = (results[3] && results[3].items) ? results[3].items : [];
-
-            var items = (budgetData && budgetData.items) ? budgetData.items : [];
-
-            if (monthTotalEl) {
-                var total = 0;
-                monthSummaryCurrent.forEach(function(i) { total += Number(i.total_amount || 0); });
-                monthTotalEl.textContent = formatAmount(total);
-            }
-
-            if (window.ExpenseCharts) {
-                window.ExpenseCharts.renderCategoryChart('dashboard-chart-category', categorySummary);
-                var budgetItemsWithSpent = items.map(function(b) {
-                    var catCode = b.category_code != null ? String(b.category_code) : '';
-                    var s = categorySummary.find(function(x) { return String(x.group_key) === catCode; });
-                    var spent = s && s.total_amount != null ? Number(s.total_amount) : 0;
-                    return {
-                        label: b.name || b.category_name || 'Budget',
-                        budgetAmount: Number(b.amount),
-                        spentAmount: spent
-                    };
-                });
-                window.ExpenseCharts.renderBudgetVsSpentChart('dashboard-chart-budget', budgetItemsWithSpent);
-                window.ExpenseCharts.renderMonthlyTrendChart('dashboard-chart-monthly', monthSummarySix);
-                window.ExpenseCharts.renderSparkline('dashboard-sparkline', monthSummarySix.slice(-7));
-            }
-
-            if (window.Expenses && window.Expenses.getBalanceHistory) {
-                window.Expenses.getBalanceHistory(sixMonthsAgo, today, 'week').then(function(history) {
-                    var list = (history && history.items) ? history.items : (Array.isArray(history) ? history : []);
-                    if (window.ExpenseCharts) window.ExpenseCharts.renderBalanceOverTimeChart('dashboard-chart-balance', list);
-                }).catch(function() {
-                    var el = document.getElementById('dashboard-chart-balance');
-                    if (el) el.innerHTML = '<p class="empty-chart-message">No data for this range</p>';
-                });
-            } else {
-                var el = document.getElementById('dashboard-chart-balance');
-                if (el) el.innerHTML = '<p class="empty-chart-message">No data for this range</p>';
-            }
-
-            if (budgetsEl) {
-                if (items.length === 0) {
-                    budgetsEl.innerHTML = '<p class="empty-state" style="margin:0;">No budgets set.</p>';
-                } else {
-                    var summaryItems = categorySummary;
-                    budgetsEl.innerHTML = '<ul class="summary-list">' + items.map(function(b) {
-                        var budgetAmt = window.Budgets && window.Budgets.formatAmount ? window.Budgets.formatAmount(b.amount) : formatAmount(b.amount);
-                        var catCode = b.category_code != null ? String(b.category_code) : '';
-                        var summaryItem = summaryItems.find(function(s) { return String(s.group_key) === catCode; });
-                        var spent = summaryItem && summaryItem.total_amount != null ? Number(summaryItem.total_amount) : 0;
-                        var spentStr = formatAmount(spent);
-                        var label = b.name || b.category_name || 'Budget';
-                        return '<li><span class="summary-label">' + label + '</span> <strong>Spent ' + spentStr + ' / Budget ' + budgetAmt + '</strong></li>';
-                    }).join('') + '</ul>';
-                }
-            }
-        }).catch(function() {
-            if (budgetsEl) budgetsEl.innerHTML = '<p class="empty-state" style="margin:0;">Could not load budgets.</p>';
-        });
-
-        if (window.Expenses && window.Expenses.buildListQuery) {
-            var query = window.Expenses.buildListQuery({ page: 1, page_size: 10 });
-            var api = window.EXPENSE_API_BASE || '';
-            var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
-            var doFetch = (window.Auth && window.Auth.requestWithRefresh)
-                ? function() { return window.Auth.requestWithRefresh(api + '/api/expenses' + query, { headers: headers }); }
-                : function() { return fetch(api + '/api/expenses' + query, { headers: headers }); };
-            doFetch().then(function(r) {
-                return r.ok ? r.json() : Promise.reject(new Error(r.statusText));
-            }).then(function(data) {
-                var list = (data && data.items) ? data.items : [];
-                if (!expensesEl) return;
-                if (list.length === 0) {
-                    expensesEl.innerHTML = '<p class="empty-state" style="margin:0;">No expenses yet.</p>';
-                    return;
-                }
-                expensesEl.innerHTML = '<ul class="summary-list">' + list.slice(0, 10).map(function(item) {
-                    var amt = window.Expenses && window.Expenses.formatAmount ? window.Expenses.formatAmount(item.amount) : formatAmount(item.amount);
-                    var label = (item.description || '').trim() || (item.category_name || item.category || 'Expense');
-                    var dateStr = formatDate(item.date);
-                    var link = item.expense_id ? '<a href="/expenses/' + item.expense_id + '">' + label + '</a>' : label;
-                    var sourceBadge = (item.source === 'plaid') ? ' <span class="badge badge-plaid">From bank</span>' : '';
-                    return '<li><span class="summary-label">' + dateStr + ' — ' + link + sourceBadge + '</span> <strong>' + amt + '</strong></li>';
-                }).join('') + '</ul>';
-            }).catch(function() {
-                if (expensesEl) expensesEl.innerHTML = '<p class="empty-state" style="margin:0;">Could not load expenses.</p>';
+            var totalLimit = 0;
+            var totalSpent = 0;
+            budgets.forEach(function(b) {
+                totalLimit += Number(b.amount) || 0;
+                var key = b.category_code != null ? String(b.category_code) : '';
+                var s = catSummary.find(function(c) { return String(c.group_key) === key; });
+                totalSpent += Number((s && s.total_amount) || 0);
             });
-        }
+            if (budgetSpentEl) budgetSpentEl.textContent = '$' + fmt(totalSpent);
+            if (budgetLimitEl) budgetLimitEl.textContent = '$' + fmt(totalLimit);
+            var pct = totalLimit > 0 ? Math.min(100, Math.round((totalSpent / totalLimit) * 100)) : 0;
+            if (budgetBarEl) budgetBarEl.style.width = pct + '%';
+            if (budgetPctEl) budgetPctEl.textContent = pct;
+
+            var incomeTotal = (cashflow && cashflow.income_total != null) ? Number(cashflow.income_total) : null;
+            var expenseTotal = (cashflow && cashflow.expense_total != null) ? Number(cashflow.expense_total) : null;
+            if (incomeEl) incomeEl.textContent = incomeTotal != null ? '$' + fmt(incomeTotal) : '—';
+            if (expensesEl) expensesEl.textContent = expenseTotal != null ? '$' + fmt(expenseTotal) : '—';
+        }).catch(function() {
+            if (incomeEl) incomeEl.textContent = '—';
+            if (expensesEl) expensesEl.textContent = '—';
+        });
     }
 
-    setTimeout(runAfterLayout, 0);
+    function loadRecentTransactions() {
+        if (!recentEl) return;
+        if (!window.Expenses || !window.Expenses.buildListQuery) {
+            recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No transactions yet.</p>';
+            return;
+        }
+        var query = window.Expenses.buildListQuery({ page: 1, page_size: 5 });
+        var api = window.EXPENSE_API_BASE || '';
+        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        var fn = (window.Auth && window.Auth.requestWithRefresh)
+            ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses' + query, { headers: headers }); }
+            : function() { return fetch(api + '/api/v1/expenses' + query, { headers: headers }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d) {
+                var list = (d && d.items) || [];
+                if (list.length === 0) {
+                    recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No transactions yet.</p>';
+                    return;
+                }
+                var html = list.map(function(item) {
+                    var amt = item.amount != null ? item.amount : item.value;
+                    var isIncome = Number(amt) >= 0;
+                    var label = (item.description || '').trim() || item.category_name || 'Expense';
+                    var cat = item.category_name || '';
+                    var dateStr = fmtDateShort(item.date);
+                    var info = [cat, dateStr].filter(Boolean).join(' • ');
+                    var iconInfo = getCategoryIcon(cat || label);
+                    var href = item.expense_id ? '/expenses/' + item.expense_id : '#';
+                    var amtStr = fmt(amt);
+                    var amtClass = isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100';
+                    var amtDisplay = isIncome ? '+' : '-';
+                    if (isIncome) amtDisplay += '$' + amtStr; else amtDisplay += '$' + amtStr;
+                    return '<a href="' + href + '" class="flex items-center justify-between group cursor-pointer p-2 -mx-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">' +
+                        '<div class="flex items-center gap-3">' +
+                        '<div class="flex items-center justify-center size-12 rounded-full ' + iconInfo.bgClass + '">' +
+                        '<span class="material-symbols-outlined">' + iconInfo.icon + '</span></div>' +
+                        '<div class="flex flex-col">' +
+                        '<p class="text-slate-900 dark:text-slate-100 text-sm font-bold">' + (label || '—').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' +
+                        '<p class="text-slate-500 dark:text-slate-400 text-xs font-medium">' + (info || '—') + '</p>' +
+                        '</div></div>' +
+                        '<p class="' + amtClass + ' font-bold text-sm">' + amtDisplay + '</p></a>';
+                }).join('');
+                recentEl.innerHTML = html;
+            })
+            .catch(function() {
+                recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Could not load transactions.</p>';
+            });
+    }
+
+    if (window.Auth && window.Auth.getAuthHeaders) {
+        setTimeout(initCurrency, 0);
+    } else {
+        recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Sign in to see transactions.</p>';
+    }
 })();
 </script>
 {% endblock %}

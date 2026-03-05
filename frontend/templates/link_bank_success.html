@@ -1,0 +1,122 @@
+{% extends "layout.html" %}
+{% block body_class %}link-bank-success-page{% endblock %}
+{% block title %}Bank Connection — Expense Tracker{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#13ec5b",
+          "background-light": "#f6f8f6",
+          "background-dark": "#102216",
+        },
+        fontFamily: { "display": ["Manrope", "sans-serif"] },
+        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Manrope', sans-serif; min-height: max(884px, 100dvh); }
+  .radar-pulse { position: relative; display: flex; align-items: center; justify-content: center; }
+  .radar-pulse::before, .radar-pulse::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: #13ec5b; opacity: 0.2; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
+  <!-- Top Navigation Bar -->
+  <div class="flex items-center p-4 justify-between bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-primary/10">
+    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-primary/20 transition-colors" aria-label="Close">
+      <span class="material-symbols-outlined">close</span>
+    </a>
+    <h2 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center">Bank Connection</h2>
+    <div class="size-10"></div>
+  </div>
+  <!-- Main Content Area -->
+  <div class="flex-1 flex flex-col px-6 py-8 items-center">
+    <div class="relative mb-10">
+      <div class="radar-pulse w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center">
+        <div class="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center">
+          <span class="material-symbols-outlined text-primary text-5xl">check_circle</span>
+        </div>
+      </div>
+    </div>
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-extrabold tracking-tight mb-2">Success!</h1>
+      <p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed">
+        Your bank accounts have been successfully linked. We've finished importing your recent history.
+      </p>
+    </div>
+    <div class="w-full mb-10">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-sm font-semibold text-primary">Import Complete</span>
+        <span class="text-sm font-medium text-slate-500">100%</span>
+      </div>
+      <div class="h-2.5 w-full bg-slate-200 dark:bg-primary/10 rounded-full overflow-hidden">
+        <div class="h-full bg-primary rounded-full w-full"></div>
+      </div>
+    </div>
+    <div class="w-full mb-8">
+      <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-xl">account_balance_wallet</span>
+        Accounts Found
+      </h3>
+      <div id="plaid-success-accounts" class="space-y-3">
+        <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
+      </div>
+    </div>
+  </div>
+  <div class="p-6 bg-background-light dark:bg-background-dark">
+    <a href="/dashboard" class="block w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 text-center">
+      Return to Dashboard
+      <span class="material-symbols-outlined text-xl">arrow_forward</span>
+    </a>
+    <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
+      Security powered by BankSync v2.4 Microservices
+    </p>
+  </div>
+  <div class="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden -z-10">
+    <div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/2 -left-32 w-80 h-80 bg-primary/5 rounded-full blur-3xl"></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/plaid.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+  var container = document.getElementById('plaid-success-accounts');
+  if (!container) return;
+  if (!window.PlaidApi || !window.PlaidApi.getItems) {
+    container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Linked accounts will appear here.</p>';
+    return;
+  }
+  window.PlaidApi.getItems().then(function(data) {
+    var items = (data && data.items) ? data.items : [];
+    if (items.length === 0) {
+      container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No linked items to display.</p>';
+      return;
+    }
+    var icons = ['payments', 'savings', 'trending_up', 'account_balance'];
+    var html = items.map(function(item, i) {
+      var name = item.institution_name || item.institution_id || 'Linked account';
+      var icon = icons[i % icons.length];
+      return '<div class="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-primary/5 border border-slate-200 dark:border-primary/10">' +
+        '<div class="flex items-center gap-3">' +
+        '<div class="p-2 bg-white dark:bg-background-dark rounded-lg"><span class="material-symbols-outlined text-primary">' + icon + '</span></div>' +
+        '<div><p class="font-bold text-sm">' + (name.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</p><p class="text-xs text-slate-500 dark:text-slate-400">Linked</p></div>' +
+        '</div><div class="text-right"><span class="text-primary text-xs font-bold uppercase tracking-wider">Linked</span></div></div>';
+    }).join('');
+    container.innerHTML = html;
+  }).catch(function() {
+    container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Could not load linked accounts.</p>';
+  });
+})();
+</script>
+{% endblock %}

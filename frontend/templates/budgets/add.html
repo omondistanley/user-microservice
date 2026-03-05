@@ -29,6 +29,18 @@
                 <label for="end_date">End date (optional)</label>
                 <input type="date" id="end_date" name="end_date" class="form-control" placeholder="Leave empty for no end">
             </div>
+            <fieldset class="form-group">
+                <legend style="font-weight: 600; margin-bottom: 0.35rem;">Alerts</legend>
+                <label><input type="checkbox" id="alert-80" checked> Notify at 80%</label><br>
+                <label><input type="checkbox" id="alert-100" checked> Notify at 100%</label>
+            </fieldset>
+            <div class="form-group">
+                <label for="alert-channel">Alert channel</label>
+                <select id="alert-channel" class="form-control">
+                    <option value="in_app" selected>In-app</option>
+                    <option value="email">Email</option>
+                </select>
+            </div>
             <div id="add-message" class="message-error" style="display: none;"></div>
             <button type="submit" class="btn btn-primary">Save</button>
             <a href="/budgets" class="btn btn-secondary">Cancel</a>
@@ -37,8 +49,8 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/budgets.js"></script>
-<script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/budgets.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var form = document.getElementById('add-budget-form');
     var msg = document.getElementById('add-message');
@@ -60,6 +72,9 @@
             var startDate = document.getElementById('start_date').value;
             var endDateEl = document.getElementById('end_date');
             var endDate = endDateEl && endDateEl.value ? endDateEl.value : null;
+            var alert80 = document.getElementById('alert-80');
+            var alert100 = document.getElementById('alert-100');
+            var alertChannel = document.getElementById('alert-channel');
             if (isNaN(amount) || amount < 0) {
                 msg.textContent = 'Enter a valid amount.';
                 msg.style.display = 'block';
@@ -74,7 +89,11 @@
                 amount: amount,
                 category_code: categoryCode,
                 start_date: startDate,
+                alert_thresholds: [],
+                alert_channel: alertChannel ? alertChannel.value : 'in_app',
             };
+            if (alert80 && alert80.checked) payload.alert_thresholds.push(80);
+            if (alert100 && alert100.checked) payload.alert_thresholds.push(100);
             if (nameEl && nameEl.value.trim()) payload.name = nameEl.value.trim();
             if (endDate) payload.end_date = endDate;
             window.Budgets.create(payload).then(function() {

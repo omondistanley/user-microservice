@@ -2,6 +2,9 @@
 Expense-specific data service: CRUD, list with filters, balance chain helpers.
 Uses single-statement recalc for balance (Option 2).
 """
+import calendar
+import re
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
@@ -15,6 +18,11 @@ TABLE = "expense"
 ORDER_COLS = "date, created_at, expense_id"
 IDEMPOTENCY_TABLE = "idempotency"
 IDEMPOTENCY_TTL_HOURS = 24
+INCOME_TABLE = "income"
+RECURRING_TABLE = "recurring_expense"
+TAG_TABLE = "tag"
+EXPENSE_TAG_TABLE = "expense_tag"
+EXCHANGE_RATE_TABLE = "exchange_rate"
 
 
 def _dict_row(row: Any) -> Optional[Dict]:
@@ -27,6 +35,40 @@ def _dict_row(row: Any) -> Optional[Dict]:
         elif hasattr(v, "isoformat"):
             d[k] = v
     return d
+
+
+def _add_months(d: date, months: int) -> date:
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _advance_due_date(current_due: date, recurrence_rule: str) -> date:
+    if recurrence_rule == "weekly":
+        return current_due + timedelta(days=7)
+    if recurrence_rule == "monthly":
+        return _add_months(current_due, 1)
+    if recurrence_rule == "yearly":
+        return _add_months(current_due, 12)
+    raise ValueError(f"Unsupported recurrence_rule: {recurrence_rule}")
+
+
+def _slugify_tag_name(value: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")
+    if not base:
+        base = "tag"
+    return base[:80]
+
+
+def _normalize_currency(value: Optional[str], fallback: str = "USD") -> str:
+    if not value:
+        return fallback
+    cur = str(value).strip().upper()
+    if len(cur) != 3:
+        return fallback
+    return cur
 
 
 class ExpenseDataService:
@@ -134,38 +176,65 @@ class ExpenseDataService:
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         category_code: Optional[int] = None,
+        tag_id: Optional[str] = None,
+        tag_slug: Optional[str] = None,
         min_amount: Optional[Decimal] = None,
         max_amount: Optional[Decimal] = None,
         limit: int = 20,
         offset: int = 0,
     ) -> Tuple[List[Dict], int]:
-        conditions = ['user_id = %s', 'deleted_at IS NULL']
+        conditions = ['e.user_id = %s', 'e.deleted_at IS NULL']
         params: List[Any] = [user_id]
         if date_from:
-            conditions.append('date >= %s')
+            conditions.append('e.date >= %s')
             params.append(date_from)
         if date_to:
-            conditions.append('date <= %s')
+            conditions.append('e.date <= %s')
             params.append(date_to)
         if category_code is not None:
-            conditions.append('category_code = %s')
+            conditions.append('e.category_code = %s')
             params.append(category_code)
+        if tag_id:
+            conditions.append(
+                f"""
+                EXISTS (
+                    SELECT 1 FROM "{SCHEMA}"."{EXPENSE_TAG_TABLE}" et
+                    WHERE et.expense_id = e.expense_id
+                      AND et.tag_id = %s::uuid
+                )
+                """
+            )
+            params.append(tag_id)
+        if tag_slug:
+            conditions.append(
+                f"""
+                EXISTS (
+                    SELECT 1
+                    FROM "{SCHEMA}"."{EXPENSE_TAG_TABLE}" et
+                    JOIN "{SCHEMA}"."{TAG_TABLE}" t ON t.tag_id = et.tag_id
+                    WHERE et.expense_id = e.expense_id
+                      AND t.user_id = e.user_id
+                      AND t.slug = %s
+                )
+                """
+            )
+            params.append(tag_slug.strip().lower())
         if min_amount is not None:
-            conditions.append('amount >= %s')
+            conditions.append('e.amount >= %s')
             params.append(min_amount)
         if max_amount is not None:
-            conditions.append('amount <= %s')
+            conditions.append('e.amount <= %s')
             params.append(max_amount)
         where = " AND ".join(conditions)
         conn = self._conn_autocommit()
         try:
             cur = conn.cursor()
-            count_sql = f'SELECT COUNT(*) AS c FROM "{SCHEMA}"."{TABLE}" WHERE {where}'
+            count_sql = f'SELECT COUNT(*) AS c FROM "{SCHEMA}"."{TABLE}" e WHERE {where}'
             cur.execute(count_sql, params)
             total = cur.fetchone()["c"]
             list_sql = (
-                f'SELECT * FROM "{SCHEMA}"."{TABLE}" WHERE {where} '
-                f"ORDER BY date DESC, created_at DESC, expense_id DESC LIMIT %s OFFSET %s"
+                f'SELECT e.* FROM "{SCHEMA}"."{TABLE}" e WHERE {where} '
+                "ORDER BY e.date DESC, e.created_at DESC, e.expense_id DESC LIMIT %s OFFSET %s"
             )
             cur.execute(list_sql, params + [limit, offset])
             rows = cur.fetchall()
@@ -407,6 +476,229 @@ class ExpenseDataService:
                 return (code, cats[code])
         return None
 
+    # --- Tags ---
+    def list_tags(self, user_id: int) -> List[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT tag_id, user_id, name, slug, created_at, updated_at '
+                f'FROM "{SCHEMA}"."{TAG_TABLE}" '
+                "WHERE user_id = %s "
+                "ORDER BY lower(name), created_at ASC",
+                (user_id,),
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def _generate_unique_slug(
+        self,
+        conn: Any,
+        user_id: int,
+        name: str,
+    ) -> str:
+        base = _slugify_tag_name(name)
+        candidate = base
+        suffix = 2
+        while True:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT 1 FROM "{SCHEMA}"."{TAG_TABLE}" '
+                "WHERE user_id = %s AND slug = %s LIMIT 1",
+                (user_id, candidate),
+            )
+            if cur.fetchone() is None:
+                return candidate
+            candidate = f"{base}-{suffix}"[:80]
+            suffix += 1
+
+    def _create_tag_using_conn(self, conn: Any, user_id: int, name: str) -> Dict[str, Any]:
+        cleaned = (name or "").strip()
+        if not cleaned:
+            raise ValueError("Tag name is required")
+        if len(cleaned) > 64:
+            raise ValueError("Tag name must be 64 characters or fewer")
+
+        cur = conn.cursor()
+        cur.execute(
+            f'SELECT tag_id, user_id, name, slug, created_at, updated_at '
+            f'FROM "{SCHEMA}"."{TAG_TABLE}" '
+            "WHERE user_id = %s AND lower(name) = lower(%s)",
+            (user_id, cleaned),
+        )
+        existing = cur.fetchone()
+        if existing:
+            raise PermissionError("Tag already exists")
+
+        slug = self._generate_unique_slug(conn, user_id, cleaned)
+        now = datetime.now(timezone.utc)
+        cur.execute(
+            f'INSERT INTO "{SCHEMA}"."{TAG_TABLE}" '
+            "(user_id, name, slug, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s) "
+            "RETURNING tag_id, user_id, name, slug, created_at, updated_at",
+            (user_id, cleaned, slug, now, now),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise RuntimeError("Failed to create tag")
+        return dict(row)
+
+    def create_tag(self, user_id: int, name: str) -> Dict:
+        conn = self.get_connection(autocommit=False)
+        try:
+            created = self._create_tag_using_conn(conn, user_id, name)
+            conn.commit()
+            return created
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def delete_tag(self, user_id: int, tag_id: str) -> bool:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{TAG_TABLE}" '
+                "WHERE user_id = %s AND tag_id = %s::uuid",
+                (user_id, tag_id),
+            )
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def get_tags_for_expense(self, expense_id: str, user_id: int) -> List[Dict]:
+        tags_by_expense = self.get_tags_for_expense_ids([expense_id], user_id)
+        return tags_by_expense.get(str(expense_id), [])
+
+    def get_tags_for_expense_ids(self, expense_ids: List[str], user_id: int) -> Dict[str, List[Dict]]:
+        if not expense_ids:
+            return {}
+        conn = self._conn_autocommit()
+        out: Dict[str, List[Dict]] = {str(eid): [] for eid in expense_ids}
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT et.expense_id::text AS expense_id,
+                       t.tag_id, t.user_id, t.name, t.slug, t.created_at, t.updated_at
+                FROM "{SCHEMA}"."{EXPENSE_TAG_TABLE}" et
+                JOIN "{SCHEMA}"."{TAG_TABLE}" t ON t.tag_id = et.tag_id
+                WHERE et.expense_id = ANY(%s::uuid[]) AND t.user_id = %s
+                ORDER BY lower(t.name), t.created_at ASC
+                """,
+                (expense_ids, user_id),
+            )
+            for row in cur.fetchall():
+                expense_key = str(row["expense_id"])
+                out.setdefault(expense_key, []).append(
+                    {
+                        "tag_id": row["tag_id"],
+                        "user_id": row["user_id"],
+                        "name": row["name"],
+                        "slug": row["slug"],
+                        "created_at": row["created_at"],
+                        "updated_at": row["updated_at"],
+                    }
+                )
+            return out
+        finally:
+            conn.close()
+
+    def _resolve_tag_rows(
+        self,
+        conn: Any,
+        user_id: int,
+        tag_ids: Optional[List[str]] = None,
+        tag_names: Optional[List[str]] = None,
+    ) -> List[Dict]:
+        resolved: List[Dict] = []
+        seen_tag_ids: set[str] = set()
+
+        if tag_ids:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT tag_id, user_id, name, slug, created_at, updated_at '
+                f'FROM "{SCHEMA}"."{TAG_TABLE}" '
+                "WHERE user_id = %s AND tag_id = ANY(%s::uuid[])",
+                (user_id, tag_ids),
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            if len(rows) != len(set(str(tid) for tid in tag_ids)):
+                raise HTTPException(status_code=400, detail="One or more tag_ids are invalid")
+            for row in rows:
+                key = str(row["tag_id"])
+                if key in seen_tag_ids:
+                    continue
+                seen_tag_ids.add(key)
+                resolved.append(row)
+
+        if tag_names:
+            normalized_names: List[str] = []
+            seen_names: set[str] = set()
+            for name in tag_names:
+                cleaned = (name or "").strip()
+                if not cleaned:
+                    continue
+                lower = cleaned.lower()
+                if lower in seen_names:
+                    continue
+                seen_names.add(lower)
+                normalized_names.append(cleaned)
+            for cleaned in normalized_names:
+                cur = conn.cursor()
+                cur.execute(
+                    f'SELECT tag_id, user_id, name, slug, created_at, updated_at '
+                    f'FROM "{SCHEMA}"."{TAG_TABLE}" '
+                    "WHERE user_id = %s AND lower(name) = lower(%s)",
+                    (user_id, cleaned),
+                )
+                row = cur.fetchone()
+                if row:
+                    tag_row = dict(row)
+                else:
+                    tag_row = self._create_tag_using_conn(conn, user_id, cleaned)
+                key = str(tag_row["tag_id"])
+                if key in seen_tag_ids:
+                    continue
+                seen_tag_ids.add(key)
+                resolved.append(tag_row)
+
+        return resolved
+
+    def set_expense_tags(
+        self,
+        conn: Any,
+        user_id: int,
+        expense_id: str,
+        tag_ids: Optional[List[str]] = None,
+        tag_names: Optional[List[str]] = None,
+    ) -> List[Dict]:
+        resolved = self._resolve_tag_rows(
+            conn=conn,
+            user_id=user_id,
+            tag_ids=tag_ids,
+            tag_names=tag_names,
+        )
+        cur = conn.cursor()
+        cur.execute(
+            f'DELETE FROM "{SCHEMA}"."{EXPENSE_TAG_TABLE}" WHERE expense_id = %s::uuid',
+            (expense_id,),
+        )
+        now = datetime.now(timezone.utc)
+        for row in resolved:
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{EXPENSE_TAG_TABLE}" '
+                "(expense_id, tag_id, created_at) "
+                "VALUES (%s::uuid, %s::uuid, %s) "
+                "ON CONFLICT (expense_id, tag_id) DO NOTHING",
+                (expense_id, str(row["tag_id"]), now),
+            )
+        return resolved
+
     # --- Receipts (metadata; file storage is external) ---
     RECEIPT_TABLE = "receipt"
 
@@ -551,9 +843,837 @@ class ExpenseDataService:
         finally:
             conn.close()
 
+    def get_expense_summary_by_currency(
+        self,
+        user_id: int,
+        group_by: str,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> List[Dict]:
+        conditions = ["user_id = %s", "deleted_at IS NULL"]
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append("date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= %s")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            if group_by == "category":
+                cur.execute(
+                    f"""
+                    SELECT e.category_code::text AS group_key,
+                           e.category_name AS label,
+                           e.currency AS currency,
+                           SUM(e.amount) AS total_amount,
+                           COUNT(*) AS count
+                    FROM "{SCHEMA}"."{TABLE}" e
+                    WHERE {where}
+                    GROUP BY e.category_code, e.category_name, e.currency
+                    ORDER BY total_amount DESC
+                    """,
+                    params,
+                )
+                return [dict(r) for r in cur.fetchall()]
+            if group_by == "month":
+                cur.execute(
+                    f"""
+                    SELECT to_char(e.date, 'YYYY-MM') AS group_key,
+                           to_char(e.date, 'YYYY-MM') AS label,
+                           e.currency AS currency,
+                           SUM(e.amount) AS total_amount,
+                           COUNT(*) AS count
+                    FROM "{SCHEMA}"."{TABLE}" e
+                    WHERE {where}
+                    GROUP BY to_char(e.date, 'YYYY-MM'), e.currency
+                    ORDER BY group_key DESC
+                    """,
+                    params,
+                )
+                return [dict(r) for r in cur.fetchall()]
+            return []
+        finally:
+            conn.close()
+
+    def get_expense_totals_by_currency(
+        self,
+        user_id: int,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> List[Dict]:
+        conditions = ["user_id = %s", "deleted_at IS NULL"]
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append("date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= %s")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT currency, COALESCE(SUM(amount), 0) AS total_amount, COUNT(*) AS count
+                FROM "{SCHEMA}"."{TABLE}"
+                WHERE {where}
+                GROUP BY currency
+                ORDER BY currency ASC
+                """,
+                params,
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_latest_exchange_rate(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        as_of_date: Optional[date] = None,
+        source: Optional[str] = None,
+    ) -> Optional[Dict]:
+        base = _normalize_currency(base_currency)
+        quote = _normalize_currency(quote_currency)
+        target_date = as_of_date or datetime.now(timezone.utc).date()
+        if base == quote:
+            return {
+                "base_currency": base,
+                "quote_currency": quote,
+                "rate": Decimal("1"),
+                "rate_date": target_date,
+                "source": source or "identity",
+            }
+
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            if source:
+                cur.execute(
+                    f"""
+                    SELECT base_currency, quote_currency, rate, rate_date, source
+                    FROM "{SCHEMA}"."{EXCHANGE_RATE_TABLE}"
+                    WHERE base_currency = %s
+                      AND quote_currency = %s
+                      AND source = %s
+                      AND rate_date <= %s
+                    ORDER BY rate_date DESC, fetched_at DESC
+                    LIMIT 1
+                    """,
+                    (base, quote, source, target_date),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    SELECT base_currency, quote_currency, rate, rate_date, source
+                    FROM "{SCHEMA}"."{EXCHANGE_RATE_TABLE}"
+                    WHERE base_currency = %s
+                      AND quote_currency = %s
+                      AND rate_date <= %s
+                    ORDER BY rate_date DESC, fetched_at DESC
+                    LIMIT 1
+                    """,
+                    (base, quote, target_date),
+                )
+            row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def convert_amount(
+        self,
+        amount: Decimal,
+        from_currency: str,
+        to_currency: str,
+        as_of_date: Optional[date] = None,
+    ) -> Optional[Dict]:
+        base = _normalize_currency(from_currency)
+        quote = _normalize_currency(to_currency)
+        rate_row = self.get_latest_exchange_rate(base, quote, as_of_date=as_of_date)
+        if not rate_row:
+            return None
+        rate = Decimal(str(rate_row["rate"]))
+        converted_amount = (Decimal(str(amount)) * rate).quantize(Decimal("0.0001"))
+        return {
+            "from_currency": base,
+            "to_currency": quote,
+            "rate": rate,
+            "rate_date": rate_row["rate_date"],
+            "source": rate_row.get("source"),
+            "converted_amount": converted_amount,
+        }
+
+    def upsert_exchange_rates(
+        self,
+        rate_date: date,
+        source: str,
+        rates: List[Dict[str, Any]],
+        fetched_at: Optional[datetime] = None,
+    ) -> Dict[str, int]:
+        upserted_count = 0
+        failed_count = 0
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            ts = fetched_at or datetime.now(timezone.utc)
+            for item in rates:
+                try:
+                    base = _normalize_currency(str(item["base_currency"]))
+                    quote = _normalize_currency(str(item["quote_currency"]))
+                    rate = Decimal(str(item["rate"]))
+                    cur.execute(
+                        f"""
+                        INSERT INTO "{SCHEMA}"."{EXCHANGE_RATE_TABLE}" (
+                            base_currency, quote_currency, rate, rate_date, source, fetched_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (base_currency, quote_currency, rate_date, source)
+                        DO UPDATE SET rate = EXCLUDED.rate, fetched_at = EXCLUDED.fetched_at
+                        """,
+                        (base, quote, rate, rate_date, source, ts),
+                    )
+                    upserted_count += 1
+                except Exception:
+                    failed_count += 1
+            return {"upserted_count": upserted_count, "failed_count": failed_count}
+        finally:
+            conn.close()
+
+    def enrich_expense_export_rows_with_conversion(
+        self,
+        rows: List[Dict],
+        convert_to: str,
+        as_of_date: Optional[date] = None,
+    ) -> List[Dict]:
+        quote = _normalize_currency(convert_to)
+        enriched: List[Dict] = []
+        for row in rows:
+            amount = Decimal(str(row.get("amount") or "0"))
+            from_currency = _normalize_currency(row.get("currency") or "USD")
+            converted = self.convert_amount(
+                amount=amount,
+                from_currency=from_currency,
+                to_currency=quote,
+                as_of_date=as_of_date,
+            )
+            if not converted:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Missing exchange rate for {from_currency}->{quote}",
+                )
+            item = dict(row)
+            item["original_currency"] = from_currency
+            item["converted_currency"] = quote
+            item["converted_amount"] = converted["converted_amount"]
+            item["conversion_rate_date"] = converted["rate_date"]
+            item["conversion_source"] = converted.get("source")
+            enriched.append(item)
+        return enriched
+
+    # --- Income ---
+    def create_income(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        cols = [
+            "user_id", "amount", "date", "currency", "income_type",
+            "source_label", "description", "created_at", "updated_at",
+        ]
+        keys = [k for k in cols if k in data]
+        columns = ",".join(f'"{k}"' for k in keys)
+        placeholders = ",".join(["%s"] * len(keys))
+        vals = [data[k] for k in keys]
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{INCOME_TABLE}" ({columns}) '
+                f"VALUES ({placeholders}) RETURNING *",
+                vals,
+            )
+            row = cur.fetchone()
+            return _dict_row(row) or data
+        finally:
+            conn.close()
+
+    def get_income_by_id(self, income_id: str, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{INCOME_TABLE}" '
+                "WHERE income_id = %s::uuid AND user_id = %s AND deleted_at IS NULL",
+                (income_id, user_id),
+            )
+            return _dict_row(cur.fetchone())
+        finally:
+            conn.close()
+
+    def list_income(
+        self,
+        user_id: int,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        income_type: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Tuple[List[Dict], int]:
+        conditions = ['user_id = %s', 'deleted_at IS NULL']
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append('date >= %s')
+            params.append(date_from)
+        if date_to:
+            conditions.append('date <= %s')
+            params.append(date_to)
+        if income_type:
+            conditions.append('income_type = %s')
+            params.append(income_type)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT COUNT(*) AS c FROM "{SCHEMA}"."{INCOME_TABLE}" WHERE {where}',
+                params,
+            )
+            total = cur.fetchone()["c"]
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{INCOME_TABLE}" WHERE {where} '
+                "ORDER BY date DESC, created_at DESC, income_id DESC LIMIT %s OFFSET %s",
+                params + [limit, offset],
+            )
+            return [dict(r) for r in cur.fetchall()], total
+        finally:
+            conn.close()
+
+    def update_income(self, income_id: str, user_id: int, data: Dict[str, Any]) -> Optional[Dict]:
+        allowed = {"amount", "date", "currency", "income_type", "source_label", "description", "updated_at"}
+        updates = {k: v for k, v in data.items() if k in allowed and v is not None}
+        if not updates:
+            return self.get_income_by_id(income_id, user_id)
+        sets = ", ".join(f'"{k}" = %s' for k in updates)
+        params = list(updates.values()) + [income_id, user_id]
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{INCOME_TABLE}" SET {sets} '
+                "WHERE income_id = %s::uuid AND user_id = %s AND deleted_at IS NULL",
+                params,
+            )
+            if cur.rowcount == 0:
+                return None
+            return self.get_income_by_id(income_id, user_id)
+        finally:
+            conn.close()
+
+    def soft_delete_income(self, income_id: str, user_id: int) -> bool:
+        from datetime import datetime, timezone
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{INCOME_TABLE}" '
+                "SET deleted_at = %s, updated_at = %s "
+                "WHERE income_id = %s::uuid AND user_id = %s AND deleted_at IS NULL",
+                (datetime.now(timezone.utc), datetime.now(timezone.utc), income_id, user_id),
+            )
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def get_income_summary(
+        self,
+        user_id: int,
+        group_by: str,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> List[Dict]:
+        conditions = ["user_id = %s", "deleted_at IS NULL"]
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append("date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= %s")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            if group_by == "type":
+                cur.execute(
+                    f"""
+                    SELECT income_type AS group_key, income_type AS label,
+                           SUM(amount) AS total_amount, COUNT(*) AS count
+                    FROM "{SCHEMA}"."{INCOME_TABLE}"
+                    WHERE {where}
+                    GROUP BY income_type
+                    ORDER BY total_amount DESC
+                    """,
+                    params,
+                )
+                return [dict(r) for r in cur.fetchall()]
+            if group_by == "month":
+                cur.execute(
+                    f"""
+                    SELECT to_char(date, 'YYYY-MM') AS group_key,
+                           to_char(date, 'YYYY-MM') AS label,
+                           SUM(amount) AS total_amount, COUNT(*) AS count
+                    FROM "{SCHEMA}"."{INCOME_TABLE}"
+                    WHERE {where}
+                    GROUP BY to_char(date, 'YYYY-MM')
+                    ORDER BY group_key DESC
+                    """,
+                    params,
+                )
+                return [dict(r) for r in cur.fetchall()]
+            return []
+        finally:
+            conn.close()
+
+    def get_income_summary_by_currency(
+        self,
+        user_id: int,
+        group_by: str,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> List[Dict]:
+        conditions = ["user_id = %s", "deleted_at IS NULL"]
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append("date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= %s")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            if group_by == "type":
+                cur.execute(
+                    f"""
+                    SELECT income_type AS group_key,
+                           income_type AS label,
+                           currency AS currency,
+                           SUM(amount) AS total_amount,
+                           COUNT(*) AS count
+                    FROM "{SCHEMA}"."{INCOME_TABLE}"
+                    WHERE {where}
+                    GROUP BY income_type, currency
+                    ORDER BY total_amount DESC
+                    """,
+                    params,
+                )
+                return [dict(r) for r in cur.fetchall()]
+            if group_by == "month":
+                cur.execute(
+                    f"""
+                    SELECT to_char(date, 'YYYY-MM') AS group_key,
+                           to_char(date, 'YYYY-MM') AS label,
+                           currency AS currency,
+                           SUM(amount) AS total_amount,
+                           COUNT(*) AS count
+                    FROM "{SCHEMA}"."{INCOME_TABLE}"
+                    WHERE {where}
+                    GROUP BY to_char(date, 'YYYY-MM'), currency
+                    ORDER BY group_key DESC
+                    """,
+                    params,
+                )
+                return [dict(r) for r in cur.fetchall()]
+            return []
+        finally:
+            conn.close()
+
+    def get_income_total(
+        self,
+        user_id: int,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> Decimal:
+        conditions = ["user_id = %s", "deleted_at IS NULL"]
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append("date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= %s")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT COALESCE(SUM(amount), 0) AS total FROM "{SCHEMA}"."{INCOME_TABLE}" WHERE {where}',
+                params,
+            )
+            row = cur.fetchone()
+            return row["total"] if row and row.get("total") is not None else Decimal("0")
+        finally:
+            conn.close()
+
+    def get_income_totals_by_currency(
+        self,
+        user_id: int,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> List[Dict]:
+        conditions = ["user_id = %s", "deleted_at IS NULL"]
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append("date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= %s")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT currency, COALESCE(SUM(amount), 0) AS total_amount, COUNT(*) AS count
+                FROM "{SCHEMA}"."{INCOME_TABLE}"
+                WHERE {where}
+                GROUP BY currency
+                ORDER BY currency ASC
+                """,
+                params,
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_expense_total(
+        self,
+        user_id: int,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> Decimal:
+        conditions = ["user_id = %s", "deleted_at IS NULL"]
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append("date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= %s")
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT COALESCE(SUM(amount), 0) AS total FROM "{SCHEMA}"."{TABLE}" WHERE {where}',
+                params,
+            )
+            row = cur.fetchone()
+            return row["total"] if row and row.get("total") is not None else Decimal("0")
+        finally:
+            conn.close()
+
+    # --- Recurring expenses ---
+    def create_recurring_expense(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        cols = [
+            "user_id", "amount", "currency", "category_code", "category_name",
+            "description", "recurrence_rule", "next_due_date", "is_active",
+            "created_at", "updated_at",
+        ]
+        keys = [k for k in cols if k in data]
+        columns = ",".join(f'"{k}"' for k in keys)
+        placeholders = ",".join(["%s"] * len(keys))
+        vals = [data[k] for k in keys]
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{RECURRING_TABLE}" ({columns}) '
+                f"VALUES ({placeholders}) RETURNING *",
+                vals,
+            )
+            row = cur.fetchone()
+            return _dict_row(row) or data
+        finally:
+            conn.close()
+
+    def get_recurring_expense_by_id(self, recurring_id: str, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{RECURRING_TABLE}" '
+                "WHERE recurring_id = %s::uuid AND user_id = %s",
+                (recurring_id, user_id),
+            )
+            return _dict_row(cur.fetchone())
+        finally:
+            conn.close()
+
+    def list_recurring_expenses(
+        self,
+        user_id: int,
+        active_only: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict], int]:
+        conditions = ["user_id = %s"]
+        params: List[Any] = [user_id]
+        if active_only:
+            conditions.append("is_active = true")
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT COUNT(*) AS c FROM "{SCHEMA}"."{RECURRING_TABLE}" WHERE {where}',
+                params,
+            )
+            total = cur.fetchone()["c"]
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{RECURRING_TABLE}" WHERE {where} '
+                "ORDER BY next_due_date ASC, created_at DESC LIMIT %s OFFSET %s",
+                params + [limit, offset],
+            )
+            return [dict(r) for r in cur.fetchall()], total
+        finally:
+            conn.close()
+
+    def update_recurring_expense(self, recurring_id: str, user_id: int, data: Dict[str, Any]) -> Optional[Dict]:
+        allowed = {
+            "amount", "currency", "category_code", "category_name", "description",
+            "recurrence_rule", "next_due_date", "is_active", "last_run_at",
+            "last_created_expense_id", "updated_at",
+        }
+        updates = {k: v for k, v in data.items() if k in allowed and v is not None}
+        if not updates:
+            return self.get_recurring_expense_by_id(recurring_id, user_id)
+        sets = ", ".join(f'"{k}" = %s' for k in updates)
+        params = list(updates.values()) + [recurring_id, user_id]
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{RECURRING_TABLE}" SET {sets} '
+                "WHERE recurring_id = %s::uuid AND user_id = %s",
+                params,
+            )
+            if cur.rowcount == 0:
+                return None
+            return self.get_recurring_expense_by_id(recurring_id, user_id)
+        finally:
+            conn.close()
+
+    def delete_recurring_expense(self, recurring_id: str, user_id: int) -> bool:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{RECURRING_TABLE}" '
+                "WHERE recurring_id = %s::uuid AND user_id = %s",
+                (recurring_id, user_id),
+            )
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def list_expenses_for_export(
+        self,
+        user_id: int,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> List[Dict]:
+        conditions = ['user_id = %s', 'deleted_at IS NULL']
+        params: List[Any] = [user_id]
+        if date_from:
+            conditions.append('date >= %s')
+            params.append(date_from)
+        if date_to:
+            conditions.append('date <= %s')
+            params.append(date_to)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT expense_id, user_id, amount, date, currency, category_code, category_name, '
+                "description, source, plaid_transaction_id, created_at, updated_at "
+                f'FROM "{SCHEMA}"."{TABLE}" WHERE {where} ORDER BY date DESC, created_at DESC',
+                params,
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def list_due_recurring_ids(self, as_of_date: date, limit: int = 500) -> List[str]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT recurring_id::text
+                FROM "{SCHEMA}"."{RECURRING_TABLE}"
+                WHERE is_active = true
+                  AND next_due_date <= %s
+                ORDER BY next_due_date ASC, created_at ASC, recurring_id ASC
+                LIMIT %s
+                """,
+                (as_of_date, max(1, limit)),
+            )
+            rows = cur.fetchall()
+            return [str(r["recurring_id"]) for r in rows]
+        finally:
+            conn.close()
+
+    def process_single_due_recurring(self, recurring_id: str, as_of_date: date) -> bool:
+        """
+        Process one recurring template atomically.
+        Returns True if an expense was created and recurring metadata advanced, else False.
+        """
+        conn = self.get_connection(autocommit=False)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT recurring_id::text, user_id, amount, currency, category_code, category_name,
+                       description, recurrence_rule, next_due_date, is_active
+                FROM "{SCHEMA}"."{RECURRING_TABLE}"
+                WHERE recurring_id = %s::uuid
+                FOR UPDATE
+                """,
+                (recurring_id,),
+            )
+            recurring = cur.fetchone()
+            if not recurring:
+                conn.commit()
+                return False
+
+            if not recurring.get("is_active", True):
+                conn.commit()
+                return False
+
+            due_date = recurring.get("next_due_date")
+            if not isinstance(due_date, date):
+                conn.commit()
+                return False
+
+            if due_date > as_of_date:
+                conn.commit()
+                return False
+
+            user_id = int(recurring["user_id"])
+            self.acquire_user_lock(conn, user_id)
+
+            now = datetime.now(timezone.utc)
+            expense_data: Dict[str, Any] = {
+                "user_id": user_id,
+                "category_code": int(recurring["category_code"]),
+                "category_name": recurring["category_name"],
+                "amount": Decimal(str(recurring["amount"])),
+                "date": due_date,
+                "currency": str(recurring.get("currency") or "USD").upper(),
+                "description": recurring.get("description"),
+                "balance_after": None,
+                "created_at": now,
+                "updated_at": now,
+                "source": "recurring",
+            }
+            self._insert_expense_using_conn(conn, expense_data)
+
+            expense_id = expense_data["expense_id"]
+            prev = self.get_previous_expense(
+                user_id=user_id,
+                date_val=due_date.isoformat(),
+                created_at=expense_data["created_at"],
+                expense_id=expense_id,
+                conn=conn,
+            )
+            balance_before = Decimal("0")
+            if prev and prev.get("balance_after") is not None:
+                balance_before = Decimal(str(prev["balance_after"]))
+            new_balance = balance_before + Decimal(str(expense_data["amount"]))
+            self.update_expense_balance_after(conn, str(expense_id), user_id, new_balance)
+            self.recalc_balance_after(
+                conn,
+                user_id,
+                due_date.isoformat(),
+                expense_data["created_at"],
+                str(expense_id),
+                new_balance,
+            )
+
+            next_due_date = _advance_due_date(due_date, str(recurring["recurrence_rule"]))
+            cur.execute(
+                f"""
+                UPDATE "{SCHEMA}"."{RECURRING_TABLE}"
+                SET next_due_date = %s,
+                    last_run_at = %s,
+                    last_created_expense_id = %s::uuid,
+                    updated_at = %s
+                WHERE recurring_id = %s::uuid
+                  AND is_active = true
+                  AND next_due_date = %s
+                """,
+                (
+                    next_due_date,
+                    now,
+                    str(expense_id),
+                    now,
+                    recurring_id,
+                    due_date,
+                ),
+            )
+            if cur.rowcount == 0:
+                conn.rollback()
+                return False
+
+            conn.commit()
+            return True
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def process_due_recurring_batch(
+        self,
+        as_of_date: date,
+        limit: int = 500,
+    ) -> Dict[str, Any]:
+        recurring_ids = self.list_due_recurring_ids(as_of_date=as_of_date, limit=limit)
+        processed_count = 0
+        skipped_count = 0
+        failed_count = 0
+        failures: List[Dict[str, str]] = []
+
+        for recurring_id in recurring_ids:
+            try:
+                processed = self.process_single_due_recurring(recurring_id, as_of_date)
+                if processed:
+                    processed_count += 1
+                else:
+                    skipped_count += 1
+            except Exception as e:
+                failed_count += 1
+                failures.append(
+                    {
+                        "recurring_id": recurring_id,
+                        "error": str(e),
+                    }
+                )
+
+        return {
+            "as_of_date": as_of_date.isoformat(),
+            "candidate_count": len(recurring_ids),
+            "processed_count": processed_count,
+            "skipped_count": skipped_count,
+            "failed_count": failed_count,
+            "failures": failures,
+        }
+
     def get_idempotent_expense_id(self, user_id: int, idempotency_key: str) -> Optional[str]:
         """Return expense_id if key was used within TTL, else None."""
-        from datetime import datetime, timezone, timedelta
         conn = self._conn_autocommit()
         try:
             cur = conn.cursor()
@@ -579,5 +1699,61 @@ class ExpenseDataService:
                 "VALUES (%s, %s, %s::uuid) ON CONFLICT (user_id, idempotency_key) DO NOTHING",
                 (user_id, idempotency_key, expense_id),
             )
+        finally:
+            conn.close()
+
+    def purge_user_data(self, user_id: int) -> Dict[str, int]:
+        conn = self.get_connection(autocommit=False)
+        try:
+            cur = conn.cursor()
+            summary: Dict[str, int] = {}
+
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{self.RECEIPT_TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            summary["receipts_deleted"] = cur.rowcount or 0
+
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{IDEMPOTENCY_TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            summary["idempotency_deleted"] = cur.rowcount or 0
+
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}".plaid_item WHERE user_id = %s',
+                (user_id,),
+            )
+            summary["plaid_items_deleted"] = cur.rowcount or 0
+
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{RECURRING_TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            summary["recurring_deleted"] = cur.rowcount or 0
+
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{INCOME_TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            summary["income_deleted"] = cur.rowcount or 0
+
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            summary["expenses_deleted"] = cur.rowcount or 0
+
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{TAG_TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            summary["tags_deleted"] = cur.rowcount or 0
+
+            conn.commit()
+            return summary
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             conn.close()

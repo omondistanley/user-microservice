@@ -3,142 +3,185 @@
 {% block title %}Add expense — Expense Tracker{% endblock %}
 {% block content %}
 <div class="container">
-    <section class="card-section">
-        <h1>Add expense</h1>
-        <p class="lead">Record a new expense.</p>
-        <form id="add-expense-form" style="max-width: 400px; margin: 0 auto; text-align: left;">
-            <div class="form-group">
+
+    <div class="page-header">
+        <div>
+            <a href="/expenses" class="page-back-link">← Expenses</a>
+            <h1 class="page-title">New expense</h1>
+        </div>
+    </div>
+
+    <div class="form-page-card">
+        <form id="add-expense-form">
+
+            <!-- Amount — biggest field, top position -->
+            <div class="form-group form-group--amount">
                 <label for="amount">Amount</label>
-                <input type="number" id="amount" name="amount" class="form-control" step="0.01" min="0" required placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label for="date">Date</label>
-                <input type="date" id="date" name="date" class="form-control" required>
-            </div>
-            <div class="form-group">
-                <label for="category">Category</label>
-                <select id="category" name="category" class="form-control" required>
-                    <option value="">Loading…</option>
-                </select>
-                <div class="form-group" style="margin-top: 0.5rem;">
-                    <button type="button" id="btn-add-category" class="btn btn-secondary btn-sm">+ Create new category</button>
-                    <div id="new-category-inline" style="display: none; margin-top: 0.5rem;">
-                        <input type="text" id="new-category-name" class="form-control" placeholder="Category name" maxlength="64" style="display: inline-block; width: auto; margin-right: 0.5rem;">
-                        <button type="button" id="btn-save-category" class="btn btn-primary btn-sm">Add</button>
-                        <button type="button" id="btn-cancel-category" class="btn btn-secondary btn-sm">Cancel</button>
-                        <span id="new-category-msg" class="message-error" style="display: none; margin-left: 0.5rem;"></span>
-                    </div>
+                <div class="amount-input-wrap">
+                    <span class="amount-currency-prefix">$</span>
+                    <input type="number" id="amount" name="amount" class="form-control amount-input"
+                           step="0.01" min="0" required placeholder="0.00" autocomplete="off">
                 </div>
             </div>
-            <div class="form-group">
-                <label for="description">Description</label>
-                <input type="text" id="description" name="description" class="form-control" placeholder="e.g. Groceries">
+
+            <div class="form-row-two">
+                <div class="form-group">
+                    <label for="date">Date</label>
+                    <input type="date" id="date" name="date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category" class="form-control" required>
+                        <option value="">Loading…</option>
+                    </select>
+                </div>
             </div>
+
+            <!-- Inline new-category -->
+            <div id="new-category-area" style="margin-top:calc(-1 * var(--sp-3)); margin-bottom:var(--sp-5);">
+                <button type="button" id="btn-add-category" class="btn btn-ghost btn-sm">+ New category</button>
+                <div id="new-category-inline" style="display:none;" class="inline-new-category">
+                    <input type="text" id="new-category-name" class="form-control" placeholder="Category name" maxlength="64">
+                    <button type="button" id="btn-save-category" class="btn btn-primary btn-sm">Add</button>
+                    <button type="button" id="btn-cancel-category" class="btn btn-secondary btn-sm">Cancel</button>
+                    <span id="new-category-msg" class="message-error" style="display:none;"></span>
+                </div>
+            </div>
+
             <div class="form-group">
-                <label for="receipt-file">Attach receipt (optional)</label>
+                <label for="description">Description <span class="form-optional">optional</span></label>
+                <input type="text" id="description" name="description" class="form-control" placeholder="e.g. Weekly groceries">
+            </div>
+
+            <div class="form-group">
+                <label for="tags">Tags <span class="form-optional">optional · comma separated</span></label>
+                <input type="text" id="tags" name="tags" class="form-control" list="tags-suggestions" placeholder="e.g. food, family">
+                <datalist id="tags-suggestions"></datalist>
+            </div>
+
+            <div class="form-group">
+                <label for="receipt-file">Receipt <span class="form-optional">optional</span></label>
                 <input type="file" id="receipt-file" name="file" class="form-control" accept="image/*,.pdf">
             </div>
-            <div id="add-message" class="message-error" style="display: none;"></div>
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="/expenses" class="btn btn-secondary">Cancel</a>
+
+            <div id="add-message" class="auth-alert" style="display:none;"></div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="save-btn">Save expense</button>
+                <a href="/expenses" class="btn btn-secondary">Cancel</a>
+            </div>
+
         </form>
-    </section>
+    </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/expenses.js"></script>
-<script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
 (function() {
-    var form = document.getElementById('add-expense-form');
-    var msg = document.getElementById('add-message');
+    var form     = document.getElementById('add-expense-form');
+    var msg      = document.getElementById('add-message');
+    var saveBtn  = document.getElementById('save-btn');
     var dateInput = document.getElementById('date');
-    if (dateInput) {
-        var today = new Date().toISOString().slice(0, 10);
-        dateInput.value = today;
+    var tagsInput = document.getElementById('tags');
+    var tagsDatalist = document.getElementById('tags-suggestions');
+
+    if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+    if (window.Expenses && window.Expenses.fillTagSuggestions) {
+        window.Expenses.fillTagSuggestions(tagsInput, tagsDatalist).catch(function(){});
     }
+
+    function showMsg(text, isError) {
+        msg.textContent = text;
+        msg.className = 'auth-alert ' + (isError ? 'auth-alert--error' : 'auth-alert--success');
+        msg.style.display = 'block';
+    }
+
+    // ── Category loading ─────────────────────────────────────
     function refreshCategories(selectedName) {
         var sel = document.getElementById('category');
         if (window.Expenses && window.Expenses.fillCategorySelect) {
             window.Expenses.fillCategorySelect(sel, selectedName).catch(function() {
-                if (sel) sel.innerHTML = '<option value="">Category (load failed)</option>';
+                if (sel) sel.innerHTML = '<option value="">Could not load</option>';
             });
         }
     }
     refreshCategories();
-    var addCatBtn = document.getElementById('btn-add-category');
-    var newCatInline = document.getElementById('new-category-inline');
-    var newCatName = document.getElementById('new-category-name');
-    var saveCatBtn = document.getElementById('btn-save-category');
-    var cancelCatBtn = document.getElementById('btn-cancel-category');
-    var newCatMsg = document.getElementById('new-category-msg');
+
+    var addCatBtn     = document.getElementById('btn-add-category');
+    var newCatInline  = document.getElementById('new-category-inline');
+    var newCatName    = document.getElementById('new-category-name');
+    var saveCatBtn    = document.getElementById('btn-save-category');
+    var cancelCatBtn  = document.getElementById('btn-cancel-category');
+    var newCatMsg     = document.getElementById('new-category-msg');
+
     if (addCatBtn && newCatInline) {
         addCatBtn.addEventListener('click', function() {
-            newCatInline.style.display = 'block';
+            newCatInline.style.display = 'flex';
             addCatBtn.style.display = 'none';
             newCatName.value = '';
             newCatMsg.style.display = 'none';
+            newCatName.focus();
         });
     }
-    if (cancelCatBtn && newCatInline && addCatBtn) {
+    if (cancelCatBtn) {
         cancelCatBtn.addEventListener('click', function() {
             newCatInline.style.display = 'none';
             addCatBtn.style.display = '';
-            newCatMsg.style.display = 'none';
         });
     }
-    if (saveCatBtn && newCatName && newCatMsg) {
+    if (saveCatBtn && newCatName) {
         saveCatBtn.addEventListener('click', function() {
             var name = (newCatName.value || '').trim();
-            if (!name) {
-                newCatMsg.textContent = 'Enter a category name';
-                newCatMsg.style.display = 'inline';
-                return;
-            }
+            if (!name) { newCatMsg.textContent = 'Enter a name'; newCatMsg.style.display = 'inline'; return; }
             newCatMsg.style.display = 'none';
             if (!window.Expenses || !window.Expenses.createCategory) return;
             window.Expenses.createCategory(name).then(function(cat) {
                 newCatInline.style.display = 'none';
                 if (addCatBtn) addCatBtn.style.display = '';
-                refreshCategories(cat && cat.name ? cat.name : name);
-                if (document.getElementById('category')) document.getElementById('category').value = (cat && cat.name) ? cat.name : name;
+                var finalName = (cat && cat.name) ? cat.name : name;
+                refreshCategories(finalName);
+                var sel = document.getElementById('category');
+                if (sel) sel.value = finalName;
             }).catch(function(err) {
-                newCatMsg.textContent = err.message || 'Failed to create category';
+                newCatMsg.textContent = err.message || 'Failed to create';
                 newCatMsg.style.display = 'inline';
             });
         });
     }
+
+    // ── Submit ───────────────────────────────────────────────
     if (form && window.Expenses && typeof window.Expenses.add === 'function') {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             msg.style.display = 'none';
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
             var amount = parseFloat(document.getElementById('amount').value, 10);
             var dateVal = document.getElementById('date').value;
             var category = document.getElementById('category').value;
-            var description = document.getElementById('description').value;
+            var description = (document.getElementById('description').value || '').trim();
+            var tags = window.Expenses.parseTagInput ? window.Expenses.parseTagInput(tagsInput ? tagsInput.value : '') : [];
             var fileInput = document.getElementById('receipt-file');
             var file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
-            var payload = { amount: amount, date: dateVal, category: category || undefined, description: description || undefined };
-            var idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('key-' + Date.now() + '-' + Math.random().toString(36).slice(2));
-            window.Expenses.add(payload, idempotencyKey).then(function(res) {
-                var expenseId = res && res.expense_id;
-                if (file && expenseId && window.Expenses.uploadReceipt) {
-                    return window.Expenses.uploadReceipt(expenseId, file).then(function() {
-                        window.location.href = '/expenses?added=' + expenseId;
+            var payload = { amount: amount, date: dateVal };
+            if (category) payload.category = category;
+            if (description) payload.description = description;
+            if (tags.length) payload.tags = tags;
+            var key = (typeof crypto !== 'undefined' && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : ('key-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+            window.Expenses.add(payload, key).then(function(res) {
+                var id = res && res.expense_id;
+                if (file && id && window.Expenses.uploadReceipt) {
+                    return window.Expenses.uploadReceipt(id, file).then(function() {
+                        window.location.href = '/expenses?added=' + id;
                     });
                 }
-                if (expenseId) {
-                    window.location.href = '/expenses?added=' + expenseId;
-                } else {
-                    msg.textContent = 'Expense saved.' + (res && res.balance_after != null ? ' Balance after: ' + res.balance_after : '');
-                    msg.classList.remove('message-error');
-                    msg.classList.add('message-success');
-                    msg.style.display = 'block';
-                }
+                window.location.href = '/expenses' + (id ? '?added=' + id : '');
             }).catch(function(err) {
-                msg.textContent = err.message || 'Failed to add expense';
-                msg.classList.add('message-error');
-                msg.classList.remove('message-success');
-                msg.style.display = 'block';
+                showMsg(err.message || 'Failed to save expense', true);
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save expense'; }
             });
         });
     }

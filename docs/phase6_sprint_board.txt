@@ -1,0 +1,118 @@
+Phase 6 Sprint Task Board (UX + PWA + Accessibility)
+
+Guardrails
+- No mandatory paid SaaS in Phase 6.
+- Keep frontend enhancements progressive and backward compatible.
+- Maintain accessibility standards as non-negotiable acceptance criteria.
+- Minimize bundle bloat; prefer existing JS/CSS architecture.
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (Mobile-First UX + Offline Basics, 1-2 weeks)
+
+Ticket: P6-S1-T1
+Title: PWA Manifest + Service Worker Foundation
+Status: TODO
+Type: UI/Platform
+Tasks:
+- Add `frontend/static/manifest.json` with app icons, name, start_url, display mode.
+- Register service worker from layout.
+- Implement cache strategy:
+  cache-first for static assets,
+  network-first for API GET requests.
+- Add versioned cache invalidation.
+Acceptance Criteria:
+- App is installable on modern mobile browsers.
+- Static assets load from cache on repeat visits.
+- Service worker updates cleanly on new deploys.
+
+Ticket: P6-S1-T2
+Title: Offline Queue for Expense/Income Create
+Status: TODO
+Type: UI/API
+Tasks:
+- Add local queue (IndexedDB/localStorage fallback) for create actions when offline.
+- Replay queued actions on reconnect with idempotency keys.
+- Add queue status UI: pending/synced/failed.
+Acceptance Criteria:
+- Offline-created items sync automatically when network returns.
+- Duplicate creation is prevented via idempotency keys.
+- Failed sync items are retriable from UI.
+
+Ticket: P6-S1-T3
+Title: Theme System (Light/Dark/System) End-to-End
+Status: TODO
+Type: UI
+Tasks:
+- Consolidate CSS vars for all major components.
+- Add theme preference controls in settings/navbar.
+- Apply same theme rules to chart config defaults.
+- Persist preference in user settings + local fallback.
+Acceptance Criteria:
+- Theme applies consistently across dashboard, lists, forms, charts.
+- System theme follows OS preference when selected.
+- No text contrast regressions in either theme.
+
+Ticket: P6-S1-T4
+Title: Onboarding + Empty State Standardization
+Status: TODO
+Type: UI
+Tasks:
+- Add first-session onboarding hints (dismissible, once per user/device).
+- Standardize empty states for dashboard, expenses, income, budgets, recurring.
+- Add contextual CTAs for key actions.
+Acceptance Criteria:
+- New users see actionable next steps on empty pages.
+- Onboarding does not reappear after dismissal unless reset.
+
+Ticket: P6-S1-T5
+Title: Accessibility Remediation Pass
+Status: TODO
+Type: UI
+Tasks:
+- Ensure labels/aria relationships for all inputs/forms.
+- Add keyboard navigation and focus management for modals/dropdowns.
+- Add skip-to-content link and visible focus states.
+- Improve chart accessibility text alternatives.
+Acceptance Criteria:
+- Core flows are keyboard-only navigable.
+- Automated a11y checks report no critical violations.
+- Screen-reader labels are present for primary actions.
+
+Ticket: P6-S1-T6
+Title: Mobile Layout + Bulk Actions UX
+Status: TODO
+Type: UI
+Tasks:
+- Refine breakpoints, spacing, and touch targets (>=44px).
+- Improve list actions for mobile (sticky action bar / bottom sheet pattern).
+- Add bulk actions UX for expenses:
+  select rows, bulk delete, bulk category update, bulk tag update.
+Acceptance Criteria:
+- Main flows are usable on small screens without horizontal scroll.
+- Bulk actions work reliably on mobile and desktop.
+
+Ticket: P6-S1-T7
+Title: Sprint 1 Tests + Runbook
+Status: TODO
+Type: Test/Docs
+Test Tasks:
+- PWA/service-worker smoke tests.
+- Offline queue replay tests.
+- Theme persistence and chart-theme parity tests.
+- Accessibility checks in CI (axe/pa11y or equivalent OSS tooling).
+Docs Tasks:
+- Add `docs/phase6_runbook.txt` with:
+  PWA setup, cache invalidation, offline debug tips, a11y checklist.
+Acceptance Criteria:
+- UX regression suite passes in CI/local.
+- Runbook supports reproducible validation of mobile/offline/a11y behavior.
+
+Phase 6 Sprint 1 Definition of Done
+- App is installable and resilient to intermittent connectivity.
+- Theme, onboarding, and empty-state UX are consistent and polished.
+- Accessibility and mobile usability meet defined acceptance standards.
+- UI changes are covered by tests and operational docs.

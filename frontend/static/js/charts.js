@@ -42,8 +42,9 @@
 
     function defaultChartOptions() {
         return {
-            chart: { fontFamily: 'Roboto, sans-serif', toolbar: { show: false } },
+            chart: { fontFamily: 'Inter, Roboto, sans-serif', toolbar: { show: false }, background: 'transparent' },
             theme: defaultTheme(),
+            grid: { borderColor: 'rgba(255,255,255,0.06)' },
             responsive: [{ options: {} }]
         };
     }
@@ -168,7 +169,7 @@
                     sparkline: { enabled: true },
                     height: 60,
                     toolbar: { show: false },
-                    fontFamily: 'Roboto, sans-serif'
+                    fontFamily: 'Inter, Roboto, sans-serif'
                 },
                 stroke: { curve: 'smooth', width: 2 },
                 theme: defaultTheme(),

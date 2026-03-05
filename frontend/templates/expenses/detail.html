@@ -13,6 +13,7 @@
                 <dt>Amount</dt><dd id="detail-amount"></dd>
                 <dt>Date</dt><dd id="detail-date"></dd>
                 <dt>Category</dt><dd id="detail-category"></dd>
+                <dt>Tags</dt><dd id="detail-tags"></dd>
                 <dt>Description</dt><dd id="detail-description"></dd>
                 <dt>Currency</dt><dd id="detail-currency"></dd>
                 <dt>Balance after</dt><dd id="detail-balance"></dd>
@@ -46,6 +47,11 @@
                 <label for="edit-description">Description</label>
                 <input type="text" id="edit-description" name="description" class="form-control">
             </div>
+            <div class="form-group">
+                <label for="edit-tags">Tags (comma separated)</label>
+                <input type="text" id="edit-tags" name="tags" class="form-control" list="edit-tags-suggestions">
+                <datalist id="edit-tags-suggestions"></datalist>
+            </div>
             <div id="edit-message" class="message-error" style="display: none;"></div>
             <button type="submit" class="btn btn-primary">Save</button>
             <button type="button" id="btn-edit-cancel" class="btn btn-secondary">Cancel</button>
@@ -65,8 +71,8 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/expenses.js"></script>
-<script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var expenseId = ('{{ expense_id }}' || '').trim();
     var viewEl = document.getElementById('expense-view');
@@ -74,6 +80,8 @@
     var loadingEl = document.getElementById('expense-loading');
     var editForm = document.getElementById('expense-edit-form');
     var editMsg = document.getElementById('edit-message');
+    var editTagsInput = document.getElementById('edit-tags');
+    var editTagsDatalist = document.getElementById('edit-tags-suggestions');
     var receiptsList = document.getElementById('receipts-list');
     var receiptUploadForm = document.getElementById('receipt-upload-form');
     var receiptMsg = document.getElementById('receipt-message');
@@ -89,6 +97,9 @@
         document.getElementById('detail-amount').textContent = formatNum(expense.amount);
         document.getElementById('detail-date').textContent = expense.date ? (expense.date.length >= 10 ? expense.date.slice(0, 10) : expense.date) : '—';
         document.getElementById('detail-category').textContent = expense.category_name || expense.category || '—';
+        document.getElementById('detail-tags').textContent = Array.isArray(expense.tags) && expense.tags.length
+            ? expense.tags.map(function(tag) { return tag.name || tag.slug; }).join(', ')
+            : '—';
         document.getElementById('detail-description').textContent = (expense.description || '').trim() || '—';
         document.getElementById('detail-currency').textContent = expense.currency || '—';
         document.getElementById('detail-balance').textContent = formatNum(expense.balance_after);
@@ -120,6 +131,11 @@
             document.getElementById('edit-date').value = expense.date ? expense.date.slice(0, 10) : '';
             document.getElementById('edit-category').value = expense.category_name || expense.category || '';
             document.getElementById('edit-description').value = expense.description || '';
+            if (editTagsInput) {
+                editTagsInput.value = Array.isArray(expense.tags) && expense.tags.length
+                    ? expense.tags.map(function(tag) { return tag.name || tag.slug; }).join(', ')
+                    : '';
+            }
         }).catch(function(err) {
             if (loadingEl) loadingEl.style.display = 'none';
             if (errorEl) {
@@ -182,6 +198,9 @@
                 return '<option value="' + (c.name || '') + '">' + (c.name || '') + '</option>';
             }).join('');
         });
+    }
+    if (window.Expenses && window.Expenses.fillTagSuggestions) {
+        window.Expenses.fillTagSuggestions(editTagsInput, editTagsDatalist).catch(function() {});
     }
     var addCatEditBtn = document.getElementById('btn-add-category-edit');
     var newCatInlineEdit = document.getElementById('new-category-inline-edit');
@@ -247,6 +266,10 @@
             category: document.getElementById('edit-category').value,
             description: document.getElementById('edit-description').value || undefined
         };
+        var parsedTags = window.Expenses && window.Expenses.parseTagInput
+            ? window.Expenses.parseTagInput(editTagsInput ? editTagsInput.value : '')
+            : [];
+        payload.tags = parsedTags;
         window.Expenses.updateExpense(expenseId, payload).then(function(expense) {
             showView(expense);
             editForm.style.display = 'none';

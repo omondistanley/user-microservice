@@ -2,6 +2,8 @@
 -- Schema name used as "database" in app (expenses_db).
 -- Run: python run_migration.py migrations/001_schema.sql
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE SCHEMA IF NOT EXISTS expenses_db;
 
 -- Category master: code + name (words and numbers)

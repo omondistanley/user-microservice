@@ -30,6 +30,7 @@ def _row_to_response(row: Dict[str, Any]) -> BudgetResponse:
         end_date=row["end_date"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        alert_configs=row.get("alert_configs") or [],
     )
 
 
@@ -50,6 +51,7 @@ class BudgetResource(BaseResource):
         row = self.data_service.get_budget_by_id(budget_id, user_id)
         if not row:
             raise HTTPException(status_code=404, detail="Budget not found")
+        row["alert_configs"] = self.data_service.get_budget_alert_configs(user_id, budget_id)
         return _row_to_response(row)
 
     def create(self, user_id: int, payload: BudgetCreate) -> BudgetResponse:
@@ -76,6 +78,15 @@ class BudgetResource(BaseResource):
             "updated_at": now,
         }
         inserted = self.data_service.insert_budget(data)
+        if payload.alert_thresholds is not None:
+            inserted["alert_configs"] = self.data_service.replace_budget_alert_configs(
+                user_id=user_id,
+                budget_id=inserted["budget_id"],
+                thresholds=payload.alert_thresholds,
+                channel=payload.alert_channel or "in_app",
+            )
+        else:
+            inserted["alert_configs"] = []
         return _row_to_response(inserted)
 
     def list(
@@ -92,6 +103,11 @@ class BudgetResource(BaseResource):
             page=params.page,
             page_size=params.page_size,
         )
+        for row in rows:
+            row["alert_configs"] = self.data_service.get_budget_alert_configs(
+                user_id=user_id,
+                budget_id=row["budget_id"],
+            )
         return [_row_to_response(r) for r in rows], total
 
     def get_effective(
@@ -111,6 +127,7 @@ class BudgetResource(BaseResource):
                 status_code=404,
                 detail="No budget found for this category and date",
             )
+        row["alert_configs"] = self.data_service.get_budget_alert_configs(user_id, row["budget_id"])
         return _row_to_response(row)
 
     def update(
@@ -119,6 +136,7 @@ class BudgetResource(BaseResource):
         existing = self.data_service.get_budget_by_id(budget_id, user_id)
         if not existing:
             raise HTTPException(status_code=404, detail="Budget not found")
+        existing_alert_configs = self.data_service.get_budget_alert_configs(user_id, budget_id)
 
         # If only name is being updated, do simple update
         amount_or_dates = any(
@@ -126,13 +144,32 @@ class BudgetResource(BaseResource):
             for f in ("amount", "start_date", "end_date")
         )
         if not amount_or_dates:
+            updated_row = existing
             if payload.name is not None:
-                updated = self.data_service.update_budget(
+                maybe_updated = self.data_service.update_budget(
                     budget_id, user_id, {"name": payload.name}
                 )
-                if updated:
-                    return _row_to_response(updated)
-            return _row_to_response(existing)
+                if maybe_updated:
+                    updated_row = maybe_updated
+            if payload.alert_thresholds is not None or payload.alert_channel is not None:
+                thresholds = (
+                    payload.alert_thresholds
+                    if payload.alert_thresholds is not None
+                    else [cfg["threshold_percent"] for cfg in existing_alert_configs]
+                )
+                channel = (
+                    payload.alert_channel
+                    or (existing_alert_configs[0]["channel"] if existing_alert_configs else "in_app")
+                )
+                updated_row["alert_configs"] = self.data_service.replace_budget_alert_configs(
+                    user_id=user_id,
+                    budget_id=budget_id,
+                    thresholds=thresholds,
+                    channel=channel,
+                )
+            else:
+                updated_row["alert_configs"] = existing_alert_configs
+            return _row_to_response(updated_row)
 
         # History: end current period and insert new row
         from datetime import timedelta
@@ -141,6 +178,14 @@ class BudgetResource(BaseResource):
         new_end = payload.end_date if payload.end_date is not None else existing["end_date"]
         new_amount = payload.amount if payload.amount is not None else existing["amount"]
         period_end = new_start - timedelta(days=1)
+
+        alert_thresholds = payload.alert_thresholds
+        if alert_thresholds is None:
+            alert_thresholds = [cfg["threshold_percent"] for cfg in existing_alert_configs]
+        alert_channel = (
+            payload.alert_channel
+            or (existing_alert_configs[0]["channel"] if existing_alert_configs else "in_app")
+        )
 
         self.data_service.end_budget_period(budget_id, user_id, period_end)
         now = datetime.now(timezone.utc)
@@ -155,6 +200,12 @@ class BudgetResource(BaseResource):
             "updated_at": now,
         }
         inserted = self.data_service.insert_budget(new_data)
+        inserted["alert_configs"] = self.data_service.replace_budget_alert_configs(
+            user_id=user_id,
+            budget_id=inserted["budget_id"],
+            thresholds=alert_thresholds,
+            channel=alert_channel,
+        )
         return _row_to_response(inserted)
 
     def delete(self, budget_id: UUID, user_id: int) -> None:

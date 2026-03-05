@@ -1,4 +1,4 @@
--- Idempotency keys for POST /api/expenses (optional Idempotency-Key header).
+-- Idempotency keys for POST /api/v1/expenses (optional Idempotency-Key header).
 -- Run: python run_migration.py migrations/003_idempotency.sql
 
 CREATE TABLE IF NOT EXISTS expenses_db.idempotency (

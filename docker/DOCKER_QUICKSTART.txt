@@ -1,0 +1,41 @@
+Docker Quick Start
+==================
+
+1) Copy env defaults:
+
+   cp .env.compose.example .env
+
+2) Start the stack:
+
+   docker compose up --build
+
+3) Endpoints:
+
+   - User gateway + frontend: http://localhost:8000
+   - Expense API:            http://localhost:3001
+   - Budget API:             http://localhost:3002
+   - Postgres:               localhost:5432
+
+Migrations run automatically through one-off services:
+
+   - user-migrations
+   - expense-migrations
+   - budget-migrations
+
+Manual migrations (optional re-run):
+
+   docker compose run --rm user-migrations
+   docker compose run --rm expense-migrations
+   docker compose run --rm budget-migrations
+
+Recurring due processor (manual run):
+
+   docker compose run --rm expense python -m app.jobs.recurring_due_processor
+
+Smoke checks:
+
+   curl -s http://localhost:8000/health
+   curl -s http://localhost:3001/health
+   curl -s http://localhost:3002/health
+   curl -i http://localhost:3001/api/v1/income
+   curl -i http://localhost:3001/api/v1/recurring-expenses

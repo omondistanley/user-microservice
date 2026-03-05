@@ -1,0 +1,139 @@
+Phase 4 Sprint Task Board (Insights + Goals)
+
+Guardrails
+- No mandatory paid SaaS in Phase 4.
+- Keep analytics deterministic and explainable (SQL + simple statistical methods).
+- Reuse existing `/api/v1` versioning and request-id logging.
+- Prefer PostgreSQL materialized/query views before introducing new infra.
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (Savings Goals + Forecasting + Insights, 1-2 weeks)
+
+Ticket: P4-S1-T1
+Title: Savings Goals Schema
+Status: TODO
+Type: DB
+DB Tasks:
+- Add `expenses_db.savings_goal`:
+  `goal_id (uuid pk)`, `user_id`, `household_id (nullable)`, `name`,
+  `target_amount`, `target_currency`, `target_date (nullable)`,
+  `start_amount`, `is_active`, `created_at`, `updated_at`.
+- Add `expenses_db.goal_contribution`:
+  `contribution_id (uuid pk)`, `goal_id`, `user_id`, `amount`,
+  `contribution_date`, `source (manual|auto_cashflow)`, `created_at`.
+- Add indexes:
+  by `user_id`, (`household_id`, `is_active`), and (`goal_id`, `contribution_date`).
+Acceptance Criteria:
+- Migration is idempotent.
+- Goals support personal and household scope.
+- Contribution rows are linked and queryable by goal timeline.
+
+Ticket: P4-S1-T2
+Title: Savings Goals API
+Status: TODO
+Type: API
+API Tasks:
+- Add endpoints:
+  `POST /api/v1/goals`
+  `GET /api/v1/goals`
+  `GET /api/v1/goals/{goal_id}`
+  `PATCH /api/v1/goals/{goal_id}`
+  `DELETE /api/v1/goals/{goal_id}`
+  `POST /api/v1/goals/{goal_id}/contributions`
+  `GET /api/v1/goals/{goal_id}/progress`
+- Progress calculation:
+  `current_amount`, `remaining_amount`, `percent_complete`, `days_remaining` (if target date provided).
+Acceptance Criteria:
+- Users can only mutate their own (or authorized household) goals.
+- Progress endpoint always returns deterministic totals from stored contributions.
+
+Ticket: P4-S1-T3
+Title: Forecasting Endpoint (Low-Complexity)
+Status: TODO
+Type: API
+API Tasks:
+- Add `GET /api/v1/insights/forecast/spend`.
+- Inputs:
+  `months_back` (default 6), optional `category_code`, optional `household_id`.
+- Method:
+  moving average + optional linear trend on monthly totals (no paid ML).
+- Return:
+  per-month projected spend for current + next 2 months and confidence band metadata.
+Acceptance Criteria:
+- Forecast output is reproducible for same inputs/data.
+- Missing data returns clear 422 with guidance instead of silent zeros.
+
+Ticket: P4-S1-T4
+Title: Anomaly Detection Endpoint
+Status: TODO
+Type: API
+API Tasks:
+- Add `GET /api/v1/insights/anomalies`.
+- Baseline:
+  z-score/IQR against user’s historical spend by category and merchant description.
+- Return anomalies with reason codes:
+  `amount_outlier`, `frequency_spike`, `new_merchant_high_spend`.
+- Add feedback endpoint:
+  `POST /api/v1/insights/anomalies/{expense_id}/feedback` (`valid`|`ignore`).
+Acceptance Criteria:
+- Endpoint returns explainable reason fields per anomaly.
+- Feedback persists and is excluded from repeated flags when set to `ignore`.
+
+Ticket: P4-S1-T5
+Title: Comparison Periods + Saved Views
+Status: TODO
+Type: DB/API
+DB Tasks:
+- Add `users_db.report_saved_view`:
+  `view_id (uuid pk)`, `user_id`, `name`, `payload_json`, `created_at`, `updated_at`.
+API Tasks:
+- Extend reports endpoints to support:
+  `compare_to=previous_period|previous_year`.
+- Add endpoints:
+  `POST /api/v1/reports/saved-views`
+  `GET /api/v1/reports/saved-views`
+  `DELETE /api/v1/reports/saved-views/{view_id}`
+Acceptance Criteria:
+- API returns `current_period` and `comparison_period` totals with percent delta.
+- Saved views restore full filter payload (date, category, tags, currency, household scope).
+
+Ticket: P4-S1-T6
+Title: Insights + Goals UI
+Status: TODO
+Type: UI
+UI Tasks:
+- Add goals pages:
+  list/create/edit/detail with progress bars and contribution timeline.
+- Add insights widgets on dashboard/reports:
+  forecast chart, anomaly list, month-vs-month cards.
+- Add saved-view controls in reports UI.
+Acceptance Criteria:
+- User can create/update goals and see live progress.
+- Insights cards degrade gracefully when insufficient data exists.
+- Saved report view can be applied in one click.
+
+Ticket: P4-S1-T7
+Title: Sprint 1 Tests + Runbook
+Status: TODO
+Type: Test/Docs
+Test Tasks:
+- Goals CRUD/progress API tests.
+- Forecast deterministic math tests.
+- Anomaly reason-code and feedback tests.
+- Comparison period and saved-view tests.
+Docs Tasks:
+- Add `docs/phase4_runbook.txt` with:
+  migrations, sample forecast/anomaly calls, and dashboard smoke checks.
+Acceptance Criteria:
+- New test suite passes locally/CI.
+- Runbook is enough for setup + verification without tribal knowledge.
+
+Phase 4 Sprint 1 Definition of Done
+- Savings goals are fully operational with progress tracking.
+- Forecasting/anomaly insights are explainable and low-cost.
+- Comparison reports and saved views improve repeat analysis workflows.
+- UI, tests, and runbook are complete and consistent.

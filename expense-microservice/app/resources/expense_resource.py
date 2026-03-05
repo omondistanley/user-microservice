@@ -38,6 +38,7 @@ def _row_to_response(row: Dict[str, Any]) -> ExpenseResponse:
         updated_at=row["updated_at"],
         source=row.get("source"),
         plaid_transaction_id=row.get("plaid_transaction_id"),
+        tags=row.get("tags") or [],
     )
 
 
@@ -57,6 +58,7 @@ class ExpenseResource(BaseResource):
         row = self.data_service.get_expense_by_id(expense_id, user_id)
         if not row or row.get("deleted_at"):
             raise HTTPException(status_code=404, detail="Expense not found")
+        row["tags"] = self.data_service.get_tags_for_expense(str(expense_id), user_id)
         return _row_to_response(row)
 
     def create(
@@ -94,10 +96,19 @@ class ExpenseResource(BaseResource):
         if plaid_transaction_id is not None:
             data["plaid_transaction_id"] = plaid_transaction_id
         conn = self.data_service.get_connection(autocommit=False)
+        created_tags: list[Dict[str, Any]] = []
         try:
             self.data_service.acquire_user_lock(conn, user_id)
             self.data_service._insert_expense_using_conn(conn, data)
             expense_id = data["expense_id"]
+            if payload.tag_ids is not None or payload.tags is not None:
+                created_tags = self.data_service.set_expense_tags(
+                    conn=conn,
+                    user_id=user_id,
+                    expense_id=str(expense_id),
+                    tag_ids=[str(t) for t in payload.tag_ids] if payload.tag_ids else None,
+                    tag_names=payload.tags,
+                )
             date_val = payload.date.isoformat()
             created_at = data["created_at"]
             prev = self.data_service.get_previous_expense(
@@ -115,11 +126,15 @@ class ExpenseResource(BaseResource):
                 conn, user_id, date_val, created_at, str(expense_id), new_balance
             )
             conn.commit()
+        except HTTPException:
+            conn.rollback()
+            raise
         except Exception as e:
             conn.rollback()
             raise HTTPException(status_code=500, detail=str(e))
         finally:
             conn.close()
+        data["tags"] = created_tags
         return _row_to_response(data)
 
     def list(
@@ -138,11 +153,17 @@ class ExpenseResource(BaseResource):
             date_from=date_from,
             date_to=date_to,
             category_code=category_code,
+            tag_id=params.tag_id,
+            tag_slug=params.tag,
             min_amount=params.min_amount,
             max_amount=params.max_amount,
             limit=params.page_size,
             offset=offset,
         )
+        expense_ids = [str(r["expense_id"]) for r in rows if r.get("expense_id")]
+        tags_by_expense = self.data_service.get_tags_for_expense_ids(expense_ids, user_id)
+        for row in rows:
+            row["tags"] = tags_by_expense.get(str(row["expense_id"]), [])
         return [_row_to_response(r) for r in rows], total
 
     def update(
@@ -169,35 +190,52 @@ class ExpenseResource(BaseResource):
             if not resolved:
                 raise HTTPException(status_code=400, detail="Invalid category")
             updates["category_code"], updates["category_name"] = resolved
-        updates["updated_at"] = datetime.now(timezone.utc)
-        if not updates:
+        has_tag_updates = payload.tag_ids is not None or payload.tags is not None
+        if updates:
+            updates["updated_at"] = datetime.now(timezone.utc)
+        if not updates and not has_tag_updates:
+            existing["tags"] = self.data_service.get_tags_for_expense(str(expense_id), user_id)
             return _row_to_response(existing)
         conn = self.data_service.get_connection(autocommit=False)
+        updated_tags: Optional[list[Dict[str, Any]]] = None
         try:
             self.data_service.acquire_user_lock(conn, user_id)
-            cur = conn.cursor()
-            sets = ", ".join(f'"{k}" = %s' for k in updates)
-            vals = list(updates.values()) + [str(expense_id), user_id]
-            cur.execute(
-                f'UPDATE "{SCHEMA}"."{TABLE}" SET {sets} WHERE expense_id = %s AND user_id = %s',
-                vals,
-            )
-            if cur.rowcount == 0:
-                conn.rollback()
-                raise HTTPException(status_code=404, detail="Expense not found")
-            updated_row = self.data_service.get_expense_by_id(expense_id, user_id)
-            pivot_date = updated_row["date"].isoformat() if hasattr(updated_row["date"], "isoformat") else str(updated_row["date"])
-            pivot_created = updated_row["created_at"]
-            pivot_id = str(expense_id)
-            prev = self.data_service.get_previous_expense(
-                user_id, pivot_date, pivot_created, expense_id, conn=conn
-            )
-            balance_before = Decimal("0")
-            if prev and prev.get("balance_after") is not None:
-                balance_before = prev["balance_after"]
-            self.data_service.recalc_balance_after(
-                conn, user_id, pivot_date, pivot_created, pivot_id, balance_before
-            )
+            if updates:
+                cur = conn.cursor()
+                sets = ", ".join(f'"{k}" = %s' for k in updates)
+                vals = list(updates.values()) + [str(expense_id), user_id]
+                cur.execute(
+                    f'UPDATE "{SCHEMA}"."{TABLE}" SET {sets} WHERE expense_id = %s AND user_id = %s',
+                    vals,
+                )
+                if cur.rowcount == 0:
+                    conn.rollback()
+                    raise HTTPException(status_code=404, detail="Expense not found")
+                updated_row = self.data_service.get_expense_by_id(expense_id, user_id)
+                pivot_date = (
+                    updated_row["date"].isoformat()
+                    if hasattr(updated_row["date"], "isoformat")
+                    else str(updated_row["date"])
+                )
+                pivot_created = updated_row["created_at"]
+                pivot_id = str(expense_id)
+                prev = self.data_service.get_previous_expense(
+                    user_id, pivot_date, pivot_created, expense_id, conn=conn
+                )
+                balance_before = Decimal("0")
+                if prev and prev.get("balance_after") is not None:
+                    balance_before = prev["balance_after"]
+                self.data_service.recalc_balance_after(
+                    conn, user_id, pivot_date, pivot_created, pivot_id, balance_before
+                )
+            if has_tag_updates:
+                updated_tags = self.data_service.set_expense_tags(
+                    conn=conn,
+                    user_id=user_id,
+                    expense_id=str(expense_id),
+                    tag_ids=[str(t) for t in payload.tag_ids] if payload.tag_ids else None,
+                    tag_names=payload.tags,
+                )
             conn.commit()
         except HTTPException:
             conn.rollback()
@@ -208,6 +246,7 @@ class ExpenseResource(BaseResource):
         finally:
             conn.close()
         row = self.data_service.get_expense_by_id(expense_id, user_id)
+        row["tags"] = updated_tags if updated_tags is not None else self.data_service.get_tags_for_expense(str(expense_id), user_id)
         return _row_to_response(row)
 
     def delete(self, expense_id: UUID, user_id: int) -> None:

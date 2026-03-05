@@ -1,0 +1,130 @@
+Phase 5 Sprint Task Board (Security + Compliance Advanced)
+
+Guardrails
+- No mandatory paid SaaS in Phase 5.
+- Use OSS security primitives (TOTP, signed recovery codes, scheduled retention jobs).
+- Keep auditability first-class for sensitive actions.
+- Preserve current auth behavior while rolling in stronger defaults behind feature flags.
+
+Status Legend
+- TODO: not started
+- IN_PROGRESS: implementation started
+- DONE: merged locally and validated with tests/checks
+
+Sprint 1 (2FA + Retention + Account Governance, 1-2 weeks)
+
+Ticket: P5-S1-T1
+Title: 2FA (TOTP) Schema + Recovery Codes
+Status: TODO
+Type: DB
+DB Tasks:
+- Add `users_db.user_mfa`:
+  `user_id (pk/fk)`, `totp_secret_encrypted`, `is_enabled`,
+  `enabled_at`, `last_verified_at`, `created_at`, `updated_at`.
+- Add `users_db.user_mfa_recovery_code`:
+  `code_id (uuid pk)`, `user_id`, `code_hash`, `used_at`, `created_at`.
+- Add indexes on `user_id` and `used_at`.
+Acceptance Criteria:
+- Migration is idempotent.
+- Recovery codes are never stored in plaintext.
+
+Ticket: P5-S1-T2
+Title: 2FA Enrollment + Challenge API
+Status: TODO
+Type: API
+API Tasks:
+- Add endpoints:
+  `POST /api/v1/mfa/totp/enroll` (returns otpauth URI + provisioning metadata),
+  `POST /api/v1/mfa/totp/verify-enroll`,
+  `POST /api/v1/mfa/totp/challenge`,
+  `POST /api/v1/mfa/totp/disable`.
+- Extend login flow:
+  password success can return `mfa_required` state before final token issue.
+- Support recovery code fallback in challenge endpoint.
+Acceptance Criteria:
+- Tokens are issued only after valid second factor when 2FA is enabled.
+- Invalid/reused recovery codes are rejected and audited.
+
+Ticket: P5-S1-T3
+Title: Session + Refresh Token Incident Controls
+Status: TODO
+Type: API/DB
+DB/API Tasks:
+- Add session tracking table:
+  `users_db.user_session` with `session_id`, `user_id`, `device_meta`,
+  `issued_at`, `last_seen_at`, `revoked_at`.
+- Tie refresh token families to session IDs.
+- Add endpoint:
+  `POST /api/v1/sessions/revoke-all-except-current`.
+- On refresh-token reuse detection:
+  revoke associated session + linked family and write high-severity audit event.
+Acceptance Criteria:
+- Reuse detection revokes active compromised lineage predictably.
+- User can view/revoke active sessions safely.
+
+Ticket: P5-S1-T4
+Title: Data Retention + Purge Jobs
+Status: TODO
+Type: DB/Worker
+Tasks:
+- Add retention config table:
+  `users_db.retention_policy` (`entity`, `retention_days`, `is_active`, `updated_at`).
+- Add job command:
+  `python -m app.jobs.retention_purge --as-of YYYY-MM-DD`.
+- Implement purge/anonymize logic for expired:
+  audit logs (if policy permits), notifications, password reset tokens, stale import artifacts.
+Acceptance Criteria:
+- Job is idempotent and logs affected row counts per entity.
+- Dry-run mode reports impact without deleting rows.
+
+Ticket: P5-S1-T5
+Title: Compliance Export + Delete Governance Improvements
+Status: TODO
+Type: API
+API Tasks:
+- Add async delete-account request lifecycle:
+  `POST /api/v1/compliance/delete-account/request`,
+  `GET /api/v1/compliance/delete-account/status`.
+- Add export-request lifecycle:
+  `POST /api/v1/compliance/export/request`,
+  `GET /api/v1/compliance/export/{request_id}`.
+- Track requests in DB with states:
+  `queued|processing|completed|failed`.
+Acceptance Criteria:
+- User-facing endpoints are idempotent and auditable.
+- Export/delete requests survive service restart and can be resumed.
+
+Ticket: P5-S1-T6
+Title: Security Headers + Cookie Hardening
+Status: TODO
+Type: API/UI
+Tasks:
+- Add optional refresh-token httpOnly cookie mode (feature-flagged).
+- Enforce strict cookie attributes in production profile:
+  `Secure`, `HttpOnly`, `SameSite=Strict|Lax` as appropriate.
+- Tighten CSP for third-party script allowlist and remove stale directives.
+Acceptance Criteria:
+- Auth still works in current bearer mode and optional cookie mode.
+- Security regression checks confirm no broken login/refresh/logout paths.
+
+Ticket: P5-S1-T7
+Title: Sprint 1 Tests + Runbook
+Status: TODO
+Type: Test/Docs
+Test Tasks:
+- 2FA enrollment/challenge/recovery-code tests.
+- Session revoke and token-family incident tests.
+- Retention job idempotency tests.
+- Compliance request lifecycle tests.
+Docs Tasks:
+- Add `docs/phase5_runbook.txt`:
+  2FA rollout, retention policy examples, incident-response checklist.
+Acceptance Criteria:
+- Security test suite passes locally/CI.
+- On-call can execute incident steps from runbook only.
+
+Phase 5 Sprint 1 Definition of Done
+- 2FA and recovery codes are production-ready.
+- Session and token controls support compromise response.
+- Retention and compliance workflows are asynchronous and auditable.
+- Security hardening is validated by tests and documented procedures.

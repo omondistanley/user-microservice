@@ -1,28 +1,117 @@
 {% extends "layout.html" %}
 {% block body_class %}link-bank-page{% endblock %}
-{% block title %}Link bank — Expense Tracker{% endblock %}
+{% block title %}Link Bank Account — Expense Tracker{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#135bec",
+          "background-light": "#f6f6f8",
+          "background-dark": "#101622",
+        },
+        fontFamily: { "display": ["Manrope", "sans-serif"] },
+        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+      },
+    },
+  }
+</script>
+<style>
+  body { min-height: max(884px, 100dvh); }
+</style>
+{% endblock %}
 {% block content %}
-<div class="container">
-    <section class="card-section">
-        <h1>Link bank account</h1>
-        <p class="lead">Connect your bank to automatically import transactions as expenses.</p>
-
-        <div id="plaid-error" class="message-error" style="display: none; margin-bottom: 1rem;"></div>
-        <div id="plaid-success" class="message-success" style="display: none; margin-bottom: 1rem;"></div>
-
-        <div class="link-bank-actions" style="margin-bottom: 1.5rem;">
-            <button type="button" id="plaid-link-btn" class="btn btn-primary">Link bank account</button>
-            <button type="button" id="plaid-sync-btn" class="btn btn-secondary" style="margin-left: 0.5rem;">Sync transactions</button>
+<div class="relative flex h-screen max-w-md mx-auto flex-col bg-background-light dark:bg-background-dark overflow-hidden font-display antialiased text-slate-900 dark:text-slate-100">
+  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
+  <!-- Top Navigation -->
+  <div class="flex items-center p-4 justify-between">
+    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-start" aria-label="Back">
+      <span class="material-symbols-outlined">arrow_back_ios</span>
+    </a>
+    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Link Bank Account</h2>
+  </div>
+  <!-- Error message (hidden by default) -->
+  <div id="plaid-error" class="mx-4 mb-2 text-sm text-red-600 dark:text-red-400" style="display: none;"></div>
+  <!-- Illustration Section -->
+  <div class="flex-1 overflow-y-auto">
+    <div class="px-6 py-4">
+      <div class="aspect-square w-full max-w-[280px] mx-auto bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center relative mb-8">
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-48 h-48 bg-primary/10 rounded-full animate-pulse"></div>
         </div>
-        <p id="plaid-sync-status" style="display: none; font-size: 0.9rem;"></p>
-
-        <h2 style="font-size: 1.25rem; margin-top: 1.5rem;">Linked accounts</h2>
-        <div id="plaid-items-list" class="dashboard-list">Loading…</div>
-    </section>
+        <div class="relative z-10 flex flex-col items-center">
+          <div class="bg-primary p-6 rounded-2xl shadow-xl shadow-primary/30 mb-4">
+            <span class="material-symbols-outlined text-white text-6xl">account_balance</span>
+          </div>
+          <div class="absolute -bottom-2 -right-2 bg-emerald-500 p-3 rounded-full border-4 border-background-dark dark:border-background-dark shadow-lg">
+            <span class="material-symbols-outlined text-white text-2xl">shield_with_heart</span>
+          </div>
+        </div>
+        <div class="hidden" data-alt="Illustration of a blue bank building with a green security shield icon"></div>
+      </div>
+      <div class="text-center mb-8">
+        <h2 class="text-slate-900 dark:text-white text-3xl font-extrabold leading-tight tracking-tight mb-3">Securely link your bank</h2>
+        <p class="text-slate-600 dark:text-slate-400 text-base font-medium px-4">Connect your accounts to unlock automated expense tracking and smart investment insights.</p>
+      </div>
+      <!-- Features List -->
+      <div class="space-y-4 px-2 mb-8">
+        <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="bg-primary/10 p-2 rounded-lg">
+            <span class="material-symbols-outlined text-primary">sync</span>
+          </div>
+          <div>
+            <p class="text-slate-900 dark:text-white font-bold">Automatic transaction syncing</p>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Every purchase is categorized instantly</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="bg-primary/10 p-2 rounded-lg">
+            <span class="material-symbols-outlined text-primary">speed</span>
+          </div>
+          <div>
+            <p class="text-slate-900 dark:text-white font-bold">Real-time balance updates</p>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Always know exactly how much you have</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div class="bg-primary/10 p-2 rounded-lg">
+            <span class="material-symbols-outlined text-primary">lock</span>
+          </div>
+          <div>
+            <p class="text-slate-900 dark:text-white font-bold">Bank-level security</p>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">256-bit encryption for your data</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Footer / Action Area -->
+  <div class="p-6 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800">
+    <button type="button" id="plaid-link-btn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-colors mb-3 shadow-lg shadow-primary/20">
+      Continue
+    </button>
+    <p class="text-center mb-6">
+      <a href="/link-bank/select" class="text-primary text-sm font-medium hover:underline">Or choose your bank</a>
+    </p>
+    <div class="flex flex-col items-center gap-2 opacity-60">
+      <div class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-xs">encrypted</span>
+        <span class="text-[10px] uppercase tracking-widest font-bold">Powered by</span>
+        <div class="flex items-center font-black italic tracking-tighter text-sm">PLAID</div>
+      </div>
+      <p class="text-[11px] text-center text-slate-500">By continuing, you agree to Plaid's Privacy Policy and Terms of Use.</p>
+    </div>
+  </div>
+  <div class="h-6 w-full"></div>
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/plaid.js"></script>
-<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
-<script src="/static/js/link_bank.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/plaid.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/link_bank.js"></script>
 {% endblock %}
