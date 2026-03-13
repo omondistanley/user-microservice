@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+{% block body_class %}goals-page{% endblock %}
+{% block title %}Add goal — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <a href="/goals" class="page-back-link">← Goals</a>
+            <h1 class="page-title">New savings goal</h1>
+        </div>
+    </div>
+    <div class="form-page-card">
+        <form id="add-goal-form">
+            <div class="form-group">
+                <label for="name">Goal name</label>
+                <input type="text" id="name" name="name" class="form-control" required maxlength="255" placeholder="e.g. Emergency fund">
+            </div>
+            <div class="form-group">
+                <label for="target_amount">Target amount</label>
+                <input type="number" id="target_amount" name="target_amount" class="form-control" step="0.01" min="0" required placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="target_currency">Currency</label>
+                <input type="text" id="target_currency" name="target_currency" class="form-control" maxlength="3" value="USD" placeholder="USD">
+            </div>
+            <div class="form-group">
+                <label for="start_amount">Starting amount (optional)</label>
+                <input type="number" id="start_amount" name="start_amount" class="form-control" step="0.01" min="0" value="0" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label for="target_date">Target date (optional)</label>
+                <input type="date" id="target_date" name="target_date" class="form-control">
+            </div>
+            <div id="add-goal-msg" class="message-error" style="display: none;"></div>
+            <button type="submit" class="btn btn-primary">Create goal</button>
+            <a href="/goals" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var form = document.getElementById('add-goal-form');
+    var msg = document.getElementById('add-goal-msg');
+    if (!form) return;
+    var API = window.API_BASE || '';
+    var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+    headers['Content-Type'] = 'application/json';
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        msg.style.display = 'none';
+        var targetDate = document.getElementById('target_date').value || null;
+        var body = {
+            name: document.getElementById('name').value.trim(),
+            target_amount: parseFloat(document.getElementById('target_amount').value, 10),
+            target_currency: (document.getElementById('target_currency').value || 'USD').trim().toUpperCase().slice(0, 3),
+            start_amount: parseFloat(document.getElementById('start_amount').value, 10) || 0,
+            target_date: targetDate
+        };
+        fetch(API + '/api/v1/goals', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        }).then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(result) {
+            if (result.ok) {
+                window.location.href = '/goals/' + (result.data.goal_id || '');
+            } else {
+                msg.textContent = result.data.detail || 'Failed to create goal';
+                msg.style.display = 'block';
+            }
+        }).catch(function() {
+            msg.textContent = 'Request failed';
+            msg.style.display = 'block';
+        });
+    });
+})();
+</script>
+{% endblock %}

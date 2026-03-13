@@ -38,7 +38,17 @@ services:
              python run_migration.py migrations/005_oauth_provider.sql &&
              python run_migration.py migrations/006_security_audit_and_refresh_hardening.sql &&
              python run_migration.py migrations/007_user_notification.sql &&
-             python run_migration.py migrations/008_user_settings.sql"
+             python run_migration.py migrations/008_user_settings.sql &&
+             python run_migration.py migrations/009_household.sql &&
+             python run_migration.py migrations/010_household_member.sql &&
+             python run_migration.py migrations/011_active_household.sql &&
+             python run_migration.py migrations/012_report_saved_view.sql &&
+             python run_migration.py migrations/013_user_session.sql &&
+             python run_migration.py migrations/014_retention_policy.sql &&
+             python run_migration.py migrations/015_webhook_events.sql &&
+             python run_migration.py migrations/016_digest_config.sql &&
+             python run_migration.py migrations/017_webhook_event_lifecycle.sql &&
+             python run_migration.py migrations/018_calendar_subscription_token.sql"
     restart: "no"
 
   expense-migrations:
@@ -61,7 +71,14 @@ services:
              python run_migration.py migrations/004_plaid.sql &&
              python run_migration.py migrations/005_income_and_recurring.sql &&
              python run_migration.py migrations/006_tags.sql &&
-             python run_migration.py migrations/007_exchange_rate.sql"
+             python run_migration.py migrations/007_exchange_rate.sql &&
+             python run_migration.py migrations/008_teller.sql &&
+             python run_migration.py migrations/009_household_scope.sql &&
+             python run_migration.py migrations/010_expense_import.sql &&
+             python run_migration.py migrations/011_savings_goals.sql &&
+             python run_migration.py migrations/012_anomaly_feedback.sql &&
+             python run_migration.py migrations/013_receipt_ocr.sql &&
+             python run_migration.py migrations/014_plaid_provider.sql"
     restart: "no"
 
   budget-migrations:
@@ -79,7 +96,24 @@ services:
         condition: service_healthy
     command: >
       sh -c "python run_migration.py migrations/001_schema.sql &&
-             python run_migration.py migrations/002_budget_alerts.sql"
+             python run_migration.py migrations/002_budget_alerts.sql &&
+             python run_migration.py migrations/003_household_scope.sql"
+    restart: "no"
+
+  investment-migrations:
+    build:
+      context: ./investments-microservice
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: investments_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: python run_migration.py migrations/001_schema.sql
     restart: "no"
 
   expense:
@@ -107,6 +141,11 @@ services:
       PLAID_SECRET: ${PLAID_SECRET:-}
       PLAID_ENV: ${PLAID_ENV:-sandbox}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      TELLER_APP_ID: ${TELLER_APP_ID:-}
+      TELLER_CERT_PATH: ${TELLER_CERT_PATH:-}
+      TELLER_KEY_PATH: ${TELLER_KEY_PATH:-}
+      TELLER_ENV: ${TELLER_ENV:-sandbox}
+      USER_SERVICE_INTERNAL_URL: http://user:8000
     depends_on:
       expense-migrations:
         condition: service_completed_successfully
@@ -145,6 +184,30 @@ services:
     ports:
       - "3002:3002"
 
+  investment:
+    build:
+      context: ./investments-microservice
+      dockerfile: Dockerfile
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dde1b0953d35f999ffdb4e55a066547b8ac69ec2415caa1835b865c1a07fa4a4}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-user-microservice}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-expense-tracker}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: investments_db
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
+      HSTS_MAX_AGE_SECONDS: ${HSTS_MAX_AGE_SECONDS:-31536000}
+    depends_on:
+      investment-migrations:
+        condition: service_completed_successfully
+    ports:
+      - "3003:3003"
+
   user:
     build:
       context: .
@@ -172,6 +235,7 @@ services:
       DB_NAME: users_db
       EXPENSE_SERVICE_URL: http://expense:3001
       BUDGET_SERVICE_URL: http://budget:3002
+      INVESTMENT_SERVICE_URL: http://investment:3003
       EXPENSE_API_BASE_FRONTEND: ""
       BUDGET_API_BASE_FRONTEND: ""
       JWT_ISSUER: ${JWT_ISSUER:-user-microservice}
@@ -184,6 +248,9 @@ services:
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
       APPLE_REDIRECT_URI: ${APPLE_REDIRECT_URI:-}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      EXPENSE_SERVICE_INTERNAL_URL: http://expense:3001
+      BUDGET_SERVICE_INTERNAL_URL: http://budget:3002
+      CALENDAR_TOKEN_BASE_URL: ${CALENDAR_TOKEN_BASE_URL:-http://localhost:8000}
     depends_on:
       user-migrations:
         condition: service_completed_successfully
@@ -191,8 +258,95 @@ services:
         condition: service_started
       budget:
         condition: service_started
+      investment:
+        condition: service_started
     ports:
       - "8000:8000"
+
+  expense-worker:
+    build:
+      context: ./expense-microservice
+      dockerfile: Dockerfile
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dde1b0953d35f999ffdb4e55a066547b8ac69ec2415caa1835b865c1a07fa4a4}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-user-microservice}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-expense-tracker}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: expenses_db
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
+      PLAID_SECRET: ${PLAID_SECRET:-}
+      PLAID_ENV: ${PLAID_ENV:-sandbox}
+      TELLER_APP_ID: ${TELLER_APP_ID:-}
+      TELLER_CERT_PATH: ${TELLER_CERT_PATH:-}
+      TELLER_KEY_PATH: ${TELLER_KEY_PATH:-}
+      TELLER_ENV: ${TELLER_ENV:-sandbox}
+      SCHEDULER_INTERVAL_SECONDS: ${EXPENSE_WORKER_INTERVAL_SECONDS:-3600}
+      EXCHANGE_RATE_SOURCE: ${EXCHANGE_RATE_SOURCE:-ECB}
+    depends_on:
+      expense:
+        condition: service_started
+    command: python -m app.jobs.scheduler
+
+  budget-worker:
+    build:
+      context: ./budget-microservice
+      dockerfile: Dockerfile
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dde1b0953d35f999ffdb4e55a066547b8ac69ec2415caa1835b865c1a07fa4a4}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-user-microservice}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-expense-tracker}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: budgets_db
+      EXPENSE_DB_HOST: postgres
+      EXPENSE_DB_PORT: 5432
+      EXPENSE_DB_USER: ${POSTGRES_USER:-postgres}
+      EXPENSE_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      EXPENSE_DB_NAME: expenses_db
+      USER_SERVICE_INTERNAL_URL: http://user:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      SCHEDULER_INTERVAL_SECONDS: ${BUDGET_WORKER_INTERVAL_SECONDS:-1800}
+    depends_on:
+      budget:
+        condition: service_started
+    command: python -m app.jobs.scheduler
+
+  user-worker:
+    build:
+      context: .
+      dockerfile: user-microservice/Dockerfile
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dde1b0953d35f999ffdb4e55a066547b8ac69ec2415caa1835b865c1a07fa4a4}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: users_db
+      EMAIL_MODE: ${EMAIL_MODE:-console}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      EXPENSE_SERVICE_INTERNAL_URL: http://expense:3001
+      BUDGET_SERVICE_INTERNAL_URL: http://budget:3002
+      SCHEDULER_INTERVAL_SECONDS: ${USER_WORKER_INTERVAL_SECONDS:-60}
+      WEBHOOK_SECRETS_JSON: ${WEBHOOK_SECRETS_JSON:-{}}
+    depends_on:
+      user:
+        condition: service_started
+    command: python -m app.jobs.scheduler
 
 volumes:
   postgres_data:

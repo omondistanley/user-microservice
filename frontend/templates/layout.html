@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6c63ff">
     <meta name="expense-api-base" content="{{ expense_api_base | default('') }}">
     <meta name="budget-api-base" content="{{ budget_api_base | default('') }}">
     <title>{% block title %}Expense Tracker{% endblock %}</title>
+    <link rel="manifest" href="/static/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/main.css">
     {% block head_extra %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
-    <nav class="navbar">
+<body class="{% block body_class %}{% endblock %}" id="app-body">
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+    <nav class="navbar" aria-label="Main navigation">
         <div class="container navbar-inner">
             <div class="navbar-left">
                 <a href="/dashboard" class="navbar-brand" id="navbar-brand">Expense<span class="brand-dot">.</span></a>
@@ -45,13 +48,24 @@
                     <ul class="navbar-panel-links">
                         <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
                         <li><a href="/expenses" class="nav-link">Expenses</a></li>
+                        <li><a href="/expenses/import" class="nav-link">Import CSV</a></li>
                         <li><a href="/income" class="nav-link">Income</a></li>
                         <li><a href="/recurring" class="nav-link">Recurring</a></li>
                         <li><a href="/link-bank" class="nav-link">Link bank</a></li>
                         <li><a href="/reports" class="nav-link">Reports</a></li>
+                        <li><a href="/insights" class="nav-link">Insights</a></li>
                         <li><a href="/goals" class="nav-link">Goals</a></li>
                         <li><a href="/budgets" class="nav-link">Budgets</a></li>
+                        <li><a href="/investments" class="nav-link">Investments</a></li>
+                        <li><a href="/recommendations" class="nav-link">Recommendations</a></li>
+                        <li><a href="/settings/integrations" class="nav-link">Integrations</a></li>
                     </ul>
+                    <div class="navbar-panel-section navbar-panel-household" id="household-switcher-wrap" style="display: none;">
+                        <h2 class="navbar-panel-heading">Scope</h2>
+                        <select id="household-switcher" class="form-control" aria-label="Household scope">
+                            <option value="">Personal</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="navbar-panel-section navbar-panel-filters" id="navbar-filters-section" style="display: none;">
                     <h2 class="navbar-panel-heading">Filters</h2>
@@ -105,11 +119,24 @@
                     <div id="summary-by-month" class="summary-content" style="display: none;"></div>
                 </div>
                 </div>
+                    <div class="navbar-panel-section navbar-panel-theme" style="margin-top: 0.5rem;">
+                        <label for="theme-select" class="navbar-panel-heading">Theme</label>
+                        <select id="theme-select" class="form-control" aria-label="Theme preference">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                            <option value="system">System</option>
+                        </select>
+                    </div>
             </div>
         </div>
     </nav>
 
-    <main class="main-content">
+    <div id="onboarding-banner" class="onboarding-banner" role="region" aria-label="Onboarding" style="display: none;">
+        <p>Welcome! Add your first expense or link a bank to get started.</p>
+        <button type="button" id="onboarding-dismiss" class="btn btn-secondary btn-sm" aria-label="Dismiss">Dismiss</button>
+    </div>
+
+    <main class="main-content" id="main-content" tabindex="-1">
         {% block content %}{% endblock %}
     </main>
 
@@ -169,10 +196,20 @@
     })();
     </script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/theme.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/offline_queue.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/onboarding.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/settings.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/notifications.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/app.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/layout.js"></script>
+    <script nonce="{{ csp_nonce | default('') }}">
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/static/sw.js').catch(function () {});
+        });
+    }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

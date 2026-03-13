@@ -57,6 +57,7 @@ class BudgetDataService:
         cols = [
             "user_id", "name", "category_code", "amount",
             "start_date", "end_date", "created_at", "updated_at",
+            "household_id",
         ]
         keys = [k for k in cols if k in data]
         columns = ",".join(f'"{k}"' for k in keys)
@@ -98,11 +99,15 @@ class BudgetDataService:
         category_code: Optional[int] = None,
         effective_date: Optional[str] = None,
         include_inactive: bool = False,
+        household_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 20,
     ) -> Tuple[List[Dict], int]:
         conditions = ["user_id = %s"]
         params: List[Any] = [user_id]
+        if household_id is not None:
+            conditions.append("household_id IS NOT DISTINCT FROM %s")
+            params.append(household_id)
         if category_code is not None:
             conditions.append("category_code = %s")
             params.append(category_code)

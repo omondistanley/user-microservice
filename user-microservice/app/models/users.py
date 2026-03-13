@@ -88,7 +88,56 @@ class UserSettingsResponse(BaseModel):
     user_id: int
     default_currency: str
     updated_at: datetime
+    active_household_id: Optional[UUID] = None
 
 
 class UserSettingsUpdate(BaseModel):
     default_currency: str = Field(..., min_length=3, max_length=3)
+
+
+class ActiveHouseholdUpdate(BaseModel):
+    """Body for PATCH /api/v1/settings/active-household. null = personal scope."""
+    household_id: Optional[UUID] = None
+
+
+# --- Households (Phase 3) ---
+
+class HouseholdCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+
+
+class HouseholdResponse(BaseModel):
+    household_id: UUID
+    owner_user_id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+class HouseholdMemberResponse(BaseModel):
+    household_id: UUID
+    user_id: int
+    role: str
+    status: str
+    invited_by_user_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class HouseholdMemberInvite(BaseModel):
+    """Invite by email (user must exist)."""
+    email: EmailStr
+    role: str = Field("member", min_length=1, max_length=32)
+
+
+class HouseholdMemberUpdate(BaseModel):
+    role: Optional[str] = Field(None, min_length=1, max_length=32)
+    status: Optional[str] = Field(None, min_length=1, max_length=32)
+
+
+class UserScopeResponse(BaseModel):
+    """Response for GET /internal/v1/users/me/scope (for expense/budget to resolve scope)."""
+    user_id: int
+    active_household_id: Optional[UUID] = None

@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+{% block body_class %}insights-page{% endblock %}
+{% block title %}Insights — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">Insights</h1>
+    </div>
+    <section class="card-section">
+        <h2 class="h4">Spend forecast</h2>
+        <p class="text-muted">Projected spend (next 3 months) from your recent history.</p>
+        <div id="forecast-content" class="text-muted">Loading…</div>
+    </section>
+    <section class="card-section">
+        <h2 class="h4">Anomalies</h2>
+        <p class="text-muted">Unusual expenses (amount or pattern).</p>
+        <div id="anomalies-content" class="text-muted">Loading…</div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+    fetch(API + '/api/v1/insights/forecast/spend?months_back=6', { headers: headers })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var el = document.getElementById('forecast-content');
+            if (data.message) {
+                el.textContent = data.message;
+                return;
+            }
+            var proj = data.projections || [];
+            if (!proj.length) {
+                el.textContent = 'No projection data.';
+                return;
+            }
+            el.innerHTML = '<ul class="list-unstyled">' + proj.map(function(p) {
+                return '<li>' + (p.month || '') + ': $' + (p.projected_amount != null ? p.projected_amount.toFixed(2) : '—') + '</li>';
+            }).join('') + '</ul>';
+        })
+        .catch(function() {
+            document.getElementById('forecast-content').textContent = 'Failed to load forecast.';
+        });
+    fetch(API + '/api/v1/insights/anomalies', { headers: headers })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var el = document.getElementById('anomalies-content');
+            var list = data.anomalies || [];
+            if (!list.length) {
+                el.textContent = 'No anomalies detected.';
+                return;
+            }
+            el.innerHTML = '<ul class="list-unstyled">' + list.slice(0, 10).map(function(a) {
+                return '<li>' + (a.date || '') + ' $' + (a.amount != null ? a.amount.toFixed(2) : '') + ' — ' + (a.reason || '') + ': ' + (a.detail || '') + '</li>';
+            }).join('') + '</ul>';
+        })
+        .catch(function() {
+            document.getElementById('anomalies-content').textContent = 'Failed to load anomalies.';
+        });
+})();
+</script>
+{% endblock %}

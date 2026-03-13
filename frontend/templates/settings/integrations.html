@@ -1,0 +1,207 @@
+{% extends "layout.html" %}
+{% block body_class %}settings-page{% endblock %}
+{% block title %}Integrations — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="/dashboard" class="page-back-link">← Dashboard</a>
+        <h1 class="page-title">Integrations</h1>
+    </div>
+    <div class="card-section">
+        <h2 class="h4">Bank accounts</h2>
+        <p class="text-muted">Link bank accounts to sync transactions.</p>
+        <a href="/link-bank" class="btn btn-primary">Link bank account</a>
+        <div id="bank-status" class="text-muted small" style="margin-top: 0.75rem;">Checking provider status...</div>
+        <ul id="bank-items" class="summary-list" style="margin-top: 0.75rem;"></ul>
+    </div>
+    <div class="card-section">
+        <h2 class="h4">Calendar reminders</h2>
+        <p class="text-muted">Subscribe via revocable tokenized ICS URL (works in calendar apps without Bearer auth).</p>
+        <div class="toolbar-actions">
+            <button id="calendar-generate-btn" class="btn btn-secondary btn-sm" type="button">Generate / rotate token</button>
+            <button id="calendar-revoke-btn" class="btn btn-secondary btn-sm" type="button">Revoke token</button>
+        </div>
+        <p class="text-muted small">ICS URL: <code id="calendar-url">Generate a token first</code></p>
+    </div>
+    <div class="card-section">
+        <h2 class="h4">Digest</h2>
+        <p class="text-muted">Configure weekly/monthly digest delivery.</p>
+        <div class="toolbar-actions">
+            <select id="digest-frequency" class="form-input" style="max-width: 220px;">
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+            </select>
+            <select id="digest-channel" class="form-input" style="max-width: 220px;">
+                <option value="email">Email</option>
+                <option value="slack_webhook">Slack webhook</option>
+            </select>
+            <input id="digest-target" class="form-input" style="max-width: 320px;" placeholder="Channel target (optional)"/>
+            <button id="digest-save-btn" class="btn btn-primary btn-sm" type="button">Save</button>
+            <button id="digest-test-btn" class="btn btn-secondary btn-sm" type="button">Send test</button>
+        </div>
+        <p id="digest-status" class="text-muted small">No digest config loaded yet.</p>
+    </div>
+    <div class="card-section">
+        <h2 class="h4">Webhook processing</h2>
+        <p class="text-muted">Provider webhook signatures and retries are enabled through background workers.</p>
+        <p class="text-muted small">Configure `WEBHOOK_SECRETS_JSON` to enforce signature validation in non-dev environments.</p>
+    </div>
+    <div class="card-section">
+        <h2 class="h4">Export</h2>
+        <p class="text-muted">Portable JSON export for backup or migration.</p>
+        <a href="#" id="export-portable-btn" class="btn btn-secondary">Download portable export</a>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    var cal = document.getElementById('calendar-url');
+    var btn = document.getElementById('export-portable-btn');
+    var bankStatus = document.getElementById('bank-status');
+    var bankItems = document.getElementById('bank-items');
+    var digestStatus = document.getElementById('digest-status');
+    var digestFrequency = document.getElementById('digest-frequency');
+    var digestChannel = document.getElementById('digest-channel');
+    var digestTarget = document.getElementById('digest-target');
+    var digestSaveBtn = document.getElementById('digest-save-btn');
+    var digestTestBtn = document.getElementById('digest-test-btn');
+    var calendarGenerateBtn = document.getElementById('calendar-generate-btn');
+    var calendarRevokeBtn = document.getElementById('calendar-revoke-btn');
+
+    function authHeaders() {
+        return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+    }
+    function fetchJson(url, options) {
+        options = options || {};
+        options.headers = Object.assign({}, authHeaders(), options.headers || {});
+        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(options.body);
+        }
+        var runner = (window.Auth && window.Auth.requestWithRefresh)
+            ? function() { return window.Auth.requestWithRefresh(API + url, options); }
+            : function() { return fetch(API + url, options); };
+        return runner().then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json().catch(function() { return {}; });
+        });
+    }
+
+    function loadBankData() {
+        fetchJson('/api/v1/bank/status').then(function(data) {
+            var p = data.providers || {};
+            bankStatus.textContent =
+                'Providers: Plaid ' + (p.plaid && p.plaid.configured ? 'configured' : 'not configured') +
+                ' | Teller ' + (p.teller && p.teller.configured ? 'configured' : 'not configured') +
+                ' | TrueLayer ' + (p.truelayer && p.truelayer.configured ? 'configured' : 'not configured');
+        }).catch(function() {
+            bankStatus.textContent = 'Could not load provider status.';
+        });
+        fetchJson('/api/v1/bank/items').then(function(data) {
+            var items = data.items || [];
+            if (!items.length) {
+                bankItems.innerHTML = '<li><span class="summary-label">No linked items yet</span></li>';
+                return;
+            }
+            bankItems.innerHTML = items.map(function(i) {
+                return '<li><span class="summary-label">' +
+                    (i.name || 'Linked account') + ' (' + i.provider + ')' +
+                    '</span></li>';
+            }).join('');
+        }).catch(function() {
+            bankItems.innerHTML = '<li><span class="summary-label">Failed to load linked items</span></li>';
+        });
+    }
+
+    function loadDigestConfig() {
+        fetchJson('/api/v1/integrations/digest-config').then(function(data) {
+            if (!data.configured) {
+                digestStatus.textContent = 'No digest config yet.';
+                return;
+            }
+            digestFrequency.value = data.frequency || 'weekly';
+            digestChannel.value = data.channel || 'email';
+            digestTarget.value = data.channel_target || '';
+            digestStatus.textContent = 'Digest config loaded. Last sent: ' + (data.last_sent_at || 'never');
+        }).catch(function() {
+            digestStatus.textContent = 'Could not load digest config.';
+        });
+    }
+
+    if (digestSaveBtn) {
+        digestSaveBtn.addEventListener('click', function() {
+            fetchJson('/api/v1/integrations/digest-config', {
+                method: 'PUT',
+                body: {
+                    frequency: digestFrequency.value,
+                    channel: digestChannel.value,
+                    channel_target: digestTarget.value || null,
+                    is_active: true
+                }
+            }).then(function() {
+                digestStatus.textContent = 'Digest config saved.';
+            }).catch(function() {
+                digestStatus.textContent = 'Failed to save digest config.';
+            });
+        });
+    }
+
+    if (digestTestBtn) {
+        digestTestBtn.addEventListener('click', function() {
+            fetchJson('/api/v1/integrations/digest-test', { method: 'POST' })
+                .then(function() { digestStatus.textContent = 'Digest test notification created.'; })
+                .catch(function() { digestStatus.textContent = 'Failed to trigger digest test.'; });
+        });
+    }
+
+    if (calendarGenerateBtn) {
+        calendarGenerateBtn.addEventListener('click', function() {
+            fetchJson('/api/v1/integrations/calendar/token', { method: 'POST' })
+                .then(function(data) {
+                    cal.textContent = data.calendar_url || 'Token created.';
+                })
+                .catch(function() {
+                    cal.textContent = 'Failed to generate token.';
+                });
+        });
+    }
+
+    if (calendarRevokeBtn) {
+        calendarRevokeBtn.addEventListener('click', function() {
+            fetchJson('/api/v1/integrations/calendar/token', { method: 'DELETE' })
+                .then(function() { cal.textContent = 'Token revoked. Generate a new one to subscribe again.'; })
+                .catch(function() { cal.textContent = 'Failed to revoke token.'; });
+        });
+    }
+
+    fetchJson('/api/v1/integrations/calendar/token').then(function(data) {
+        if (data && data.has_active_token) {
+            cal.textContent = 'Active token exists (rotate to reveal a new URL).';
+        }
+    }).catch(function() {});
+
+    loadBankData();
+    loadDigestConfig();
+
+    if (btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            var headers = authHeaders();
+            fetch(API + '/api/v1/export/portable?format=json', { headers: headers })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'expense-portable-' + (data.exported_at || '') + '.json';
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                })
+                .catch(function() { alert('Export failed'); });
+        });
+    }
+})();
+</script>
+{% endblock %}

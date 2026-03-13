@@ -30,7 +30,7 @@ def get_user_settings(user_id: int) -> dict[str, Any]:
         conn.autocommit = True
         cur = conn.cursor()
         cur.execute(
-            f'SELECT user_id, default_currency, updated_at '
+            f'SELECT user_id, default_currency, updated_at, active_household_id '
             f'FROM "{SCHEMA}"."{TABLE}" '
             "WHERE user_id = %s",
             (user_id,),
@@ -40,14 +40,14 @@ def get_user_settings(user_id: int) -> dict[str, Any]:
             return dict(row)
         now = datetime.now(timezone.utc)
         cur.execute(
-            f'INSERT INTO "{SCHEMA}"."{TABLE}" (user_id, default_currency, updated_at) '
-            "VALUES (%s, %s, %s) "
+            f'INSERT INTO "{SCHEMA}"."{TABLE}" (user_id, default_currency, updated_at, active_household_id) '
+            "VALUES (%s, %s, %s, NULL) "
             "ON CONFLICT (user_id) DO UPDATE SET updated_at = EXCLUDED.updated_at "
-            "RETURNING user_id, default_currency, updated_at",
+            "RETURNING user_id, default_currency, updated_at, active_household_id",
             (user_id, "USD", now),
         )
         created = cur.fetchone()
-        return dict(created) if created else {"user_id": user_id, "default_currency": "USD", "updated_at": now}
+        return dict(created) if created else {"user_id": user_id, "default_currency": "USD", "updated_at": now, "active_household_id": None}
     finally:
         conn.close()
 
@@ -63,15 +63,15 @@ def update_default_currency(user_id: int, default_currency: str) -> dict[str, An
         now = datetime.now(timezone.utc)
         cur.execute(
             f"""
-            INSERT INTO "{SCHEMA}"."{TABLE}" (user_id, default_currency, updated_at)
-            VALUES (%s, %s, %s)
+            INSERT INTO "{SCHEMA}"."{TABLE}" (user_id, default_currency, updated_at, active_household_id)
+            VALUES (%s, %s, %s, NULL)
             ON CONFLICT (user_id)
             DO UPDATE SET default_currency = EXCLUDED.default_currency, updated_at = EXCLUDED.updated_at
-            RETURNING user_id, default_currency, updated_at
+            RETURNING user_id, default_currency, updated_at, active_household_id
             """,
             (user_id, currency, now),
         )
         row = cur.fetchone()
-        return dict(row) if row else {"user_id": user_id, "default_currency": currency, "updated_at": now}
+        return dict(row) if row else {"user_id": user_id, "default_currency": currency, "updated_at": now, "active_household_id": None}
     finally:
         conn.close()

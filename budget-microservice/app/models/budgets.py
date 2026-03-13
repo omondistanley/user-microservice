@@ -29,6 +29,7 @@ class BudgetCreate(BaseModel):
     end_date: Optional[date] = None  # default applied in resource
     alert_thresholds: Optional[list[Decimal]] = None
     alert_channel: str = Field(default="in_app", pattern="^(in_app|email)$")
+    household_id: Optional[UUID] = None
 
 
 class BudgetUpdate(BaseModel):
@@ -72,5 +73,6 @@ class BudgetListParams(BaseModel):
     category_code: Optional[int] = None
     effective_date: Optional[date] = None
     include_inactive: bool = False
+    household_id: Optional[UUID] = None
     page: int = 1
     page_size: int = 20

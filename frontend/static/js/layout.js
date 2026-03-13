@@ -44,6 +44,7 @@
             if (window.Notifications && window.Notifications.start) {
                 window.Notifications.start();
             }
+            initHouseholdSwitcher();
         } else {
             if (guest.length) {
                 guest.forEach(function(el) {
@@ -58,10 +59,49 @@
         }
     }
 
+    function initHouseholdSwitcher() {
+        var wrap = document.getElementById('household-switcher-wrap');
+        var sel = document.getElementById('household-switcher');
+        if (!wrap || !sel) return;
+        var API = window.API_BASE || '';
+        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        Promise.all([
+            fetch(API + '/api/v1/settings', { headers: headers }).then(function(r) { return r.ok ? r.json() : null; }),
+            fetch(API + '/api/v1/households', { headers: headers }).then(function(r) { return r.ok ? r.json() : null; })
+        ]).then(function(results) {
+            var settings = results[0];
+            var households = results[1];
+            var activeId = (settings && settings.active_household_id) ? settings.active_household_id : '';
+            sel.innerHTML = '<option value="">Personal</option>';
+            if (households && households.items && households.items.length) {
+                households.items.forEach(function(h) {
+                    var opt = document.createElement('option');
+                    opt.value = h.household_id || '';
+                    opt.textContent = h.name || 'Household';
+                    sel.appendChild(opt);
+                });
+            }
+            sel.value = activeId;
+            wrap.style.display = 'block';
+        }).catch(function() {});
+        sel.addEventListener('change', function() {
+            var val = sel.value;
+            var body = JSON.stringify({ household_id: val || null });
+            fetch(API + '/api/v1/settings/active-household', {
+                method: 'PATCH',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                body: body
+            }).then(function(r) {
+                if (r.ok) window.location.reload();
+            });
+        });
+    }
+
     var protectedPaths = [
         '/dashboard',
         '/expenses',
         '/expenses/add',
+        '/expenses/import',
         '/income',
         '/income/add',
         '/recurring',
@@ -69,9 +109,15 @@
         '/budgets',
         '/budgets/add',
         '/reports',
+        '/insights',
+        '/goals',
+        '/goals/add',
+        '/investments',
+        '/investments/add',
+        '/recommendations',
     ];
     var path = window.location.pathname;
-    var isProtected = protectedPaths.indexOf(path) !== -1 || path.startsWith('/expenses/') || path.startsWith('/budgets/');
+    var isProtected = protectedPaths.indexOf(path) !== -1 || path.startsWith('/expenses/') || path.startsWith('/budgets/') || path.startsWith('/goals/') || path.startsWith('/investments/');
     if (isProtected && window.Auth && !window.Auth.isLoggedIn()) {
         window.location.href = '/login?next=' + encodeURIComponent(path);
     } else if (document.readyState === 'loading') {
@@ -95,6 +141,7 @@
         path === '/budgets' ||
         path === '/budgets/add' ||
         path === '/reports' ||
+        path === '/insights' ||
         path.indexOf('/expenses/') === 0 ||
         path.indexOf('/budgets/') === 0;
     if (filtersToggle && filtersPanel) {

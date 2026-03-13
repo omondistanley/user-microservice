@@ -21,8 +21,15 @@ from app.models.users import (
 from app.services.service_factory import ServiceFactory
 from app.services.refresh_token_service import (
     create_refresh_token,
+    get_refresh_token_info,
     revoke_all_refresh_tokens,
     validate_refresh_token,
+)
+from app.services.session_service import (
+    create_session,
+    list_sessions,
+    revoke_all_sessions_except,
+    revoke_session,
 )
 from app.services.password_reset_service import (
     create_reset_token,
@@ -41,6 +48,7 @@ from app.core.config import (
     REQUIRE_EMAIL_VERIFICATION,
     EXPENSE_SERVICE_URL,
     BUDGET_SERVICE_URL,
+    INVESTMENT_SERVICE_URL,
     INTERNAL_API_KEY,
 )
 
@@ -77,6 +85,7 @@ async def _purge_business_data(
     services = [
         ("expense", EXPENSE_SERVICE_URL, f"/internal/v1/users/{user_id}/expenses"),
         ("budget", BUDGET_SERVICE_URL, f"/internal/v1/users/{user_id}/budgets"),
+        ("investment", INVESTMENT_SERVICE_URL, f"/internal/v1/users/{user_id}/holdings"),
     ]
     headers = _internal_headers(request_id)
     results: dict[str, Any] = {}
@@ -145,12 +154,14 @@ async def token_refresh(body: RefreshRequest, request: Request):
     request_id = _request_id(request)
 
     if result.status == "reused":
+        if result.session_id and result.user_id:
+            revoke_session(result.session_id, result.user_id)
         write_audit_log(
             action="token_refresh_reuse_detected",
             user_id=result.user_id,
             ip_address=ip_address,
             request_id=request_id,
-            details={"family_id": result.family_id},
+            details={"family_id": result.family_id, "session_id": result.session_id},
         )
         raise HTTPException(status_code=401, detail="Refresh token reuse detected. Please sign in again.")
 
@@ -158,7 +169,11 @@ async def token_refresh(body: RefreshRequest, request: Request):
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
     access_token = create_access_token(sub=str(result.user_id), email=result.email)
-    refresh_token = create_refresh_token(result.user_id, family_id=result.family_id)
+    refresh_token = create_refresh_token(
+        result.user_id,
+        family_id=result.family_id,
+        session_id=result.session_id,
+    )
     write_audit_log(
         action="token_refresh",
         user_id=result.user_id,
@@ -195,7 +210,9 @@ async def login(
             detail="Please verify your email before signing in. Check your inbox for the verification link.",
         )
     token = create_access_token(sub=str(row["id"]), email=row["email"])
-    refresh = create_refresh_token(row["id"])
+    device_meta = (request.headers.get("user-agent") or "")[:512]
+    session_id = create_session(row["id"], device_meta=device_meta)
+    refresh = create_refresh_token(row["id"], session_id=session_id)
     write_audit_log(
         action="login",
         user_id=row["id"],

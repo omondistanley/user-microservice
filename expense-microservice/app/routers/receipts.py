@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
@@ -5,6 +6,7 @@ from fastapi.responses import Response
 
 from app.core.dependencies import get_current_user_id
 from app.models.receipts import ReceiptCreate, ReceiptResponse
+from app.services.receipt_ocr import is_tesseract_available, run_ocr
 from app.services.service_factory import ServiceFactory
 
 router = APIRouter(prefix="/api/v1", tags=["receipts"])
@@ -46,7 +48,7 @@ async def create_receipt(
     if "multipart/form-data" in content_type_header:
         form = await request.form()
         file: UploadFile | None = form.get("file")
-        if isinstance(file, UploadFile) and file.filename:
+        if file is not None and getattr(file, "filename", None):
             file_bytes = await file.read()
             file_name = form.get("file_name") or file.filename or "receipt"
             if isinstance(file_name, UploadFile):
@@ -158,3 +160,99 @@ async def delete_receipt(
     svc = _get_receipt_service()
     if not svc.delete_receipt(receipt_id, user_id):
         raise HTTPException(status_code=404, detail="Receipt not found")
+
+
+@router.post("/receipts/{receipt_id}/ocr")
+async def run_receipt_ocr(
+    receipt_id: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Run OCR on receipt image and store raw text + extracted fields. Requires tesseract-ocr."""
+    try:
+        UUID(receipt_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid receipt id")
+    svc = _get_receipt_service()
+    ds = _get_data_service()
+    try:
+        data, _, _ = svc.get_receipt_download(receipt_id, user_id)
+    except HTTPException:
+        raise
+    raw_text, extracted = run_ocr(data)
+    if raw_text is None and not extracted:
+        raise HTTPException(status_code=503, detail="OCR unavailable (install tesseract-ocr) or no text detected")
+    ds.insert_receipt_ocr_result(receipt_id, raw_text, extracted)
+    result = ds.get_receipt_ocr_result(receipt_id, user_id)
+    return {
+        "receipt_id": receipt_id,
+        "raw_text": result.get("raw_text"),
+        "extracted": result.get("extracted_json") or {},
+        "ocr_run_at": result.get("ocr_run_at"),
+        "diagnostics": {
+            "tesseract_available": is_tesseract_available(),
+            "raw_text_length": len(result.get("raw_text") or ""),
+        },
+    }
+
+
+@router.get("/receipts/{receipt_id}/ocr")
+async def get_receipt_ocr(
+    receipt_id: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Return stored OCR result for a receipt."""
+    try:
+        UUID(receipt_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid receipt id")
+    ds = _get_data_service()
+    result = ds.get_receipt_ocr_result(receipt_id, user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Receipt or OCR result not found")
+    return {
+        "receipt_id": str(result["receipt_id"]),
+        "raw_text": result.get("raw_text"),
+        "extracted": result.get("extracted_json") or {},
+        "ocr_run_at": result.get("ocr_run_at"),
+        "diagnostics": {
+            "tesseract_available": is_tesseract_available(),
+            "raw_text_length": len(result.get("raw_text") or ""),
+        },
+    }
+
+
+@router.post("/receipts/{receipt_id}/apply-extraction")
+async def apply_receipt_extraction(
+    receipt_id: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Apply extracted OCR fields (amount, date, description) to the linked expense."""
+    try:
+        UUID(receipt_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid receipt id")
+    ds = _get_data_service()
+    ocr = ds.get_receipt_ocr_result(receipt_id, user_id)
+    if not ocr:
+        raise HTTPException(status_code=404, detail="Run OCR first (POST /receipts/{id}/ocr)")
+    receipt_row = ds.get_receipt_by_id(receipt_id, user_id)
+    if not receipt_row:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    expense_id = receipt_row["expense_id"]
+    extracted = ocr.get("extracted_json") or {}
+    updates = {}
+    if "amount" in extracted and extracted["amount"] is not None:
+        try:
+            updates["amount"] = Decimal(str(extracted["amount"]))
+        except Exception:
+            pass
+    if "date" in extracted and extracted["date"]:
+        updates["date"] = extracted["date"]
+    if "description" in extracted and extracted["description"]:
+        updates["description"] = str(extracted["description"])[:2000]
+    if not updates:
+        return {"applied": False, "message": "No fields to apply", "expense_id": str(expense_id)}
+    from datetime import datetime, timezone
+    updates["updated_at"] = datetime.now(timezone.utc)
+    ds.update_expense(UUID(str(expense_id)), user_id, updates)
+    return {"applied": True, "expense_id": str(expense_id), "updated": list(updates.keys())}

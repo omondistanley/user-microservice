@@ -3,6 +3,7 @@ Application configuration from environment variables.
 Loads .env from project root (user-microservice/) so SECRET_KEY works locally.
 Set SECRET_KEY (required for JWT). Optional: DB_* for data service context.
 """
+import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -63,9 +64,10 @@ CSP_POLICY: str = os.environ.get(
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 )
 
-# Proxy to expense and budget microservices (empty = disabled; defaults for local dev)
+# Proxy to expense, budget, and investments microservices (empty = disabled; defaults for local dev)
 EXPENSE_SERVICE_URL: str = os.environ.get("EXPENSE_SERVICE_URL", "http://localhost:3001").rstrip("/")
 BUDGET_SERVICE_URL: str = os.environ.get("BUDGET_SERVICE_URL", "http://localhost:3002").rstrip("/")
+INVESTMENT_SERVICE_URL: str = os.environ.get("INVESTMENT_SERVICE_URL", "http://localhost:3003").rstrip("/")
 
 # Frontend API base URLs (empty when proxy is used; e.g. http://localhost:3001 for non-proxy dev)
 EXPENSE_API_BASE_FRONTEND: str = os.environ.get("EXPENSE_API_BASE_FRONTEND", "")
@@ -95,3 +97,32 @@ DB_PASSWORD: Optional[str] = os.environ.get("DB_PASSWORD")
 DB_HOST: Optional[str] = os.environ.get("DB_HOST")
 DB_PORT: Optional[str] = os.environ.get("DB_PORT")
 DB_NAME: Optional[str] = os.environ.get("DB_NAME", "users_db")
+
+# Internal service URLs used by background jobs.
+EXPENSE_SERVICE_INTERNAL_URL: str = os.environ.get("EXPENSE_SERVICE_INTERNAL_URL", "http://localhost:3001").rstrip("/")
+BUDGET_SERVICE_INTERNAL_URL: str = os.environ.get("BUDGET_SERVICE_INTERNAL_URL", "http://localhost:3002").rstrip("/")
+
+# Webhook processing / validation config
+WEBHOOK_MAX_ATTEMPTS: int = int(os.environ.get("WEBHOOK_MAX_ATTEMPTS", "5"))
+WEBHOOK_BATCH_SIZE: int = int(os.environ.get("WEBHOOK_BATCH_SIZE", "25"))
+WEBHOOK_RETRY_BASE_SECONDS: int = int(os.environ.get("WEBHOOK_RETRY_BASE_SECONDS", "30"))
+WEBHOOK_SIGNATURE_TOLERANCE_SECONDS: int = int(os.environ.get("WEBHOOK_SIGNATURE_TOLERANCE_SECONDS", "300"))
+WEBHOOK_SECRETS_JSON: str = os.environ.get("WEBHOOK_SECRETS_JSON", "{}")
+
+# Calendar subscription token links.
+CALENDAR_TOKEN_BASE_URL: str = os.environ.get("CALENDAR_TOKEN_BASE_URL", APP_BASE_URL.rstrip("/"))
+
+
+def get_webhook_secrets() -> dict[str, str]:
+    """Return provider->secret map from WEBHOOK_SECRETS_JSON, fail-closed to empty map."""
+    try:
+        data = json.loads(WEBHOOK_SECRETS_JSON or "{}")
+        if isinstance(data, dict):
+            out: dict[str, str] = {}
+            for k, v in data.items():
+                if isinstance(k, str) and isinstance(v, str) and k.strip() and v.strip():
+                    out[k.strip().lower()] = v.strip()
+            return out
+    except Exception:
+        pass
+    return {}

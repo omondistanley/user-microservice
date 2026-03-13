@@ -30,6 +30,7 @@ class RefreshTokenValidationResult:
     user_id: int | None = None
     email: str | None = None
     family_id: str | None = None
+    session_id: str | None = None
 
 
 def _get_connection():
@@ -47,7 +48,11 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def create_refresh_token(user_id: int, family_id: str | None = None) -> str:
+def create_refresh_token(
+    user_id: int,
+    family_id: str | None = None,
+    session_id: str | None = None,
+) -> str:
     """Generate a new refresh token, store its hash in DB, return the raw token."""
     raw = secrets.token_urlsafe(32)
     token_hash = _hash_token(raw)
@@ -58,10 +63,34 @@ def create_refresh_token(user_id: int, family_id: str | None = None) -> str:
         conn.autocommit = True
         cur = conn.cursor()
         cur.execute(
-            f'INSERT INTO "{SCHEMA}"."{TABLE}" (user_id, token_hash, expires_at, family_id) VALUES (%s, %s, %s, %s)',
-            (user_id, token_hash, expires_at, token_family_id),
+            f'INSERT INTO "{SCHEMA}"."{TABLE}" (user_id, token_hash, expires_at, family_id, session_id) '
+            "VALUES (%s, %s, %s, %s, %s::uuid)",
+            (user_id, token_hash, expires_at, token_family_id, session_id),
         )
         return raw
+    finally:
+        conn.close()
+
+
+def get_refresh_token_info(token: str) -> tuple[int | None, str | None]:
+    """Look up user_id and session_id for a refresh token without consuming it. Returns (user_id, session_id) or (None, None)."""
+    token_hash = _hash_token(token)
+    conn = _get_connection()
+    try:
+        conn.autocommit = True
+        cur = conn.cursor()
+        cur.execute(
+            f'SELECT user_id, session_id FROM "{SCHEMA}"."{TABLE}" '
+            "WHERE token_hash = %s AND revoked_at IS NULL AND consumed_at IS NULL AND expires_at > now()",
+            (token_hash,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return (None, None)
+        return (
+            int(row["user_id"]),
+            str(row["session_id"]) if row.get("session_id") else None,
+        )
     finally:
         conn.close()
 
@@ -123,7 +152,7 @@ def validate_refresh_token(token: str) -> RefreshTokenValidationResult:
         conn.autocommit = False
         cur = conn.cursor()
         cur.execute(
-            f'SELECT id, user_id, expires_at, consumed_at, revoked_at, family_id '
+            f'SELECT id, user_id, expires_at, consumed_at, revoked_at, family_id, session_id '
             f'FROM "{SCHEMA}"."{TABLE}" WHERE token_hash = %s FOR UPDATE',
             (token_hash,),
         )
@@ -150,6 +179,7 @@ def validate_refresh_token(token: str) -> RefreshTokenValidationResult:
         if row.get("consumed_at") is not None:
             # Refresh token reuse detected: revoke token family (fallback to all if family missing).
             family_id = row.get("family_id")
+            session_id = row.get("session_id")
             if family_id is not None:
                 revoke_refresh_token_family(user_id, str(family_id), conn=conn)
             else:
@@ -159,6 +189,7 @@ def validate_refresh_token(token: str) -> RefreshTokenValidationResult:
                 status="reused",
                 user_id=user_id,
                 family_id=str(family_id) if family_id is not None else None,
+                session_id=str(session_id) if session_id is not None else None,
             )
 
         if row.get("revoked_at") is not None:
@@ -183,6 +214,7 @@ def validate_refresh_token(token: str) -> RefreshTokenValidationResult:
             user_id=user_id,
             email=user_row["email"],
             family_id=str(row["family_id"]) if row.get("family_id") is not None else None,
+            session_id=str(row["session_id"]) if row.get("session_id") is not None else None,
         )
     except Exception:
         conn.rollback()

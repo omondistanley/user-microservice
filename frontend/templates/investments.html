@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+{% block body_class %}investments-page{% endblock %}
+{% block title %}Investments — Expense Tracker{% endblock %}
+{% block head_extra %}
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&amp;display=swap" rel="stylesheet"/>
+{% endblock %}
+{% block content %}
+<main id="main-content" class="container main-content">
+    <div class="page-header">
+        <h1 class="page-title">Investments</h1>
+        <p class="page-subtitle">Track your stock and ETF holdings. Add positions manually; live prices can be added later via a broker API.</p>
+        <p class="page-subtitle disclaimer">Not financial advice. For informational purposes only.</p>
+    </div>
+
+    <section class="card-section">
+        <div class="card-header">
+            <h2>Your holdings</h2>
+            <button type="button" id="holdings-add-btn" class="btn btn-primary">Add holding</button>
+        </div>
+        <div id="holdings-list" class="holdings-list">
+            <p class="muted">Loading…</p>
+        </div>
+    </section>
+
+    <div id="add-holding-form-wrap" class="modal-wrap" style="display: none;" aria-hidden="true">
+        <div class="modal-backdrop" id="add-holding-backdrop"></div>
+        <div class="modal-card" role="dialog" aria-labelledby="add-holding-title" aria-modal="true">
+            <h3 id="add-holding-title" class="modal-title">Add holding</h3>
+            <form id="add-holding-form" class="form">
+                <div class="form-group">
+                    <label for="holding-symbol">Symbol <span class="required">*</span></label>
+                    <input type="text" id="holding-symbol" name="symbol" required maxlength="32" placeholder="e.g. AAPL" class="form-control"/>
+                </div>
+                <div class="form-group">
+                    <label for="holding-quantity">Quantity <span class="required">*</span></label>
+                    <input type="number" id="holding-quantity" name="quantity" required min="0.000001" step="any" placeholder="e.g. 10" class="form-control"/>
+                </div>
+                <div class="form-group">
+                    <label for="holding-avg-cost">Avg. cost <span class="required">*</span></label>
+                    <input type="number" id="holding-avg-cost" name="avg_cost" required min="0" step="0.01" placeholder="e.g. 150.00" class="form-control"/>
+                </div>
+                <div class="form-group">
+                    <label for="holding-currency">Currency</label>
+                    <input type="text" id="holding-currency" name="currency" value="USD" maxlength="3" class="form-control"/>
+                </div>
+                <div class="form-group">
+                    <label for="holding-notes">Notes</label>
+                    <input type="text" id="holding-notes" name="notes" maxlength="512" placeholder="Optional" class="form-control"/>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="add-holding-cancel" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/investments.js"></script>
+{% endblock %}

@@ -89,31 +89,48 @@
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/plaid.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/teller.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
   var container = document.getElementById('plaid-success-accounts');
   if (!container) return;
-  if (!window.PlaidApi || !window.PlaidApi.getItems) {
-    container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Linked accounts will appear here.</p>';
-    return;
-  }
-  window.PlaidApi.getItems().then(function(data) {
-    var items = (data && data.items) ? data.items : [];
-    if (items.length === 0) {
-      container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No linked items to display.</p>';
-      return;
-    }
-    var icons = ['payments', 'savings', 'trending_up', 'account_balance'];
-    var html = items.map(function(item, i) {
+
+  var icons = ['payments', 'savings', 'trending_up', 'account_balance'];
+
+  function renderItems(items, provider) {
+    return items.map(function(item, i) {
       var name = item.institution_name || item.institution_id || 'Linked account';
       var icon = icons[i % icons.length];
+      var badge = provider === 'teller' ? 'TELLER' : 'PLAID';
+      var badgeClass = provider === 'teller' ? 'text-emerald-500' : 'text-primary';
       return '<div class="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-primary/5 border border-slate-200 dark:border-primary/10">' +
         '<div class="flex items-center gap-3">' +
         '<div class="p-2 bg-white dark:bg-background-dark rounded-lg"><span class="material-symbols-outlined text-primary">' + icon + '</span></div>' +
-        '<div><p class="font-bold text-sm">' + (name.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</p><p class="text-xs text-slate-500 dark:text-slate-400">Linked</p></div>' +
-        '</div><div class="text-right"><span class="text-primary text-xs font-bold uppercase tracking-wider">Linked</span></div></div>';
+        '<div><p class="font-bold text-sm">' + (name.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</p>' +
+        '<p class="text-xs text-slate-500 dark:text-slate-400">Linked via ' + badge + '</p></div>' +
+        '</div><div class="text-right"><span class="' + badgeClass + ' text-xs font-bold uppercase tracking-wider">' + badge + '</span></div></div>';
     }).join('');
-    container.innerHTML = html;
+  }
+
+  var plaidPromise = (window.PlaidApi && window.PlaidApi.getItems)
+    ? window.PlaidApi.getItems().then(function(d) { return (d && d.items) ? d.items : []; }).catch(function() { return []; })
+    : Promise.resolve([]);
+
+  var tellerPromise = (window.TellerApi && window.TellerApi.getEnrollments)
+    ? window.TellerApi.getEnrollments().then(function(d) { return (d && d.items) ? d.items : []; }).catch(function() { return []; })
+    : Promise.resolve([]);
+
+  Promise.all([plaidPromise, tellerPromise]).then(function(results) {
+    var plaidItems = results[0];
+    var tellerItems = results[1];
+    var html = '';
+    html += renderItems(plaidItems, 'plaid');
+    html += renderItems(tellerItems, 'teller');
+    if (!html) {
+      container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No linked accounts to display.</p>';
+    } else {
+      container.innerHTML = html;
+    }
   }).catch(function() {
     container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Could not load linked accounts.</p>';
   });

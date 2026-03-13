@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block body_class %}expenses-page{% endblock %}
+{% block title %}Import expenses — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <a href="/expenses" class="page-back-link">← Expenses</a>
+            <h1 class="page-title">Import from CSV</h1>
+        </div>
+    </div>
+    <div class="form-page-card">
+        <p class="text-muted">Upload a CSV with columns such as date, amount, category, description, currency. Duplicates (same date, amount, description) will be detected.</p>
+        <form id="import-form">
+            <div class="form-group">
+                <label for="csv-file">CSV file</label>
+                <input type="file" id="csv-file" name="file" accept=".csv" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-upload">Upload and preview</button>
+        </form>
+        <div id="import-preview" style="display: none; margin-top: 1.5rem;">
+            <h2 class="h4">Preview</h2>
+            <p id="import-summary" class="text-muted"></p>
+            <div class="table-responsive">
+                <table class="table" id="import-preview-table">
+                    <thead>
+                        <tr>
+                            <th>Row</th>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="import-preview-tbody"></tbody>
+                </table>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-commit" style="margin-top: 1rem;">Commit import</button>
+            <span id="import-commit-msg" class="message-success" style="display: none;"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/expense_import.js"></script>
+{% endblock %}

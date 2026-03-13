@@ -12,12 +12,13 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.routers import users, oauth, notifications, settings
+from app.routers import users, oauth, notifications, settings, households, saved_views, sessions, integrations, net_worth
 from app.services.email_verification_service import verify_email_token
 from app.core.config import (
     get_cors_origins,
     EXPENSE_SERVICE_URL,
     BUDGET_SERVICE_URL,
+    INVESTMENT_SERVICE_URL,
     EXPENSE_API_BASE_FRONTEND,
     BUDGET_API_BASE_FRONTEND,
     DB_HOST,
@@ -70,6 +71,11 @@ app.include_router(users.router)
 app.include_router(oauth.router)
 app.include_router(notifications.router)
 app.include_router(settings.router)
+app.include_router(households.router)
+app.include_router(saved_views.router)
+app.include_router(sessions.router)
+app.include_router(integrations.router)
+app.include_router(net_worth.router)
 
 # Proxy /api/v1/expenses, /api/v1/income, /api/v1/cashflow, /api/v1/recurring-expenses,
 # /api/v1/categories, /api/v1/tags, /api/v1/receipts, /api/v1/plaid, and /api/v1/budgets when service URLs are set
@@ -138,6 +144,62 @@ if EXPENSE_SERVICE_URL:
     async def proxy_plaid_path(request: Request, path: str):
         return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/plaid", path)
 
+    @app.api_route("/api/v1/teller", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_teller_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/teller", "")
+
+    @app.api_route("/api/v1/teller/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_teller_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/teller", path)
+
+    @app.api_route("/api/v1/truelayer", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_truelayer_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/truelayer", "")
+
+    @app.api_route("/api/v1/truelayer/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_truelayer_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/truelayer", path)
+
+    @app.api_route("/api/v1/bank", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_bank_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/bank", "")
+
+    @app.api_route("/api/v1/bank/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_bank_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/bank", path)
+
+    @app.api_route("/api/v1/goals", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_goals_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/goals", "")
+
+    @app.api_route("/api/v1/goals/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_goals_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/goals", path)
+
+    @app.api_route("/api/v1/insights", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_insights_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/insights", "")
+
+    @app.api_route("/api/v1/insights/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_insights_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/insights", path)
+
+    @app.api_route("/api/v1/reminders", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_reminders_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/reminders", "")
+
+    @app.api_route("/api/v1/reminders/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_reminders_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/reminders", path)
+
+    @app.api_route("/api/v1/export", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_export_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/export", "")
+
+    @app.api_route("/api/v1/export/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_export_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/export", path)
+
 if BUDGET_SERVICE_URL:
     @app.api_route("/api/v1/budgets", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_budgets_root(request: Request):
@@ -146,6 +208,15 @@ if BUDGET_SERVICE_URL:
     @app.api_route("/api/v1/budgets/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_budgets_path(request: Request, path: str):
         return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/budgets", path)
+
+if INVESTMENT_SERVICE_URL:
+    @app.api_route("/api/v1/holdings", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_holdings_root(request: Request):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/holdings", "")
+
+    @app.api_route("/api/v1/holdings/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_holdings_path(request: Request, path: str):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/holdings", path)
 
 
 def _render(page: str, request: Request, **context):
@@ -383,6 +454,11 @@ async def expenses_add_page(request: Request):
     return _render("expenses/add.html", request)
 
 
+@app.get("/expenses/import", include_in_schema=False)
+async def expenses_import_page(request: Request):
+    return _render("expenses/import.html", request)
+
+
 @app.get("/income", include_in_schema=False)
 async def income_list_page(request: Request):
     return _render("income/list.html", request)
@@ -430,6 +506,11 @@ async def reports_page(request: Request):
     return _render("reports.html", request)
 
 
+@app.get("/insights", include_in_schema=False)
+async def insights_page(request: Request):
+    return _render("insights.html", request)
+
+
 @app.get("/reports/category/{category_code}", include_in_schema=False)
 async def reports_category_page(request: Request, category_code: str):
     return _render("reports_category.html", request, category_code=category_code)
@@ -440,9 +521,29 @@ async def savings_goals_page(request: Request):
     return _render("savings_goals.html", request)
 
 
+@app.get("/goals/add", include_in_schema=False)
+async def goal_add_page(request: Request):
+    return _render("goal_add.html", request)
+
+
 @app.get("/goals/{goal_id}", include_in_schema=False)
 async def goal_detail_page(request: Request, goal_id: str):
     return _render("goal_detail.html", request, goal_id=goal_id)
+
+
+@app.get("/settings/integrations", include_in_schema=False)
+async def integrations_page(request: Request):
+    return _render("settings/integrations.html", request)
+
+
+@app.get("/investments", include_in_schema=False)
+async def investments_page(request: Request):
+    return _render("investments.html", request)
+
+
+@app.get("/recommendations", include_in_schema=False)
+async def recommendations_page(request: Request):
+    return _render("recommendations.html", request)
 
 
 @app.get("/link-bank", include_in_schema=False)

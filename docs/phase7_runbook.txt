@@ -1,0 +1,61 @@
+Phase 7 Runbook (Integrations, Webhooks, Calendar, Digest, Export)
+
+=== Bank connector abstraction ===
+- Interface: app.adapters.bank_connector.BankConnectorAdapter (create_link_session, exchange_public_token, sync_transactions, disconnect_item, list_items).
+- PlaidAdapter in app.adapters.plaid_adapter wraps existing Plaid flow. plaid_item table has provider column (default 'plaid').
+- New providers: implement BankConnectorAdapter, register in router/factory; core expense sync unchanged.
+
+=== Plaid: env vars and "not configured" behavior ===
+Required (all in expense-microservice .env):
+- PLAID_CLIENT_ID — from Plaid dashboard
+- PLAID_SECRET — from Plaid dashboard
+- PLAID_ENV — sandbox | development | production (default: sandbox)
+- ENCRYPTION_KEY — Fernet key (32 bytes base64) for encrypting access tokens. Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+When any of PLAID_CLIENT_ID or PLAID_SECRET is missing or empty:
+- is_configured() is False; create_link_token() returns None.
+- API: POST /api/v1/plaid/link-token and POST /api/v1/plaid/item return 503 with detail "Plaid is not configured".
+- Frontend: Link bank page should show "Bank linking is not set up" and offer manual entry / CSV import instead of opening Plaid Link.
+
+=== Teller: env vars and "not configured" behavior ===
+Required (all in expense-microservice .env):
+- TELLER_APP_ID — from Teller dashboard
+- TELLER_CERT_PATH — path to Teller client certificate (PEM)
+- TELLER_KEY_PATH — path to Teller private key (PEM)
+- TELLER_ENV — sandbox | development | production (default: sandbox)
+
+When TELLER_APP_ID (or cert/key) is not set:
+- Teller endpoints (e.g. GET /api/v1/teller/config, POST save-enrollment) return 503 "Teller is not configured".
+- Frontend: Same as Plaid — when no bank provider is configured, show fallback message and link to CSV import.
+
+=== TrueLayer (EU open banking, alternative adapter) ===
+Skeleton adapter and routes for when Plaid/Teller are not working. Env: TRUELAYER_CLIENT_ID, TRUELAYER_CLIENT_SECRET (expense-microservice). When not set, GET /api/v1/truelayer/status and POST /api/v1/truelayer/link-token return 503. Frontend checks /api/v1/truelayer/status when deciding whether to show the link-bank provider section. Full OAuth and transaction sync can be implemented later; see app.adapters.truelayer_adapter and app.routers.truelayer.
+
+=== Webhooks ===
+- POST /api/v1/integrations/webhooks/{provider}: ingest webhook payload. Optional header x-webhook-signature for HMAC validation.
+- Idempotency: users_db.webhook_event (provider, event_id UNIQUE). Duplicate event_id returns 200 { "status": "duplicate" }.
+- Configure WEBHOOK_SECRETS[provider] for signature verification; if unset, any payload accepted (dev).
+- Run migration: 015_webhook_events.sql.
+
+=== Calendar reminders ===
+- GET /api/v1/reminders/calendar.ics?days_ahead=90 (expense service). Requires auth (Bearer). Returns ICS with recurring due dates.
+- Subscribe in calendar app: use URL with token in query if app supports (e.g. ?token=...) or use app that sends Cookie/Authorization.
+- Gateway proxies /api/v1/reminders/* to expense service.
+
+=== Digest ===
+- Table: users_db.digest_config (user_id, frequency weekly|monthly, channel email|slack_webhook, channel_target, is_active, last_sent_at).
+- Job: python -m app.jobs.digest_sender --as-of YYYY-MM-DD [--dry-run] [--frequency weekly|monthly]. Sends email via SMTP (or logs to console if EMAIL_MODE=console).
+- Run migration: 016_digest_config.sql.
+
+=== Export portable ===
+- GET /api/v1/export/portable?format=json&date_from=&date_to= (expense service). Returns JSON: schema_version, exported_at, meta, expenses, income.
+- Use for backup or migration. Gateway proxies /api/v1/export/* to expense service.
+
+=== Integration management UI ===
+- Page: /settings/integrations. Links: Link bank, calendar URL, digest note, Download portable export button.
+- Export button fetches /api/v1/export/portable and triggers download of JSON file.
+
+=== Adding a new provider ===
+1. Implement BankConnectorAdapter (e.g. TellerAdapter).
+2. Add provider-specific routes or branch in existing link/sync endpoints.
+3. Store items with provider field. Sync logic can delegate to adapter.sync_transactions.

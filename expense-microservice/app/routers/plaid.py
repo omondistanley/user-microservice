@@ -51,6 +51,14 @@ def _get_expense_data_service():
     return ServiceFactory.get_service("ExpenseDataService")
 
 
+@router.get("/status")
+async def plaid_status():
+    """Return whether Plaid is configured (for frontend to show fallback when not)."""
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Plaid is not configured")
+    return {"configured": True}
+
+
 @router.post("/link-token")
 async def plaid_link_token(user_id: int = Depends(get_current_user_id)):
     """Return a link_token for initializing Plaid Link."""

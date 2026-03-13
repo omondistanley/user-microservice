@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_current_user
-from app.models.users import UserSettingsResponse, UserSettingsUpdate
+from app.models.users import ActiveHouseholdUpdate, UserSettingsResponse, UserSettingsUpdate
+from app.services.household_service import set_active_household
 from app.services.user_settings_service import get_user_settings, update_default_currency
 
 router = APIRouter()
@@ -21,4 +22,16 @@ async def patch_settings(payload: UserSettingsUpdate, current_user: dict = Depen
         row = update_default_currency(user_id, payload.default_currency)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return UserSettingsResponse(**row)
+
+
+@router.patch("/api/v1/settings/active-household", tags=["settings"], response_model=UserSettingsResponse)
+async def patch_active_household(payload: ActiveHouseholdUpdate, current_user: dict = Depends(get_current_user)):
+    """Set active household scope (null = personal). User must be active member of the household."""
+    user_id = int(current_user["id"])
+    try:
+        set_active_household(user_id, str(payload.household_id) if payload.household_id is not None else None)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    row = get_user_settings(user_id)
     return UserSettingsResponse(**row)

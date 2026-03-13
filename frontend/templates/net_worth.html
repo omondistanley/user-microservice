@@ -130,24 +130,57 @@
   }
 
   function loadBalance() {
-    var api = window.EXPENSE_API_BASE || '';
+    var api = window.API_BASE || '';
     var h = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
-    var fn = (window.Auth && window.Auth.requestWithRefresh)
-      ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses/balance', { headers: h }); }
-      : function() { return fetch(api + '/api/v1/expenses/balance', { headers: h }); };
-    fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
-      .then(function(d) {
-        var bal = d && d.balance_after != null ? d.balance_after : 0;
-        var s = fmt(bal);
-        if (totalEl) totalEl.textContent = '$' + s;
-        if (assetsTotalEl) assetsTotalEl.textContent = '$' + s;
-        if (cashEl) cashEl.textContent = '$' + s;
-        if (trendEl) trendEl.style.display = 'flex';
+    var req = (window.Auth && window.Auth.requestWithRefresh)
+      ? function(url) { return window.Auth.requestWithRefresh(url, { headers: h }); }
+      : function(url) { return fetch(url, { headers: h }); };
+
+    req(api + '/api/v1/net-worth/summary')
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function(summary) {
+        if (!summary) summary = {};
+        var netWorth = summary.net_worth != null ? summary.net_worth : 0;
+        var assetsTotal = summary.assets_total != null ? summary.assets_total : 0;
+        var liabilitiesTotal = summary.liabilities_total != null ? summary.liabilities_total : 0;
+        var assets = summary.assets || {};
+        var liabilities = summary.liabilities || {};
+
+        var cash = assets.cash != null ? assets.cash : 0;
+
+        if (totalEl) totalEl.textContent = '$' + fmt(netWorth);
+        if (assetsTotalEl) assetsTotalEl.textContent = '$' + fmt(assetsTotal);
+        if (cashEl) cashEl.textContent = '$' + fmt(cash);
+        if (liabilitiesTotalEl) liabilitiesTotalEl.textContent = '$' + fmt(liabilitiesTotal);
+        if (trendEl) trendEl.style.display = parseFloat(netWorth) >= 0 ? 'flex' : 'none';
+
+        var liabList = document.getElementById('net-worth-liabilities-list');
+        if (liabList) {
+          var hasLiabilities = false;
+          var html = '';
+          Object.keys(liabilities).forEach(function(key) {
+            var value = parseFloat(liabilities[key] || 0);
+            if (value > 0) {
+              hasLiabilities = true;
+              var label = key === 'debt' ? 'Debt & obligations' : key.replace(/_/g, ' ');
+              html += '<div class="flex items-center justify-between p-4">'
+                + '<span class="font-medium">' + label + '</span>'
+                + '<span class="font-semibold text-red-600 dark:text-red-400">-$' + fmt(value) + '</span>'
+                + '</div>';
+            }
+          });
+          if (!hasLiabilities) {
+            liabList.textContent = 'No liabilities recorded.';
+          } else {
+            liabList.innerHTML = html;
+          }
+        }
       })
       .catch(function() {
         if (totalEl) totalEl.textContent = '$0.00';
         if (assetsTotalEl) assetsTotalEl.textContent = '$0.00';
         if (cashEl) cashEl.textContent = '$0.00';
+        if (liabilitiesTotalEl) liabilitiesTotalEl.textContent = '$0.00';
       });
   }
 

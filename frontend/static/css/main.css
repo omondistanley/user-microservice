@@ -99,6 +99,58 @@
     --font-sans:           var(--font-sans);
 }
 
+/* Phase 6: Light theme */
+body.theme-light,
+[data-theme="light"] {
+    --bg-base:     #f6f6f8;
+    --bg-surface:  #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-hover:    #f0f0f4;
+    --border-subtle: rgba(0,0,0,0.06);
+    --border-muted:  rgba(0,0,0,0.12);
+    --text-primary:   #1a1a24;
+    --text-secondary: #4a4a5e;
+    --text-muted:     #6a6a80;
+    --shadow-sm:  0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md:  0 4px 14px rgba(0,0,0,0.1);
+    --shadow-lg:  0 8px 30px rgba(0,0,0,0.12);
+    --shadow-card: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Skip to main content (a11y) */
+.skip-to-content {
+    position: absolute;
+    left: -9999px;
+    z-index: 9999;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--accent);
+    color: #fff;
+    font-weight: var(--fw-semi);
+}
+.skip-to-content:focus {
+    left: var(--sp-4);
+    top: var(--sp-4);
+}
+
+/* Visible focus for keyboard nav */
+*:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Onboarding banner */
+.onboarding-banner {
+    background: var(--accent-subtle);
+    border-bottom: 1px solid var(--border-muted);
+    padding: var(--sp-3) var(--sp-4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+}
+.onboarding-banner p { margin: 0; }
+
 /* ── 2. BASE RESET ─────────────────────────────────────────── */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -451,6 +503,126 @@ h1, h2, h3, h4 {
     line-height: 1.7;
     color: var(--text-secondary);
     margin: 0 0 var(--sp-5) 0;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+
+.card-header h2 {
+    margin: 0;
+    font-size: var(--text-xl);
+}
+
+.holdings-list {
+    margin-top: var(--sp-2);
+}
+
+.holdings-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.holding-item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--sp-2);
+    background-color: var(--bg-elevated);
+}
+
+.holding-symbol {
+    font-weight: var(--fw-bold);
+    font-size: var(--text-lg);
+    color: var(--text-primary);
+    min-width: 4rem;
+}
+
+.holding-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    flex: 1;
+}
+
+.holding-qty, .holding-notes {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.holding-value {
+    font-weight: var(--fw-semi);
+    color: var(--text-primary);
+}
+
+.holding-delete {
+    font-size: var(--text-xs);
+}
+
+.modal-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-4);
+}
+
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-card {
+    position: relative;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-6);
+    max-width: 24rem;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-title {
+    margin: 0 0 var(--sp-4) 0;
+    font-size: var(--text-xl);
+    color: var(--text-primary);
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--sp-3);
+    justify-content: flex-end;
+    margin-top: var(--sp-5);
+}
+
+.btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: var(--text-xs);
 }
 
 /* ── 8. BUTTONS ────────────────────────────────────────────── */

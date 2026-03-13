@@ -81,6 +81,7 @@ async def list_expenses(
     tag: Optional[str] = Query(None),
     min_amount: Optional[Decimal] = Query(None),
     max_amount: Optional[Decimal] = Query(None),
+    household_id: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -89,6 +90,12 @@ async def list_expenses(
             UUID(tag_id)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid tag id")
+    hh_uuid = None
+    if household_id:
+        try:
+            hh_uuid = UUID(household_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid household_id")
     resource = _get_expense_resource()
     params = ExpenseListParams(
         date_from=date_from,
@@ -99,6 +106,7 @@ async def list_expenses(
         tag=tag,
         min_amount=min_amount,
         max_amount=max_amount,
+        household_id=hh_uuid,
         page=page,
         page_size=page_size,
     )

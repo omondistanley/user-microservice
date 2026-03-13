@@ -26,14 +26,22 @@ async def list_budgets(
     category_code: Optional[int] = Query(None, ge=1, le=8),
     effective_date: Optional[date] = Query(None),
     include_inactive: bool = Query(False),
+    household_id: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
+    hh_uuid = None
+    if household_id:
+        try:
+            hh_uuid = UUID(household_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid household_id")
     resource = _get_budget_resource()
     params = BudgetListParams(
         category_code=category_code,
         effective_date=effective_date,
         include_inactive=include_inactive,
+        household_id=hh_uuid,
         page=page,
         page_size=page_size,
     )

@@ -67,6 +67,7 @@ class ExpenseResource(BaseResource):
         payload: ExpenseCreate,
         source: Optional[str] = None,
         plaid_transaction_id: Optional[str] = None,
+        teller_transaction_id: Optional[str] = None,
     ) -> ExpenseResponse:
         resolved = self.data_service.resolve_category(
             payload.category_code, payload.category
@@ -91,10 +92,14 @@ class ExpenseResource(BaseResource):
             "created_at": now,
             "updated_at": now,
         }
+        if payload.household_id is not None:
+            data["household_id"] = str(payload.household_id)
         if source is not None:
             data["source"] = source
         if plaid_transaction_id is not None:
             data["plaid_transaction_id"] = plaid_transaction_id
+        if teller_transaction_id is not None:
+            data["teller_transaction_id"] = teller_transaction_id
         conn = self.data_service.get_connection(autocommit=False)
         created_tags: list[Dict[str, Any]] = []
         try:
@@ -148,6 +153,7 @@ class ExpenseResource(BaseResource):
             resolved = self.data_service.resolve_category(None, params.category.strip())
             if resolved:
                 category_code = resolved[0]
+        household_id = str(params.household_id) if params.household_id else None
         rows, total = self.data_service.list_expenses(
             user_id,
             date_from=date_from,
@@ -157,6 +163,7 @@ class ExpenseResource(BaseResource):
             tag_slug=params.tag,
             min_amount=params.min_amount,
             max_amount=params.max_amount,
+            household_id=household_id,
             limit=params.page_size,
             offset=offset,
         )

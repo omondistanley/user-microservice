@@ -273,5 +273,18 @@
                 if (!r.ok) throw new Error(r.statusText || 'Delete failed');
             });
         },
+        runReceiptOcr: function(receiptId) {
+            return request('/api/v1/receipts/' + encodeURIComponent(receiptId) + '/ocr', {
+                method: 'POST',
+            });
+        },
+        getReceiptOcr: function(receiptId) {
+            return request('/api/v1/receipts/' + encodeURIComponent(receiptId) + '/ocr');
+        },
+        applyReceiptExtraction: function(receiptId) {
+            return request('/api/v1/receipts/' + encodeURIComponent(receiptId) + '/apply-extraction', {
+                method: 'POST',
+            });
+        },
     };
 })();

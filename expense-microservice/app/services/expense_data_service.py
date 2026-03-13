@@ -11,7 +11,7 @@ from uuid import UUID
 
 import psycopg2
 from fastapi import HTTPException
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, Json
 
 SCHEMA = "expenses_db"
 TABLE = "expense"
@@ -108,7 +108,8 @@ class ExpenseDataService:
             "user_id", "category_code", "category_name", "amount", "date",
             "currency", "budget_category_id", "description", "balance_after",
             "created_at", "updated_at",
-            "source", "plaid_transaction_id",
+            "source", "plaid_transaction_id", "teller_transaction_id",
+            "household_id",
         ]
         keys = [k for k in cols if k in data]
         columns = ",".join(f'"{k}"' for k in keys)
@@ -170,6 +171,23 @@ class ExpenseDataService:
         finally:
             conn.close()
 
+    def get_expense_by_teller_transaction_id(
+        self, user_id: int, teller_transaction_id: str
+    ) -> "Optional[Dict]":
+        if not teller_transaction_id:
+            return None
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s AND teller_transaction_id = %s AND deleted_at IS NULL',
+                (user_id, teller_transaction_id),
+            )
+            row = cur.fetchone()
+            return _dict_row(row)
+        finally:
+            conn.close()
+
     def list_expenses(
         self,
         user_id: int,
@@ -180,11 +198,15 @@ class ExpenseDataService:
         tag_slug: Optional[str] = None,
         min_amount: Optional[Decimal] = None,
         max_amount: Optional[Decimal] = None,
+        household_id: Optional[str] = None,
         limit: int = 20,
         offset: int = 0,
     ) -> Tuple[List[Dict], int]:
         conditions = ['e.user_id = %s', 'e.deleted_at IS NULL']
         params: List[Any] = [user_id]
+        if household_id is not None:
+            conditions.append('e.household_id IS NOT DISTINCT FROM %s')
+            params.append(household_id)
         if date_from:
             conditions.append('e.date >= %s')
             params.append(date_from)
@@ -785,6 +807,38 @@ class ExpenseDataService:
                 (user_id, receipt_id),
             )
             return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    OCR_RESULT_TABLE = "receipt_ocr_result"
+
+    def insert_receipt_ocr_result(self, receipt_id: str, raw_text: Optional[str], extracted_json: Optional[Dict]) -> None:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{self.OCR_RESULT_TABLE}" (receipt_id, raw_text, extracted_json, ocr_run_at) '
+                "VALUES (%s::uuid, %s, %s::jsonb, now()) "
+                "ON CONFLICT (receipt_id) DO UPDATE SET raw_text = EXCLUDED.raw_text, extracted_json = EXCLUDED.extracted_json, ocr_run_at = now()",
+                (receipt_id, raw_text, Json(extracted_json or {})),
+            )
+        finally:
+            conn.close()
+
+    def get_receipt_ocr_result(self, receipt_id: str, user_id: int) -> Optional[Dict]:
+        """Return OCR result if receipt exists and belongs to user."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT o.receipt_id, o.raw_text, o.extracted_json, o.ocr_run_at FROM "{SCHEMA}"."{self.OCR_RESULT_TABLE}" o '
+                f'JOIN "{SCHEMA}"."{RECEIPT_TABLE}" r ON r.receipt_id = o.receipt_id '
+                f'JOIN "{SCHEMA}"."{TABLE}" e ON e.expense_id = r.expense_id AND e.user_id = %s '
+                "WHERE o.receipt_id = %s::uuid",
+                (user_id, receipt_id),
+            )
+            row = cur.fetchone()
+            return _dict_row(row)
         finally:
             conn.close()
 
@@ -1757,3 +1811,154 @@ class ExpenseDataService:
             raise
         finally:
             conn.close()
+
+    # --- Expense import (Phase 3) ---
+    IMPORT_JOB_TABLE = "expense_import_job"
+    IMPORT_ROW_TABLE = "expense_import_row"
+
+    def create_import_job(self, user_id: int, household_id: Optional[str], filename: str) -> Dict[str, Any]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{self.IMPORT_JOB_TABLE}" (user_id, household_id, filename, status) '
+                "VALUES (%s, %s, %s, 'uploaded') RETURNING job_id, user_id, household_id, filename, status, created_at, updated_at",
+                (user_id, household_id, filename),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else {}
+        finally:
+            conn.close()
+
+    def add_import_row(self, job_id: str, row_number: int, raw_payload: Optional[Dict], normalized_payload: Optional[Dict], validation_error: Optional[str], is_duplicate: bool) -> None:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{self.IMPORT_ROW_TABLE}" (job_id, row_number, raw_payload, normalized_payload, validation_error, is_duplicate) '
+                "VALUES (%s::uuid, %s, %s, %s, %s, %s)",
+                (job_id, row_number, Json(raw_payload) if raw_payload else None, Json(normalized_payload) if normalized_payload else None, validation_error, is_duplicate),
+            )
+        finally:
+            conn.close()
+
+    def get_import_job(self, job_id: str, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT job_id, user_id, household_id, filename, status, created_at, updated_at FROM "{SCHEMA}"."{self.IMPORT_JOB_TABLE}" WHERE job_id = %s AND user_id = %s',
+                (job_id, user_id),
+            )
+            row = cur.fetchone()
+            return _dict_row(row)
+        finally:
+            conn.close()
+
+    def get_import_rows(self, job_id: str) -> List[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT job_id, row_number, raw_payload, normalized_payload, validation_error, is_duplicate, created_at '
+                f'FROM "{SCHEMA}"."{self.IMPORT_ROW_TABLE}" WHERE job_id = %s ORDER BY row_number',
+                (job_id,),
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def update_import_job_status(self, job_id: str, user_id: int, status: str) -> None:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{self.IMPORT_JOB_TABLE}" SET status = %s, updated_at = now() WHERE job_id = %s AND user_id = %s',
+                (status, job_id, user_id),
+            )
+        finally:
+            conn.close()
+
+    def expense_exists_duplicate(self, user_id: int, household_id: Optional[str], date_str: str, amount: Decimal, description_norm: Optional[str]) -> bool:
+        """Check if an expense with same user, household, date, amount (and optional description) already exists."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            conditions = ["user_id = %s", "date = %s", "amount = %s", "deleted_at IS NULL"]
+            params: List[Any] = [user_id, date_str, amount]
+            if household_id is None:
+                conditions.append("household_id IS NULL")
+            else:
+                conditions.append("household_id = %s::uuid")
+                params.append(household_id)
+            if description_norm:
+                conditions.append("TRIM(LOWER(COALESCE(description, ''))) = %s")
+                params.append(description_norm[:500] if len(description_norm) > 500 else description_norm)
+            cur.execute(
+                f'SELECT 1 FROM "{SCHEMA}"."{TABLE}" WHERE ' + " AND ".join(conditions) + " LIMIT 1",
+                params,
+            )
+            return cur.fetchone() is not None
+        finally:
+            conn.close()
+
+    def commit_import_job(self, job_id: str, user_id: int) -> Dict[str, int]:
+        """Insert valid non-duplicate rows as expenses. Returns counts. Idempotent: if already committed, return stored counts or recompute."""
+        job = self.get_import_job(job_id, user_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Import job not found")
+        if job.get("status") == "committed":
+            rows = self.get_import_rows(job_id)
+            valid = sum(1 for r in rows if not r.get("validation_error") and not r.get("is_duplicate"))
+            inserted = sum(1 for r in rows if r.get("normalized_payload") and not r.get("validation_error") and not r.get("is_duplicate"))
+            return {"total_rows": len(rows), "valid_rows": valid, "invalid_rows": sum(1 for r in rows if r.get("validation_error")), "duplicate_rows": sum(1 for r in rows if r.get("is_duplicate")), "inserted_rows": inserted}
+        rows = self.get_import_rows(job_id)
+        inserted = 0
+        household_id = str(job["household_id"]) if job.get("household_id") else None
+        data_for_household = {}
+        if household_id:
+            data_for_household["household_id"] = household_id
+        conn = self.get_connection(autocommit=False)
+        try:
+            for r in rows:
+                if r.get("validation_error") or r.get("is_duplicate"):
+                    continue
+                np = r.get("normalized_payload") or {}
+                date_val = np.get("date")
+                amount_val = np.get("amount")
+                if not date_val or amount_val is None:
+                    continue
+                cat_code = np.get("category_code") or 8
+                cat_name = np.get("category_name") or "Other"
+                currency = (np.get("currency") or "USD")[:3]
+                desc = (np.get("description") or "")[:2000]
+                data = {
+                    "user_id": user_id,
+                    "category_code": cat_code,
+                    "category_name": cat_name,
+                    "amount": amount_val,
+                    "date": date_val,
+                    "currency": currency,
+                    "description": desc or None,
+                    "balance_after": None,
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc),
+                    **data_for_household,
+                }
+                self._insert_expense_using_conn(conn, data)
+                expense_id = data.get("expense_id")
+                created_at = data.get("created_at")
+                if expense_id and created_at:
+                    self.recalc_balance_after(conn, user_id, date_val, created_at, str(expense_id), None)
+                inserted += 1
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+        self.update_import_job_status(job_id, user_id, "committed")
+        invalid = sum(1 for r in rows if r.get("validation_error"))
+        dup = sum(1 for r in rows if r.get("is_duplicate"))
+        valid = len(rows) - invalid
+        return {"total_rows": len(rows), "valid_rows": valid, "invalid_rows": invalid, "duplicate_rows": dup, "inserted_rows": inserted}

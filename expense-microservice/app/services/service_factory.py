@@ -11,7 +11,10 @@ from app.core.config import (
 )
 from app.resources.expense_resource import ExpenseResource
 from app.services.expense_data_service import ExpenseDataService
+from app.services.goal_data_service import GoalDataService
+from app.services.insights_service import InsightsService
 from app.services.plaid_data_service import PlaidDataService
+from app.services.teller_data_service import TellerDataService
 from app.services.receipt_service import ReceiptService
 from app.services.receipt_storage import LocalReceiptStorage
 from framework.services.service_factory import BaseServiceFactory
@@ -36,8 +39,14 @@ class ServiceFactory(BaseServiceFactory):
             return res
         if service_name == "ExpenseDataService":
             return ExpenseDataService(context=_db_context())
+        if service_name == "GoalDataService":
+            return GoalDataService(context=_db_context())
+        if service_name == "InsightsService":
+            return InsightsService(context=_db_context())
         if service_name == "PlaidDataService":
             return PlaidDataService(context=_db_context())
+        if service_name == "TellerDataService":
+            return TellerDataService(context=_db_context())
         if service_name == "ReceiptService":
             ds = cls.get_service("ExpenseDataService")  # type: ignore
             backend = (RECEIPT_STORAGE_BACKEND or "local").lower()

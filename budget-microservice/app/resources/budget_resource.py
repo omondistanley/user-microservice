@@ -77,6 +77,8 @@ class BudgetResource(BaseResource):
             "created_at": now,
             "updated_at": now,
         }
+        if payload.household_id is not None:
+            data["household_id"] = str(payload.household_id)
         inserted = self.data_service.insert_budget(data)
         if payload.alert_thresholds is not None:
             inserted["alert_configs"] = self.data_service.replace_budget_alert_configs(
@@ -95,11 +97,13 @@ class BudgetResource(BaseResource):
         effective_str = (
             params.effective_date.isoformat() if params.effective_date else None
         )
+        household_id = str(params.household_id) if params.household_id else None
         rows, total = self.data_service.list_budgets(
             user_id=user_id,
             category_code=params.category_code,
             effective_date=effective_str,
             include_inactive=params.include_inactive,
+            household_id=household_id,
             page=params.page,
             page_size=params.page_size,
         )

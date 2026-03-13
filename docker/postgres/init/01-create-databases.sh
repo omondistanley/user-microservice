@@ -12,3 +12,4 @@ create_db_if_missing() {
 create_db_if_missing "users_db"
 create_db_if_missing "expenses_db"
 create_db_if_missing "budgets_db"
+create_db_if_missing "investments_db"

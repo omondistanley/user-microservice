@@ -35,8 +35,16 @@
     </a>
     <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Link Bank Account</h2>
   </div>
-  <!-- Error message (hidden by default) -->
-  <div id="plaid-error" class="mx-4 mb-2 text-sm text-red-600 dark:text-red-400" style="display: none;"></div>
+  <!-- Error message -->
+  <div id="link-error" class="mx-4 mb-2 text-sm text-red-600 dark:text-red-400" style="display: none;"></div>
+  <!-- Not configured: show when neither Plaid nor Teller is available -->
+  <div id="bank-not-configured-wrap" class="mx-4 mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200" style="display: none;">
+    <p class="font-semibold mb-2">Bank linking is not set up.</p>
+    <p class="text-sm mb-3">You can add transactions manually or import from CSV.</p>
+    <a href="/expenses/import" class="inline-block text-sm font-medium text-primary hover:underline">Import CSV</a>
+    <span class="text-slate-500 dark:text-slate-400 mx-2">|</span>
+    <a href="/expenses/add" class="inline-block text-sm font-medium text-primary hover:underline">Add expense</a>
+  </div>
   <!-- Illustration Section -->
   <div class="flex-1 overflow-y-auto">
     <div class="px-6 py-4">
@@ -52,59 +60,70 @@
             <span class="material-symbols-outlined text-white text-2xl">shield_with_heart</span>
           </div>
         </div>
-        <div class="hidden" data-alt="Illustration of a blue bank building with a green security shield icon"></div>
       </div>
       <div class="text-center mb-8">
         <h2 class="text-slate-900 dark:text-white text-3xl font-extrabold leading-tight tracking-tight mb-3">Securely link your bank</h2>
-        <p class="text-slate-600 dark:text-slate-400 text-base font-medium px-4">Connect your accounts to unlock automated expense tracking and smart investment insights.</p>
+        <p class="text-slate-600 dark:text-slate-400 text-base font-medium px-4">Connect your accounts to unlock automated expense tracking and smart insights.</p>
       </div>
       <!-- Features List -->
       <div class="space-y-4 px-2 mb-8">
         <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="bg-primary/10 p-2 rounded-lg">
-            <span class="material-symbols-outlined text-primary">sync</span>
-          </div>
+          <div class="bg-primary/10 p-2 rounded-lg"><span class="material-symbols-outlined text-primary">sync</span></div>
           <div>
             <p class="text-slate-900 dark:text-white font-bold">Automatic transaction syncing</p>
             <p class="text-slate-500 dark:text-slate-400 text-sm">Every purchase is categorized instantly</p>
           </div>
         </div>
         <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="bg-primary/10 p-2 rounded-lg">
-            <span class="material-symbols-outlined text-primary">speed</span>
-          </div>
+          <div class="bg-primary/10 p-2 rounded-lg"><span class="material-symbols-outlined text-primary">speed</span></div>
           <div>
             <p class="text-slate-900 dark:text-white font-bold">Real-time balance updates</p>
             <p class="text-slate-500 dark:text-slate-400 text-sm">Always know exactly how much you have</p>
           </div>
         </div>
         <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="bg-primary/10 p-2 rounded-lg">
-            <span class="material-symbols-outlined text-primary">lock</span>
-          </div>
+          <div class="bg-primary/10 p-2 rounded-lg"><span class="material-symbols-outlined text-primary">lock</span></div>
           <div>
             <p class="text-slate-900 dark:text-white font-bold">Bank-level security</p>
             <p class="text-slate-500 dark:text-slate-400 text-sm">256-bit encryption for your data</p>
           </div>
         </div>
       </div>
+
+      <!-- Provider Picker (hidden when no provider configured) -->
+      <div id="bank-provider-section" class="px-2 mb-6">
+        <p class="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3 text-center">Choose your connection method</p>
+        <div class="grid grid-cols-2 gap-3">
+          <button type="button" id="choose-plaid"
+            class="provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 transition-all">
+            <div class="flex items-center font-black italic tracking-tighter text-lg text-primary">PLAID</div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 text-center">5,000+ banks &amp; credit unions</p>
+          </button>
+          <button type="button" id="choose-teller"
+            class="provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 transition-all hover:border-primary/50">
+            <div class="flex items-center font-black tracking-tighter text-lg text-slate-700 dark:text-slate-200">TELLER</div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 text-center">Direct bank connections</p>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
-  <!-- Footer / Action Area -->
-  <div class="p-6 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800">
-    <button type="button" id="plaid-link-btn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-colors mb-3 shadow-lg shadow-primary/20">
-      Continue
+
+  <!-- Footer / Action Area (hidden when no provider configured) -->
+  <div id="bank-footer-section" class="p-6 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800">
+    <button type="button" id="link-bank-btn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-colors mb-3 shadow-lg shadow-primary/20">
+      Continue with Plaid
     </button>
-    <p class="text-center mb-6">
+    <p class="text-center mb-4">
       <a href="/link-bank/select" class="text-primary text-sm font-medium hover:underline">Or choose your bank</a>
     </p>
-    <div class="flex flex-col items-center gap-2 opacity-60">
+    <div id="link-provider-badge" class="flex flex-col items-center gap-2 opacity-60">
       <div class="flex items-center gap-1.5">
         <span class="material-symbols-outlined text-xs">encrypted</span>
         <span class="text-[10px] uppercase tracking-widest font-bold">Powered by</span>
-        <div class="flex items-center font-black italic tracking-tighter text-sm">PLAID</div>
+        <div id="badge-label" class="flex items-center font-black italic tracking-tighter text-sm">PLAID</div>
       </div>
-      <p class="text-[11px] text-center text-slate-500">By continuing, you agree to Plaid's Privacy Policy and Terms of Use.</p>
+      <p id="badge-legal" class="text-[11px] text-center text-slate-500">By continuing, you agree to Plaid's Privacy Policy and Terms of Use.</p>
     </div>
   </div>
   <div class="h-6 w-full"></div>
@@ -112,6 +131,111 @@
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/plaid.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/teller.js"></script>
 <script nonce="{{ csp_nonce | default('') }}" src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
-<script nonce="{{ csp_nonce | default('') }}" src="/static/js/link_bank.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="https://cdn.teller.io/connect/connect.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+  var selectedProvider = 'plaid';
+  var btn = document.getElementById('link-bank-btn');
+  var errorEl = document.getElementById('link-error');
+  var badgeLabel = document.getElementById('badge-label');
+  var badgeLegal = document.getElementById('badge-legal');
+  var notConfiguredWrap = document.getElementById('bank-not-configured-wrap');
+  var providerSection = document.getElementById('bank-provider-section');
+  var footerSection = document.getElementById('bank-footer-section');
+  var API = window.EXPENSE_API_BASE !== undefined && window.EXPENSE_API_BASE !== '' ? window.EXPENSE_API_BASE : (window.API_BASE || '');
+
+  function getAuthHeaders() {
+    if (window.Auth && window.Auth.getAuthHeaders) return window.Auth.getAuthHeaders();
+    return {};
+  }
+  function fetchWithAuth(url) {
+    var opt = { method: 'GET', headers: getAuthHeaders() };
+    var fn = (window.Auth && window.Auth.requestWithRefresh) ? function() { return window.Auth.requestWithRefresh(url, opt); } : function() { return fetch(url, opt); };
+    return fn().then(function(r) { return { ok: r.ok, status: r.status }; });
+  }
+  function checkProvidersConfigured() {
+    var plaidOk = fetchWithAuth(API + '/api/v1/plaid/status').then(function(r) { return r.ok; });
+    var tellerOk = fetchWithAuth(API + '/api/v1/teller/config').then(function(r) { return r.ok; });
+    var truelayerOk = fetchWithAuth(API + '/api/v1/truelayer/status').then(function(r) { return r.ok; });
+    Promise.all([plaidOk, tellerOk, truelayerOk]).then(function(results) {
+      var anyConfigured = results[0] || results[1] || results[2];
+      if (!anyConfigured && notConfiguredWrap && providerSection && footerSection) {
+        notConfiguredWrap.style.display = 'block';
+        providerSection.style.display = 'none';
+        footerSection.style.display = 'none';
+      }
+    }).catch(function() {
+      if (notConfiguredWrap && providerSection && footerSection) {
+        notConfiguredWrap.style.display = 'block';
+        providerSection.style.display = 'none';
+        footerSection.style.display = 'none';
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkProvidersConfigured);
+  } else {
+    checkProvidersConfigured();
+  }
+
+  function showError(msg) {
+    if (errorEl) { errorEl.textContent = msg || 'Something went wrong.'; errorEl.style.display = 'block'; }
+    setTimeout(function() { if (errorEl) errorEl.style.display = 'none'; }, 5000);
+  }
+
+  function selectProvider(p) {
+    selectedProvider = p;
+    var plaidBtn = document.getElementById('choose-plaid');
+    var tellerBtn = document.getElementById('choose-teller');
+    if (p === 'plaid') {
+      plaidBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 transition-all';
+      tellerBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 transition-all hover:border-primary/50';
+      btn.textContent = 'Continue with Plaid';
+      badgeLabel.textContent = 'PLAID';
+      badgeLegal.textContent = "By continuing, you agree to Plaid's Privacy Policy and Terms of Use.";
+    } else {
+      tellerBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 transition-all';
+      plaidBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 transition-all hover:border-primary/50';
+      btn.textContent = 'Continue with Teller';
+      badgeLabel.textContent = 'TELLER';
+      badgeLegal.textContent = "By continuing, you agree to Teller's Privacy Policy and Terms of Use.";
+    }
+  }
+
+  document.getElementById('choose-plaid').addEventListener('click', function() { selectProvider('plaid'); });
+  document.getElementById('choose-teller').addEventListener('click', function() { selectProvider('teller'); });
+
+  btn.addEventListener('click', function() {
+    if (selectedProvider === 'plaid') {
+      if (!window.PlaidApi || !window.PlaidApi.getLinkToken) { showError('Plaid not loaded.'); return; }
+      window.PlaidApi.getLinkToken().then(function(data) {
+        var token = data && data.link_token;
+        if (!token) { showError('Could not get Plaid link token.'); return; }
+        if (typeof window.Plaid !== 'undefined' && window.Plaid.create) {
+          var handler = window.Plaid.create({
+            token: token,
+            onSuccess: function(publicToken) {
+              window.PlaidApi.exchangeItem(publicToken).then(function() {
+                window.location.href = '/link-bank/success';
+              }).catch(function(e) { showError(e.message || 'Failed to save Plaid account.'); });
+            },
+            onExit: function() {}
+          });
+          if (handler && handler.open) handler.open();
+          else showError('Plaid Link could not open.');
+        } else { showError('Plaid Link script did not load. Please refresh.'); }
+      }).catch(function(e) { showError(e.message || 'Failed to get Plaid link token.'); });
+    } else {
+      if (!window.TellerApi) { showError('Teller not loaded.'); return; }
+      window.TellerApi.open(
+        function() { window.location.href = '/link-bank/success'; },
+        function() {},
+        function(msg) { showError(msg || 'Teller connection failed.'); }
+      );
+    }
+  });
+})();
+</script>
 {% endblock %}

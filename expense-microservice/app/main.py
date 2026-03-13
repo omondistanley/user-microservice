@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from app.routers import categories, expenses, income, recurring_expenses, plaid, receipts, tags, internal
+from app.routers import categories, expenses, income, recurring_expenses, plaid, teller, truelayer, receipts, tags, internal, expense_import, goals, insights, export_portable, reminders, bank_connectors, net_worth
 from app.core.config import (
     get_cors_origins,
     SECRET_KEY,
@@ -173,7 +173,16 @@ app.include_router(recurring_expenses.router)
 app.include_router(categories.router)
 app.include_router(tags.router)
 app.include_router(plaid.router)
+app.include_router(teller.router)
+app.include_router(truelayer.router)
+app.include_router(bank_connectors.router)
 app.include_router(receipts.router)
+app.include_router(expense_import.router)
+app.include_router(goals.router)
+app.include_router(insights.router)
+app.include_router(export_portable.router)
+app.include_router(reminders.router)
+app.include_router(net_worth.router)
 app.include_router(internal.router)
 
 

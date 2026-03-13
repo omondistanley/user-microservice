@@ -131,6 +131,26 @@ class PlaidDataService:
         finally:
             conn.close()
 
+    def get_plaid_item_owner(self, item_id: str) -> Optional[int]:
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'''
+                SELECT user_id
+                FROM "{SCHEMA}"."{TABLE}"
+                WHERE item_id = %s
+                LIMIT 1
+                ''',
+                (item_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return int(row["user_id"])
+        finally:
+            conn.close()
+
     def delete_plaid_item(self, user_id: int, item_id: str) -> bool:
         conn = self._get_connection()
         try:

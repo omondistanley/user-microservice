@@ -1,0 +1,29 @@
+Phase 6 Runbook (PWA, Offline, Theme, Onboarding, A11y)
+
+=== PWA ===
+- manifest: /static/manifest.json (name, start_url, display standalone, theme_color). Add 192/512 icons under /static/icons/ for full install support.
+- Service worker: /static/sw.js. Cache version in sw.js (CACHE_VERSION) — bump to invalidate caches on deploy.
+- Strategy: cache-first for /static/*, network-first for /api/* GET.
+- Register in layout: navigator.serviceWorker.register('/static/sw.js').
+
+=== Offline queue ===
+- OfflineQueue.enqueue('expense'|'income', payload) stores in localStorage key expense_offline_queue.
+- On window 'online', replayAll() sends queued items with Idempotency-Key = queue item id to avoid duplicates.
+- Status per item: pending → synced (removed) or failed (kept, retriable). See static/js/offline_queue.js.
+
+=== Theme ===
+- theme.js: reads/writes localStorage key expense_theme (dark|light|system). System follows prefers-color-scheme.
+- Body classes: theme-dark, theme-light. Light overrides in main.css (--bg-base, --text-primary, etc.).
+- Toggle in nav panel: #theme-select. Apply on change.
+
+=== Onboarding ===
+- Banner #onboarding-banner shown when logged in and not dismissed. Dismiss sets expense_onboarding_dismissed in localStorage.
+- Empty states: expenses/income/budgets/recurring use .empty-state and contextual CTAs (e.g. "Add your first expense").
+
+=== Accessibility ===
+- Skip link: .skip-to-content (focus moves it into view). Target #main-content on main.
+- Focus: *:focus-visible outline 2px accent. Ensure modals/dropdowns are keyboard-focusable and trap focus where needed.
+- Labels: form inputs have <label for="id"> or aria-label; primary actions have aria-label where icon-only.
+
+=== Cache invalidation ===
+Change CACHE_VERSION in frontend/static/sw.js (e.g. v1 → v2) and redeploy so clients fetch new sw and purge old caches.

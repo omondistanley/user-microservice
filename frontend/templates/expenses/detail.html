@@ -159,7 +159,9 @@
                 var name = r.file_name || 'Receipt';
                 var delBtn = window.Expenses.deleteReceipt ? '<button type="button" class="btn btn-secondary btn-sm delete-receipt" data-receipt-id="' + r.receipt_id + '">Delete</button>' : '';
                 var downBtn = '<button type="button" class="btn btn-secondary btn-sm download-receipt" data-receipt-id="' + r.receipt_id + '" data-file-name="' + (r.file_name || 'receipt').replace(/"/g, '&quot;') + '">Download</button>';
-                return '<li><span>' + name + '</span> ' + downBtn + ' ' + delBtn + '</li>';
+                var ocrBtn = window.Expenses.runReceiptOcr ? '<button type="button" class="btn btn-secondary btn-sm ocr-receipt" data-receipt-id="' + r.receipt_id + '">Run OCR</button>' : '';
+                var applyBtn = window.Expenses.applyReceiptExtraction ? '<button type="button" class="btn btn-secondary btn-sm apply-ocr" data-receipt-id="' + r.receipt_id + '">Apply OCR</button>' : '';
+                return '<li><span>' + name + '</span> ' + downBtn + ' ' + ocrBtn + ' ' + applyBtn + ' ' + delBtn + '</li>';
             }).join('') + '</ul>';
             receiptsList.querySelectorAll('.download-receipt').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -177,6 +179,38 @@
                     if (!rid || !window.Expenses.deleteReceipt) return;
                     if (!confirm('Delete this receipt?')) return;
                     window.Expenses.deleteReceipt(rid).then(function() { loadReceipts(); }).catch(function(err) { alert(err.message || 'Delete failed'); });
+                });
+            });
+            receiptsList.querySelectorAll('.ocr-receipt').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var rid = btn.getAttribute('data-receipt-id');
+                    if (!rid || !window.Expenses.runReceiptOcr) return;
+                    btn.disabled = true;
+                    window.Expenses.runReceiptOcr(rid).then(function(result) {
+                        var extracted = (result && result.extracted) || {};
+                        var desc = extracted.description ? (' desc=' + extracted.description) : '';
+                        alert('OCR complete.' + (extracted.amount != null ? (' amount=' + extracted.amount) : '') + desc);
+                    }).catch(function(err) {
+                        alert(err.message || 'OCR failed');
+                    }).finally(function() {
+                        btn.disabled = false;
+                    });
+                });
+            });
+            receiptsList.querySelectorAll('.apply-ocr').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var rid = btn.getAttribute('data-receipt-id');
+                    if (!rid || !window.Expenses.applyReceiptExtraction) return;
+                    window.Expenses.applyReceiptExtraction(rid).then(function(result) {
+                        if (result && result.applied) {
+                            alert('Applied OCR fields to expense.');
+                            loadExpense();
+                        } else {
+                            alert((result && result.message) || 'No extracted fields to apply');
+                        }
+                    }).catch(function(err) {
+                        alert(err.message || 'Apply OCR failed');
+                    });
                 });
             });
         }).catch(function() {

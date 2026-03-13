@@ -31,6 +31,7 @@ class ExpenseCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     tag_ids: Optional[list[UUID]] = None
     tags: Optional[list[str]] = None
+    household_id: Optional[UUID] = None
 
 
 class ExpenseUpdate(BaseModel):
@@ -74,6 +75,7 @@ class ExpenseListParams(BaseModel):
     max_amount: Optional[Decimal] = None
     tag_id: Optional[str] = None
     tag: Optional[str] = None
+    household_id: Optional[UUID] = None
     page: int = 1
     page_size: int = 20
 

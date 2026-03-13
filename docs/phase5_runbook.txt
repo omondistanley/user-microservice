@@ -1,0 +1,40 @@
+Phase 5 Runbook (Sessions + Retention, no 2FA)
+
+=== Migrations ===
+- 013_user_session.sql: Creates user_session table and adds session_id to refresh_token.
+- 014_retention_policy.sql: Creates retention_policy with default entities (audit_log, password_reset_token, user_notification, refresh_token).
+
+Run user migrations (from project root):
+  docker compose run --rm user-migrations
+Or locally from user-microservice:
+  python run_migration.py migrations/013_user_session.sql
+  python run_migration.py migrations/014_retention_policy.sql
+
+=== Sessions ===
+- Login creates a session (device_meta from User-Agent) and ties the new refresh token to it.
+- Token refresh keeps the same session_id on the rotated refresh token.
+- GET /api/v1/sessions: List active sessions (requires JWT).
+- POST /api/v1/sessions/revoke-all-except-current: Body { "refresh_token": "..." }. Revokes all other sessions and their refresh tokens. Requires JWT; refresh_token must belong to current user.
+- On refresh-token reuse detection: associated session is revoked and audit event "token_refresh_reuse_detected" is written.
+
+=== Retention purge job ===
+  python -m app.jobs.retention_purge --as-of YYYY-MM-DD [--dry-run]
+
+Run from user-microservice directory so app.core.config and DB_* env are loaded.
+--dry-run: print row counts per entity without deleting.
+Policies are read from users_db.retention_policy (entity, retention_days, is_active).
+Purge targets:
+  audit_log: created_at < (as_of - retention_days)
+  password_reset_token: created_at < (as_of - retention_days)
+  user_notification: created_at < (as_of - retention_days)
+  refresh_token: revoked_at IS NOT NULL AND revoked_at < (as_of - retention_days)
+
+Example:
+  python -m app.jobs.retention_purge --as-of 2025-03-10 --dry-run
+  python -m app.jobs.retention_purge --as-of 2025-03-10
+
+=== Incident response (token reuse) ===
+1. User reports "logged out everywhere" or "please sign in again" after refresh.
+2. Check audit_log for action = 'token_refresh_reuse_detected' (user_id, session_id, family_id).
+3. Session and token family are already revoked by the app.
+4. User must sign in again; no further action unless abuse is suspected.

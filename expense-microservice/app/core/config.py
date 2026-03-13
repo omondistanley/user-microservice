@@ -57,5 +57,18 @@ PLAID_ENV: str = os.environ.get("PLAID_ENV", "sandbox")  # sandbox, development,
 # Fernet key for encrypting access_token (32 bytes base64). Generate: from cryptography.fernet import Fernet; Fernet.generate_key()
 ENCRYPTION_KEY: Optional[str] = os.environ.get("ENCRYPTION_KEY", "")
 
+# Teller (empty = Teller routes disabled or return 503)
+TELLER_APP_ID: str = os.environ.get("TELLER_APP_ID", "")
+TELLER_CERT_PATH: Optional[str] = os.environ.get("TELLER_CERT_PATH", "")
+TELLER_KEY_PATH: Optional[str] = os.environ.get("TELLER_KEY_PATH", "")
+TELLER_ENV: str = os.environ.get("TELLER_ENV", "sandbox")  # sandbox, development, production
+
 # Internal API key used by trusted peer services (e.g. user-microservice purge orchestration).
 INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")
+
+# TrueLayer (EU open banking; empty = routes return 503)
+TRUELAYER_CLIENT_ID: str = os.environ.get("TRUELAYER_CLIENT_ID", "")
+TRUELAYER_CLIENT_SECRET: str = os.environ.get("TRUELAYER_CLIENT_SECRET", "")
+
+# User service base URL for household membership check (e.g. http://user:8000). Empty = skip validation.
+USER_SERVICE_INTERNAL_URL: str = os.environ.get("USER_SERVICE_INTERNAL_URL", "").rstrip("/")
