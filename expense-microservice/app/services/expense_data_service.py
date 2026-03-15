@@ -13,6 +13,8 @@ import psycopg2
 from fastapi import HTTPException
 from psycopg2.extras import RealDictCursor, Json
 
+from app.events import expense_event_payload, publish_expense_event
+
 SCHEMA = "expenses_db"
 TABLE = "expense"
 ORDER_COLS = "date, created_at, expense_id"
@@ -1968,6 +1970,8 @@ class ExpenseDataService:
                 created_at = data.get("created_at")
                 if expense_id and created_at:
                     self.recalc_balance_after(conn, user_id, date_val, created_at, str(expense_id), None)
+                data.setdefault("source", "import")
+                publish_expense_event("expense.created", expense_event_payload(data))
                 inserted += 1
             conn.commit()
         except Exception:

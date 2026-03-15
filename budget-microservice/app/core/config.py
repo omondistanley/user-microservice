@@ -36,6 +36,9 @@ EXPENSE_DB_NAME: Optional[str] = os.environ.get("EXPENSE_DB_NAME", "expenses_db"
 USER_SERVICE_INTERNAL_URL: str = os.environ.get("USER_SERVICE_INTERNAL_URL", "http://localhost:8000").rstrip("/")
 INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")
 
+# Redis URL for event subscription (events:expense). Empty = subscriber not started.
+REDIS_URL: str = os.environ.get("REDIS_URL", "").rstrip("/")
+
 # CORS: comma-separated origins, or * for allow all
 CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "*")
 

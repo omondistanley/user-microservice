@@ -17,6 +17,12 @@ services:
       timeout: 5s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    container_name: expense_tracker_redis
+    ports:
+      - "6379:6379"
+
   user-migrations:
     build:
       context: .
@@ -147,6 +153,7 @@ services:
       TELLER_KEY_PATH: ${TELLER_KEY_PATH:-}
       TELLER_ENV: ${TELLER_ENV:-sandbox}
       USER_SERVICE_INTERNAL_URL: http://user:8000
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       expense-migrations:
         condition: service_completed_successfully
@@ -176,6 +183,7 @@ services:
       EXPENSE_DB_NAME: expenses_db
       USER_SERVICE_INTERNAL_URL: http://user:8000
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
       HSTS_MAX_AGE_SECONDS: ${HSTS_MAX_AGE_SECONDS:-31536000}
@@ -277,6 +285,7 @@ services:
       INVESTMENT_SERVICE_URL: http://investment:3003
       EXPENSE_API_BASE_FRONTEND: ""
       BUDGET_API_BASE_FRONTEND: ""
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://localhost:8080}
       JWT_ISSUER: ${JWT_ISSUER:-user-microservice}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-expense-tracker}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -301,6 +310,37 @@ services:
         condition: service_started
     ports:
       - "8000:8000"
+
+  gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dde1b0953d35f999ffdb4e55a066547b8ac69ec2415caa1835b865c1a07fa4a4}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-user-microservice}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-expense-tracker}
+      REDIS_URL: redis://redis:6379/0
+      USER_SERVICE_URL: http://user:8000
+      EXPENSE_SERVICE_URL: http://expense:3001
+      BUDGET_SERVICE_URL: http://budget:3002
+      INVESTMENT_SERVICE_URL: http://investment:3003
+      PROXY_TIMEOUT_SECONDS: 60
+      GATEWAY_RATE_LIMIT_PER_USER: ${GATEWAY_RATE_LIMIT_PER_USER:-200}
+      GATEWAY_RATE_LIMIT_PER_IP: ${GATEWAY_RATE_LIMIT_PER_IP:-300}
+    depends_on:
+      redis:
+        condition: service_started
+      user:
+        condition: service_started
+      expense:
+        condition: service_started
+      budget:
+        condition: service_started
+      investment:
+        condition: service_started
+    ports:
+      - "8080:8080"
 
   expense-worker:
     build:

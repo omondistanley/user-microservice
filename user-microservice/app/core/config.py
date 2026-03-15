@@ -73,6 +73,9 @@ INVESTMENT_SERVICE_URL: str = os.environ.get("INVESTMENT_SERVICE_URL", "http://l
 EXPENSE_API_BASE_FRONTEND: str = os.environ.get("EXPENSE_API_BASE_FRONTEND", "")
 BUDGET_API_BASE_FRONTEND: str = os.environ.get("BUDGET_API_BASE_FRONTEND", "")
 
+# When set (e.g. http://localhost:8080), frontend uses gateway for all API calls; proxy routes are disabled
+GATEWAY_PUBLIC_URL: str = os.environ.get("GATEWAY_PUBLIC_URL", "").rstrip("/")
+
 # JWT issuer/audience for downstream services
 JWT_ISSUER: str = os.environ.get("JWT_ISSUER", "user-microservice")
 JWT_AUDIENCE: str = os.environ.get("JWT_AUDIENCE", "expense-tracker")

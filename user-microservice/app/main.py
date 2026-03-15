@@ -21,6 +21,7 @@ from app.core.config import (
     INVESTMENT_SERVICE_URL,
     EXPENSE_API_BASE_FRONTEND,
     BUDGET_API_BASE_FRONTEND,
+    GATEWAY_PUBLIC_URL,
     DB_HOST,
     DB_PORT,
     DB_USER,
@@ -77,9 +78,8 @@ app.include_router(sessions.router)
 app.include_router(integrations.router)
 app.include_router(net_worth.router)
 
-# Proxy /api/v1/expenses, /api/v1/income, /api/v1/cashflow, /api/v1/recurring-expenses,
-# /api/v1/categories, /api/v1/tags, /api/v1/receipts, /api/v1/plaid, and /api/v1/budgets when service URLs are set
-if EXPENSE_SERVICE_URL:
+# Proxy /api/v1/* to backends only when gateway is not used (frontend then uses same-origin and we proxy)
+if EXPENSE_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/expenses", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_expenses_root(request: Request):
         return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/expenses", "")
@@ -200,7 +200,7 @@ if EXPENSE_SERVICE_URL:
     async def proxy_export_path(request: Request, path: str):
         return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/export", path)
 
-if BUDGET_SERVICE_URL:
+if BUDGET_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/budgets", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_budgets_root(request: Request):
         return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/budgets", "")
@@ -209,7 +209,7 @@ if BUDGET_SERVICE_URL:
     async def proxy_budgets_path(request: Request, path: str):
         return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/budgets", path)
 
-if INVESTMENT_SERVICE_URL:
+if INVESTMENT_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/holdings", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_holdings_root(request: Request):
         return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/holdings", "")
@@ -255,10 +255,12 @@ def _render(page: str, request: Request, **context):
     if templates is None:
         raise HTTPException(status_code=503, detail="Frontend not found")
     csp_nonce = str(getattr(request.state, "csp_nonce", "") or "")
+    expense_api_base = GATEWAY_PUBLIC_URL if GATEWAY_PUBLIC_URL else EXPENSE_API_BASE_FRONTEND
+    budget_api_base = GATEWAY_PUBLIC_URL if GATEWAY_PUBLIC_URL else BUDGET_API_BASE_FRONTEND
     base_context = {
         "request": request,
-        "expense_api_base": EXPENSE_API_BASE_FRONTEND,
-        "budget_api_base": BUDGET_API_BASE_FRONTEND,
+        "expense_api_base": expense_api_base,
+        "budget_api_base": budget_api_base,
         "csp_nonce": csp_nonce,
     }
     base_context.update(context)
