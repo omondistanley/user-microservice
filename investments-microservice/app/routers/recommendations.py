@@ -108,10 +108,20 @@ async def latest_recommendations(
     summary_items: List[Dict[str, Any]] = []
     for i in items:
         sym = i["symbol"]
+        try:
+            score_val = float(i["score"])
+            score_str = f"{score_val:.2f}"
+        except (TypeError, ValueError):
+            score_str = str(i["score"])
+        try:
+            conf_val = float(i.get("confidence") or "0")
+            conf_str = f"{conf_val:.2f}"
+        except (TypeError, ValueError):
+            conf_str = str(i.get("confidence") or "0")
         row: Dict[str, Any] = {
             "symbol": sym,
-            "score": str(i["score"]),
-            "confidence": str(i.get("confidence") or "0"),
+            "score": score_str,
+            "confidence": conf_str,
         }
         sec = get_security_info(sym)
         if sec:
@@ -232,10 +242,18 @@ async def explain_recommendations(
             except Exception:
                 pass
 
+        try:
+            out_score = f"{float(i['score']):.2f}"
+        except (TypeError, ValueError):
+            out_score = str(i["score"])
+        try:
+            out_conf = f"{float(i.get('confidence') or 0):.2f}"
+        except (TypeError, ValueError):
+            out_conf = str(i.get("confidence") or "0")
         out_items.append({
             "symbol": i["symbol"],
-            "score": str(i["score"]),
-            "confidence": str(i.get("confidence") or "0"),
+            "score": out_score,
+            "confidence": out_conf,
             "explanation": expl,
         })
 

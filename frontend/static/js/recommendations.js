@@ -90,7 +90,13 @@
     function formatPct(x) {
         var n = Number(x);
         if (!isFinite(n)) return '—';
-        return (n * 100).toFixed(0) + '%';
+        return (n * 100).toFixed(2) + '%';
+    }
+
+    function formatNum2(x) {
+        var n = Number(x);
+        if (!isFinite(n)) return '—';
+        return n.toFixed(2);
     }
 
     function escapeHtml(s) {
@@ -108,14 +114,14 @@
         }
         var p = data.portfolio;
         var html = '<ul class="portfolio-metrics">';
-        html += '<li><strong>Total value</strong>: $' + escapeHtml(p.total_value) + '</li>';
-        html += '<li><strong>Total cost basis</strong>: $' + escapeHtml(p.total_cost_basis) + '</li>';
-        html += '<li><strong>Unrealized P/L</strong>: $' + escapeHtml(p.unrealized_pl) + '</li>';
-        html += '<li><strong>Realized P/L</strong>: $' + escapeHtml(p.realized_pl) + '</li>';
-        html += '<li><strong>Sharpe ratio</strong>: ' + escapeHtml(p.sharpe) + '</li>';
-        html += '<li><strong>Volatility (annual)</strong>: ' + escapeHtml(p.volatility_annual) + '</li>';
-        html += '<li><strong>Max drawdown</strong>: ' + escapeHtml(p.max_drawdown) + '</li>';
-        html += '<li><strong>Top position weight</strong>: ' + escapeHtml(p.top1_weight) + '</li>';
+        html += '<li><strong>Total value</strong>: $' + escapeHtml(formatNum2(p.total_value)) + '</li>';
+        html += '<li><strong>Total cost basis</strong>: $' + escapeHtml(formatNum2(p.total_cost_basis)) + '</li>';
+        html += '<li><strong>Unrealized P/L</strong>: $' + escapeHtml(formatNum2(p.unrealized_pl)) + '</li>';
+        html += '<li><strong>Realized P/L</strong>: $' + escapeHtml(formatNum2(p.realized_pl)) + '</li>';
+        html += '<li><strong>Sharpe ratio</strong>: ' + escapeHtml(formatNum2(p.sharpe)) + '</li>';
+        html += '<li><strong>Volatility (annual)</strong>: ' + escapeHtml(formatNum2(p.volatility_annual)) + '</li>';
+        html += '<li><strong>Max drawdown</strong>: ' + escapeHtml(formatNum2(p.max_drawdown)) + '</li>';
+        html += '<li><strong>Top position weight</strong>: ' + escapeHtml(formatNum2(p.top1_weight)) + '</li>';
         html += '</ul>';
         summaryEl.innerHTML = html;
     }
@@ -137,14 +143,15 @@
             var sym = (it.symbol || '').toUpperCase();
             var name = it.full_name || it.description || '—';
             var sector = it.sector || '—';
-            var lastPrice = it.last_price != null ? '$' + escapeHtml(String(it.last_price)) : '—';
+            var lastPrice = it.last_price != null ? '$' + escapeHtml(formatNum2(it.last_price)) : '—';
             var changePct = it.change_pct != null ? (Number(it.change_pct) >= 0 ? '+' : '') + Number(it.change_pct).toFixed(2) + '%' : '—';
             var trend1m = it.trend_1m_pct != null ? (Number(it.trend_1m_pct) >= 0 ? '+' : '') + Number(it.trend_1m_pct).toFixed(2) + '%' : '—';
+            var scoreStr = formatNum2(it.score);
             html += '<tr class="recommendation-item" data-index="' + idx + '">';
             html += '<td class="rec-symbol">' + escapeHtml(sym) + '</td>';
             html += '<td class="rec-name">' + escapeHtml(name) + '</td>';
             html += '<td class="rec-sector">' + escapeHtml(sector) + '</td>';
-            html += '<td class="rec-score">' + escapeHtml(String(it.score)) + '</td>';
+            html += '<td class="rec-score">' + escapeHtml(scoreStr) + '</td>';
             html += '<td class="rec-confidence">' + escapeHtml(formatPct(it.confidence)) + '</td>';
             html += '<td class="rec-last-price">' + lastPrice + '</td>';
             html += '<td class="rec-change-pct">' + escapeHtml(changePct) + '</td>';
@@ -197,11 +204,11 @@
             if (ex.market) {
                 var m = ex.market;
                 html += '<h4>Market</h4><ul>';
-                html += '<li><strong>Current price</strong>: $' + escapeHtml(String(m.current_price || '—')) + '</li>';
+                html += '<li><strong>Current price</strong>: $' + escapeHtml(m.current_price != null ? formatNum2(m.current_price) : '—') + '</li>';
                 if (m.as_of) html += '<li><strong>As of</strong>: ' + escapeHtml(String(m.as_of)) + '</li>';
-                if (m.trend_1m_pct != null) html += '<li><strong>1M trend</strong>: ' + escapeHtml(String(m.trend_1m_pct)) + '%</li>';
-                if (m['52w_high'] != null) html += '<li><strong>52w high</strong>: $' + escapeHtml(String(m['52w_high'])) + '</li>';
-                if (m['52w_low'] != null) html += '<li><strong>52w low</strong>: $' + escapeHtml(String(m['52w_low'])) + '</li>';
+                if (m.trend_1m_pct != null) html += '<li><strong>1M trend</strong>: ' + escapeHtml(Number(m.trend_1m_pct).toFixed(2)) + '%</li>';
+                if (m['52w_high'] != null) html += '<li><strong>52w high</strong>: $' + escapeHtml(formatNum2(m['52w_high'])) + '</li>';
+                if (m['52w_low'] != null) html += '<li><strong>52w low</strong>: $' + escapeHtml(formatNum2(m['52w_low'])) + '</li>';
                 html += '</ul>';
             }
             if (ex.why_selected && ex.why_selected.length) {
@@ -212,10 +219,14 @@
                 html += '</ul>';
             }
             if (ex.risk_metrics) {
+                var rm = ex.risk_metrics;
+                var sharpeStr = rm.sharpe != null && String(rm.sharpe).indexOf('N/A') === -1 ? formatNum2(rm.sharpe) : (rm.sharpe != null ? String(rm.sharpe) : '—');
+                var volStr = rm.volatility_annual != null && String(rm.volatility_annual).indexOf('N/A') === -1 ? formatNum2(rm.volatility_annual) : (rm.volatility_annual != null ? String(rm.volatility_annual) : '—');
+                var mddStr = rm.max_drawdown != null && String(rm.max_drawdown).indexOf('N/A') === -1 ? formatNum2(rm.max_drawdown) : (rm.max_drawdown != null ? String(rm.max_drawdown) : '—');
                 html += '<h4>Risk & return</h4><ul>';
-                html += '<li><strong>Sharpe</strong>: ' + escapeHtml(String(ex.risk_metrics.sharpe)) + '</li>';
-                html += '<li><strong>Volatility (annual)</strong>: ' + escapeHtml(String(ex.risk_metrics.volatility_annual)) + '</li>';
-                html += '<li><strong>Max drawdown</strong>: ' + escapeHtml(String(ex.risk_metrics.max_drawdown)) + '</li>';
+                html += '<li><strong>Sharpe</strong>: ' + escapeHtml(sharpeStr) + '</li>';
+                html += '<li><strong>Volatility (annual)</strong>: ' + escapeHtml(volStr) + '</li>';
+                html += '<li><strong>Max drawdown</strong>: ' + escapeHtml(mddStr) + '</li>';
                 html += '</ul>';
             }
             if (ex.data_freshness) {
@@ -282,7 +293,7 @@
                 if (riskEl && profile.risk_tolerance) riskEl.value = profile.risk_tolerance;
                 if (indEl && profile.industry_preferences && profile.industry_preferences.length)
                     indEl.value = profile.industry_preferences.join(', ');
-                if (sharpeEl && profile.sharpe_objective != null) sharpeEl.value = profile.sharpe_objective;
+                if (sharpeEl && profile.sharpe_objective != null) sharpeEl.value = Number(profile.sharpe_objective).toFixed(2);
                 if (lossEl && profile.loss_aversion) lossEl.value = profile.loss_aversion;
             }
         });
