@@ -43,6 +43,9 @@ ALPHAVANTAGE_BASE_URL: str = os.environ.get("ALPHAVANTAGE_BASE_URL", "https://ww
 
 # Portfolio analytics / recommendation tunables
 RISK_FREE_RATE_ANNUAL: float = float(os.environ.get("RISK_FREE_RATE_ANNUAL", "0.02"))
+# Max recommendations per run (holdings + universe suggestions); page size for list API
+MAX_RECOMMENDATIONS: int = int(os.environ.get("MAX_RECOMMENDATIONS", "100"))
+RECOMMENDATIONS_PAGE_SIZE: int = int(os.environ.get("RECOMMENDATIONS_PAGE_SIZE", "20"))
 MARKET_DATA_PROVIDER_ORDER: str = os.environ.get(
     "MARKET_DATA_PROVIDER_ORDER", "alpaca,finnhub,twelvedata,alphavantage"
 )

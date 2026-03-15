@@ -1805,6 +1805,34 @@ body.welcome-page .btn-secondary:hover {
     color: var(--text-primary);
 }
 
+/* Back link strip: optional wrapper at top of main for consistent back placement */
+.page-back-wrap {
+    margin: 0 0 var(--sp-3) 0;
+    padding: 0;
+}
+.page-back-wrap .page-back-link {
+    margin-bottom: 0;
+}
+/* Button-style back for screens that use a prominent back control */
+.page-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: transparent;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.page-back-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+    background: var(--bg-subtle);
+}
+
 /* Pagination bar */
 .pagination-bar {
     display: flex;
@@ -2056,4 +2084,53 @@ body.welcome-page .btn-secondary:hover {
 }
 .rec-news-list li {
     margin-bottom: 0.25rem;
+}
+
+/* Pagination and score column */
+.rec-pagination {
+    margin-top: var(--sp-4);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.rec-pagination-info {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+.rec-score-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+    font-weight: var(--fw-semi);
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.rec-score-btn:hover {
+    color: var(--accent-hover);
+}
+.rec-score-hint {
+    font-weight: normal;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+}
+.rec-score-breakdown-desc {
+    margin-bottom: var(--sp-3);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+.rec-score-breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+.rec-score-breakdown-table td {
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border-subtle);
+}
+.rec-score-breakdown-table tr td:first-child {
+    color: var(--text-muted);
 }

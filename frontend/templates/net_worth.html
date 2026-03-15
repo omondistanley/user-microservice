@@ -26,13 +26,16 @@
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }
 </style>
 {% endblock %}
+{% block back_link %}
+<div class="container" style="max-width: 100%; padding: 0 1rem;"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
+{% endblock %}
 {% block content %}
 <div class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen pb-20 overflow-x-hidden">
   <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
   <!-- Header -->
   <header class="flex items-center justify-between p-4 sticky top-0 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur z-10 border-b border-slate-200 dark:border-slate-800">
-    <a href="/dashboard" class="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors" aria-label="Back">
-      <span class="material-symbols-outlined text-2xl">arrow_back</span>
+    <a href="/dashboard" class="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors" aria-label="Back to dashboard">
+      <span class="material-symbols-outlined text-2xl" aria-hidden="true">arrow_back</span>
     </a>
     <h1 class="text-lg font-bold tracking-tight">Net Worth</h1>
     <button type="button" class="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors" aria-label="More">

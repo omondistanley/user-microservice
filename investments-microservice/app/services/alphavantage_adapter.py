@@ -1,7 +1,7 @@
 """Alpha Vantage market data adapter. Implements MarketDataAdapter for Alpha Vantage API."""
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -122,6 +122,27 @@ class AlphaVantageAdapter(MarketDataAdapter):
 
     async def search_symbol(self, query: str) -> list[dict]:
         return []
+
+    async def get_company_overview(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch company overview (Sector, Industry, Description, Name, AssetType) for symbol."""
+        if not self._configured():
+            return None
+        url = self._base_url + "/query"
+        params = {
+            "function": "OVERVIEW",
+            "symbol": symbol.upper(),
+            "apikey": ALPHAVANTAGE_API_KEY,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict) and (data.get("Name") or data.get("Symbol")):
+                return data
+            return None
+        except Exception:
+            return None
 
     async def status(self) -> ProviderStatus:
         status = "healthy" if self._configured() else "down"

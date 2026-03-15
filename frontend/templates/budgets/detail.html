@@ -1,10 +1,13 @@
 {% extends "layout.html" %}
 {% block body_class %}budgets-page{% endblock %}
 {% block title %}Budget — Expense Tracker{% endblock %}
+{% block back_link %}
+<div class="container"><p class="page-back-wrap"><a href="/budgets" class="page-back-link" aria-label="Back to budgets">← Budgets</a></p></div>
+{% endblock %}
 {% block content %}
 <div class="container">
     <section class="card-section">
-        <p><a href="/budgets" class="btn btn-secondary">&larr; Back to budgets</a></p>
+        <p><a href="/budgets" class="btn btn-secondary" aria-label="Back to budgets">&larr; Back to budgets</a></p>
         <h1>Budget details</h1>
         <div id="budget-loading" style="display: none;">Loading…</div>
         <div id="budget-load-error" class="message-error" style="display: none;"></div>

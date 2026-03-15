@@ -10,6 +10,7 @@ from app.services.holdings_data_service import HoldingsDataService
 from app.services.portfolio_snapshot_service import PortfolioSnapshotDataService
 from app.services.risk_profile_service import RiskProfileDataService
 from app.services.recommendation_data_service import RecommendationDataService
+from app.services.universe_data_service import UniverseDataService
 from framework.services.service_factory import BaseServiceFactory
 
 
@@ -25,6 +26,7 @@ class ServiceFactory(BaseServiceFactory):
             "PortfolioSnapshotDataService",
             "RiskProfileDataService",
             "RecommendationDataService",
+            "UniverseDataService",
         }:
             context = {
                 "user": DB_USER or "postgres",
@@ -41,4 +43,6 @@ class ServiceFactory(BaseServiceFactory):
                 return RiskProfileDataService(context=context)
             if service_name == "RecommendationDataService":
                 return RecommendationDataService(context=context)
+            if service_name == "UniverseDataService":
+                return UniverseDataService(context=context)
         return None

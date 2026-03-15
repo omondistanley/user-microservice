@@ -1,11 +1,13 @@
 {% extends "layout.html" %}
 {% block body_class %}expenses-page{% endblock %}
 {% block title %}Import expenses — Expense Tracker{% endblock %}
+{% block back_link %}
+<div class="container"><p class="page-back-wrap"><a href="/expenses" class="page-back-link" aria-label="Back to expenses">← Expenses</a></p></div>
+{% endblock %}
 {% block content %}
 <div class="container">
     <div class="page-header">
         <div>
-            <a href="/expenses" class="page-back-link">← Expenses</a>
             <h1 class="page-title">Import from CSV</h1>
         </div>
     </div>

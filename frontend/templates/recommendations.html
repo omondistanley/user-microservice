@@ -4,6 +4,9 @@
 {% block head_extra %}
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&amp;display=swap" rel="stylesheet"/>
 {% endblock %}
+{% block back_link %}
+<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
+{% endblock %}
 {% block content %}
 <main id="main-content" class="container main-content">
     <div class="page-header">
@@ -53,7 +56,7 @@
         </div>
         <div id="rec-status" class="muted">Loading latest recommendations…</div>
         <div id="rec-list" class="recommendations-list"></div>
-        <p class="muted text-sm" style="margin-top: 0.5rem;">Details include live price, trend, and recent news when market data and news are configured.</p>
+        <p class="muted text-sm" style="margin-top: 0.5rem;">Details include live price, trend, and recent news when market data and news are configured. Click a score to see how it was calculated.</p>
     </section>
 
     <section class="card-section">
@@ -75,6 +78,20 @@
             </div>
             <div class="form-actions">
                 <button type="button" id="rec-explain-close" class="btn btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Score breakdown modal (click score column) -->
+    <div id="rec-score-modal-wrap" class="modal-wrap" style="display: none;" aria-hidden="true" aria-label="Score breakdown">
+        <div class="modal-backdrop rec-score-modal-backdrop" aria-hidden="true"></div>
+        <div class="modal-card" role="dialog" aria-labelledby="rec-score-modal-title" aria-modal="true" aria-describedby="rec-score-modal-body">
+            <h3 id="rec-score-modal-title" class="modal-title">Score breakdown</h3>
+            <div id="rec-score-modal-body" class="rec-score-modal-body">
+                <!-- Filled by JS -->
+            </div>
+            <div class="form-actions">
+                <button type="button" id="rec-score-modal-close" class="btn btn-secondary">Close</button>
             </div>
         </div>
     </div>

@@ -28,13 +28,16 @@
   body { min-height: max(884px, 100dvh); }
 </style>
 {% endblock %}
+{% block back_link %}
+<div class="container" style="max-width: 430px; margin: 0 auto;"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
+{% endblock %}
 {% block content %}
 <div class="relative flex min-h-screen w-full flex-col max-w-[430px] mx-auto bg-white dark:bg-background-dark shadow-2xl overflow-x-hidden font-display text-slate-900 dark:text-slate-100 antialiased">
   <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
   <!-- Header -->
   <div class="flex items-center bg-white dark:bg-background-dark p-4 pb-2 justify-between sticky top-0 z-10">
-    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" aria-label="Back">
-      <span class="material-symbols-outlined">arrow_back</span>
+    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" aria-label="Back to dashboard">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
     </a>
     <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Spending Analytics</h2>
     <div class="flex w-10 items-center justify-end">

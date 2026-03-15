@@ -42,9 +42,12 @@
         });
     }
 
-    function fetchLatest(enrich) {
-        var url = API + '/api/v1/recommendations/latest';
-        if (enrich) url += '?enrich=1';
+    var PAGE_SIZE = 20;
+
+    function fetchLatest(page, enrich) {
+        page = page || 1;
+        var url = API + '/api/v1/recommendations/latest?page=' + page + '&page_size=' + PAGE_SIZE;
+        if (enrich) url += '&enrich=1';
         return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
             if (!r.ok) throw new Error('Failed to load latest recommendations');
             return r.json();
@@ -126,19 +129,26 @@
         summaryEl.innerHTML = html;
     }
 
-    function renderList(listEl, statusEl, payload) {
+    function renderList(listEl, statusEl, payload, currentPage) {
         if (!listEl || !statusEl) return;
         var run = payload && payload.run;
         var items = payload && payload.items || [];
-        if (!run || !items.length) {
+        var pagination = payload && payload.pagination || {};
+        var totalPages = pagination.total_pages || 1;
+        var totalItems = pagination.total_items || 0;
+        currentPage = currentPage != null ? currentPage : (pagination.page || 1);
+        if (!run) {
             statusEl.textContent = 'Click “Generate recommendations” to get a starter list (no holdings needed) or to rank your current holdings. Save your preferences above first for best results.';
-            listEl.innerHTML = '<p class="muted">Generate recommendations to see analyst suggestions. With no holdings you get a starter portfolio; with holdings you get ranked positions and risk notes.</p>';
+            listEl.innerHTML = '<p class="muted">Generate recommendations to see analyst suggestions. With no holdings you get a starter portfolio; with holdings you get ranked positions and risk notes.</p><div id="rec-pagination" class="rec-pagination"></div>';
             if (listEl.setAttribute) listEl.setAttribute('data-run-id', '');
             return;
         }
         statusEl.textContent = 'Latest run at ' + (run.created_at || '—');
         var html = '<div class="rec-table-wrap"><table class="rec-table"><thead><tr>';
-        html += '<th>Symbol</th><th>Name</th><th>Sector</th><th>Score</th><th>Conf.</th><th>Last price</th><th>Change %</th><th>1M trend</th><th>Actions</th></tr></thead><tbody>';
+        html += '<th>Symbol</th><th>Name</th><th>Sector</th><th>Score <span class="rec-score-hint" title="Click score to see how it was calculated">(?)</span></th><th>Conf.</th><th>Last price</th><th>Change %</th><th>1M trend</th><th>Actions</th></tr></thead><tbody>';
+        if (!items.length) {
+            html += '<tr><td colspan="9" class="muted">No items on this page.</td></tr>';
+        } else {
         items.forEach(function (it, idx) {
             var sym = (it.symbol || '').toUpperCase();
             var name = it.full_name || it.description || '—';
@@ -151,7 +161,7 @@
             html += '<td class="rec-symbol">' + escapeHtml(sym) + '</td>';
             html += '<td class="rec-name">' + escapeHtml(name) + '</td>';
             html += '<td class="rec-sector">' + escapeHtml(sector) + '</td>';
-            html += '<td class="rec-score">' + escapeHtml(scoreStr) + '</td>';
+            html += '<td class="rec-score"><button type="button" class="rec-score-btn" data-symbol="' + escapeHtml(sym) + '" title="How was this score determined?">' + escapeHtml(scoreStr) + '</button></td>';
             html += '<td class="rec-confidence">' + escapeHtml(formatPct(it.confidence)) + '</td>';
             html += '<td class="rec-last-price">' + lastPrice + '</td>';
             html += '<td class="rec-change-pct">' + escapeHtml(changePct) + '</td>';
@@ -161,9 +171,22 @@
             html += ' <a href="/investments?add=' + encodeURIComponent(sym) + '" class="btn btn-sm btn-ghost rec-add-holding" data-symbol="' + escapeHtml(sym) + '">Add to holdings</a>';
             html += '</td></tr>';
         });
+        }
         html += '</tbody></table></div>';
+        html += '<div id="rec-pagination" class="rec-pagination">';
+        if (totalItems > 0) {
+            html += '<span class="rec-pagination-info">Page ' + currentPage + ' of ' + totalPages + ' (' + totalItems + ' total)</span>';
+            if (currentPage > 1) {
+                html += ' <button type="button" class="btn btn-sm rec-pagination-prev" data-page="' + (currentPage - 1) + '">Prev</button>';
+            }
+            if (currentPage < totalPages) {
+                html += ' <button type="button" class="btn btn-sm rec-pagination-next" data-page="' + (currentPage + 1) + '">Next</button>';
+            }
+        }
+        html += '</div>';
         listEl.innerHTML = html;
         listEl.setAttribute('data-run-id', run.run_id || '');
+        listEl.setAttribute('data-current-page', String(currentPage));
     }
 
     function openExplainDrawer(rootEl, runId, symbol) {
@@ -278,6 +301,54 @@
         wrap.setAttribute('aria-hidden', 'true');
     }
 
+    function openScoreModal(runId, symbol) {
+        var wrap = document.getElementById('rec-score-modal-wrap');
+        var bodyEl = document.getElementById('rec-score-modal-body');
+        var titleEl = document.getElementById('rec-score-modal-title');
+        if (!wrap || !bodyEl || !titleEl || !runId || !symbol) return;
+        titleEl.textContent = 'Score breakdown: ' + symbol;
+        bodyEl.innerHTML = '<p class="muted">Loading…</p>';
+        wrap.style.display = 'block';
+        wrap.setAttribute('aria-hidden', 'false');
+        wrap.querySelector('.rec-score-modal-backdrop').setAttribute('aria-hidden', 'false');
+
+        fetchExplain(runId, symbol).then(function (data) {
+            var items = data && data.items || [];
+            var match = null;
+            items.forEach(function (it) {
+                if ((it.symbol || '').toUpperCase() === symbol.toUpperCase()) match = it;
+            });
+            var ex = match && match.explanation;
+            var breakdown = ex && ex.score_breakdown;
+            if (!breakdown) {
+                bodyEl.innerHTML = '<p class="muted">No score breakdown available.</p>' +
+                    (ex && ex.why_selected && ex.why_selected.length ? '<h4>Why selected</h4><ul>' + ex.why_selected.map(function (s) { return '<li>' + escapeHtml(String(s)) + '</li>'; }).join('') + '</ul>' : '');
+                return;
+            }
+            var html = '<p class="rec-score-breakdown-desc">' + escapeHtml(breakdown.description || '') + '</p><table class="rec-score-breakdown-table"><tbody>';
+            var keys = ['base', 'risk_band_match', 'industry_match', 'loss_aversion_bonus', 'sharpe_contribution', 'weight_penalty', 'volatility_penalty', 'heuristic_score', 'model_score', 'combined', 'total'];
+            keys.forEach(function (k) {
+                if (breakdown[k] != null && breakdown[k] !== undefined) {
+                    var label = k.replace(/_/g, ' ');
+                    html += '<tr><td>' + escapeHtml(label) + '</td><td>' + escapeHtml(String(breakdown[k])) + '</td></tr>';
+                }
+            });
+            html += '</tbody></table>';
+            bodyEl.innerHTML = html;
+        }).catch(function () {
+            bodyEl.innerHTML = '<p class="muted">Failed to load score breakdown.</p>';
+        });
+    }
+
+    function closeScoreModal() {
+        var wrap = document.getElementById('rec-score-modal-wrap');
+        if (!wrap) return;
+        wrap.style.display = 'none';
+        wrap.setAttribute('aria-hidden', 'true');
+        var backdrop = wrap.querySelector('.rec-score-modal-backdrop');
+        if (backdrop) backdrop.setAttribute('aria-hidden', 'true');
+    }
+
     function init() {
         var listEl = document.getElementById('rec-list');
         var statusEl = document.getElementById('rec-status');
@@ -325,8 +396,8 @@
             });
         }
 
-        fetchLatest(true).then(function (data) {
-            renderList(listEl, statusEl, data);
+        fetchLatest(1, true).then(function (data) {
+            renderList(listEl, statusEl, data, 1);
             var hasRun = data && data.run;
             var hasItems = data && data.items && data.items.length > 0;
             if (summaryEl) {
@@ -345,9 +416,9 @@
                 runBtn.disabled = true;
                 runRecommendations().then(function (data) {
                     renderSummary(summaryEl, data);
-                    return fetchLatest(true);
+                    return fetchLatest(1, true);
                 }).then(function (data) {
-                    renderList(listEl, statusEl, data);
+                    renderList(listEl, statusEl, data, 1);
                 }).catch(function (err) {
                     alert(err.message || 'Failed to run recommendations');
                 }).finally(function () {
@@ -357,17 +428,59 @@
         }
 
         listEl.addEventListener('click', function (e) {
-            var btn = e.target.closest('.rec-explain-btn');
-            if (!btn) return;
-            var symbol = btn.getAttribute('data-symbol') || '';
-            var runId = listEl.getAttribute('data-run-id') || '';
-            openExplainDrawer(listEl, runId, symbol);
+            var explainBtn = e.target.closest('.rec-explain-btn');
+            if (explainBtn) {
+                var symbol = explainBtn.getAttribute('data-symbol') || '';
+                var runId = listEl.getAttribute('data-run-id') || '';
+                openExplainDrawer(listEl, runId, symbol);
+                return;
+            }
+            var scoreBtn = e.target.closest('.rec-score-btn');
+            if (scoreBtn) {
+                var sym = scoreBtn.getAttribute('data-symbol') || '';
+                var runId = listEl.getAttribute('data-run-id') || '';
+                openScoreModal(runId, sym);
+                return;
+            }
+            var prevBtn = e.target.closest('.rec-pagination-prev');
+            if (prevBtn) {
+                var page = parseInt(prevBtn.getAttribute('data-page'), 10) || 1;
+                statusEl.textContent = 'Loading page ' + page + '…';
+                fetchLatest(page, true).then(function (data) {
+                    renderList(listEl, statusEl, data, page);
+                }).catch(function () {
+                    statusEl.textContent = 'Failed to load page.';
+                });
+                return;
+            }
+            var nextBtn = e.target.closest('.rec-pagination-next');
+            if (nextBtn) {
+                var page = parseInt(nextBtn.getAttribute('data-page'), 10) || 1;
+                statusEl.textContent = 'Loading page ' + page + '…';
+                fetchLatest(page, true).then(function (data) {
+                    renderList(listEl, statusEl, data, page);
+                }).catch(function () {
+                    statusEl.textContent = 'Failed to load page.';
+                });
+            }
         });
 
         var closeBtn = document.getElementById('rec-explain-close');
         if (closeBtn) closeBtn.addEventListener('click', closeExplainDrawer);
         var backdrop = document.getElementById('rec-explain-backdrop');
         if (backdrop) backdrop.addEventListener('click', closeExplainDrawer);
+
+        var scoreCloseBtn = document.getElementById('rec-score-modal-close');
+        if (scoreCloseBtn) scoreCloseBtn.addEventListener('click', closeScoreModal);
+        var scoreBackdrop = document.querySelector('.rec-score-modal-backdrop');
+        if (scoreBackdrop) scoreBackdrop.addEventListener('click', closeScoreModal);
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') {
+                if (document.getElementById('rec-score-modal-wrap') && document.getElementById('rec-score-modal-wrap').style.display === 'block') {
+                    closeScoreModal();
+                }
+            }
+        });
     }
 
     if (document.readyState === 'loading') {

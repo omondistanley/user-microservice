@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import json
@@ -103,6 +103,27 @@ class RecommendationDataService:
             )
             rows = cur.fetchall()
             return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    def list_items_for_run_paginated(
+        self, run_id: UUID, limit: int, offset: int
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Return (items for page, total_count) for pagination."""
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT COUNT(*) FROM "{SCHEMA}"."{ITEM_TABLE}" WHERE run_id = %s::uuid',
+                (str(run_id),),
+            )
+            total = cur.fetchone()["count"] or 0
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{ITEM_TABLE}" WHERE run_id = %s::uuid ORDER BY score DESC LIMIT %s OFFSET %s',
+                (str(run_id), limit, offset),
+            )
+            rows = cur.fetchall()
+            return [dict(r) for r in rows], total
         finally:
             conn.close()
 

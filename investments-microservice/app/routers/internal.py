@@ -1,10 +1,11 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from app.core.config import INTERNAL_API_KEY
 from app.services.holdings_data_service import HoldingsDataService
 from app.services.service_factory import ServiceFactory
+from app.services.universe_bootstrap import run_bootstrap
 
 router = APIRouter(prefix="/internal/v1", tags=["internal"])
 
@@ -36,4 +37,28 @@ async def purge_user_holdings(
         "user_id": user_id,
         "request_id": request_id or None,
         "deleted_count": result,
+    }
+
+
+@router.post("/universe/refresh", response_model=dict, include_in_schema=False)
+async def refresh_universe(
+    request: Request,
+    limit: int = Query(500, ge=1, le=2000, description="Max symbols to fetch"),
+    exchange: str = Query("US", description="Exchange code for symbol list"),
+    use_alphavantage_fallback: bool = Query(True, description="Use Alpha Vantage when Finnhub profile missing"),
+    _: None = Depends(_validate_internal_key),
+):
+    """Bootstrap security_universe from Finnhub (and optionally Alpha Vantage). Protected by X-Internal-Api-Key."""
+    fetched, upserted, failed = await run_bootstrap(
+        symbol_limit=limit,
+        exchange=exchange,
+        use_alphavantage_fallback=use_alphavantage_fallback,
+    )
+    request_id = str(getattr(request.state, "request_id", "") or "")
+    return {
+        "request_id": request_id or None,
+        "symbols_fetched": fetched,
+        "symbols_upserted": upserted,
+        "symbols_failed": failed,
+        "exchange": exchange,
     }

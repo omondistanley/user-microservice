@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block body_class %}insights-page{% endblock %}
 {% block title %}Insights — Expense Tracker{% endblock %}
+{% block back_link %}
+<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
+{% endblock %}
 {% block content %}
 <div class="container">
     <div class="page-header">

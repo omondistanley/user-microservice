@@ -1,10 +1,12 @@
 {% extends "layout.html" %}
 {% block body_class %}settings-page{% endblock %}
 {% block title %}Integrations — Expense Tracker{% endblock %}
+{% block back_link %}
+<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
+{% endblock %}
 {% block content %}
 <div class="container">
     <div class="page-header">
-        <a href="/dashboard" class="page-back-link">← Dashboard</a>
         <h1 class="page-title">Integrations</h1>
     </div>
     <div class="card-section">
