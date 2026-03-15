@@ -359,7 +359,7 @@ class ExpenseDataService:
             ),
             with_balance AS (
                 SELECT expense_id,
-                       %s + sum(amount) OVER (ORDER BY rn) AS balance_after
+                       %s - sum(amount) OVER (ORDER BY rn) AS balance_after
                 FROM ordered
             )
             UPDATE "{SCHEMA}"."{TABLE}" e
@@ -1646,7 +1646,7 @@ class ExpenseDataService:
             balance_before = Decimal("0")
             if prev and prev.get("balance_after") is not None:
                 balance_before = Decimal(str(prev["balance_after"]))
-            new_balance = balance_before + Decimal(str(expense_data["amount"]))
+            new_balance = balance_before - Decimal(str(expense_data["amount"]))
             self.update_expense_balance_after(conn, str(expense_id), user_id, new_balance)
             self.recalc_balance_after(
                 conn,
@@ -1654,7 +1654,7 @@ class ExpenseDataService:
                 due_date.isoformat(),
                 expense_data["created_at"],
                 str(expense_id),
-                new_balance,
+                balance_before,
             )
 
             next_due_date = _advance_due_date(due_date, str(recurring["recurrence_rule"]))

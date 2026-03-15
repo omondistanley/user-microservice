@@ -29,6 +29,10 @@
                 return null;
             }
         },
+        /** Alias for getToken() so callers using getAccessToken() receive the same token. */
+        getAccessToken: function() {
+            return this.getToken();
+        },
         getRefreshToken: function() {
             try {
                 return localStorage.getItem(REFRESH_TOKEN_KEY) || null;

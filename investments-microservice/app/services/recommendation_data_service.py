@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+import json
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -57,16 +59,19 @@ class RecommendationDataService:
         try:
             cur = conn.cursor()
             for item in items:
+                expl = item.get("explanation_json") or {}
+                if isinstance(expl, dict):
+                    expl = json.dumps(expl, default=str)
                 cur.execute(
                     f'INSERT INTO "{SCHEMA}"."{ITEM_TABLE}" '
                     f"(run_id, symbol, score, confidence, explanation_json, created_at) "
-                    f"VALUES (%s, %s, %s, %s, %s, %s)",
+                    f"VALUES (%s::uuid, %s, %s, %s, %s::jsonb, %s)",
                     (
-                        run_id,
+                        str(run_id),
                         item["symbol"],
                         item["score"],
                         item.get("confidence"),
-                        item.get("explanation_json") or {},
+                        expl,
                         datetime.now(timezone.utc),
                     ),
                 )
@@ -93,8 +98,8 @@ class RecommendationDataService:
         try:
             cur = conn.cursor()
             cur.execute(
-                f'SELECT * FROM "{SCHEMA}"."{ITEM_TABLE}" WHERE run_id = %s ORDER BY score DESC',
-                (run_id,),
+                f'SELECT * FROM "{SCHEMA}"."{ITEM_TABLE}" WHERE run_id = %s::uuid ORDER BY score DESC',
+                (str(run_id),),
             )
             rows = cur.fetchall()
             return [dict(r) for r in rows]

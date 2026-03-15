@@ -3,7 +3,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.services.market_data_models import ProviderStatus
 from app.services.market_data_router import MarketDataRouter, get_default_market_data_router
 
 router = APIRouter(prefix="/api/v1/market", tags=["market"])
@@ -19,10 +18,14 @@ async def get_quote(
     router_svc: MarketDataRouter = Depends(_get_router),
 ):
     try:
-        quote = await router_svc.get_quote(symbol)
+        quote, fallback_used, provenance = await router_svc.get_quote_with_meta(symbol)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc))
-    return quote.model_dump()
+    out = quote.model_dump()
+    out["fallback_used"] = fallback_used
+    if provenance:
+        out["provenance"] = provenance
+    return out
 
 
 @router.get("/bars/{symbol}", response_model=dict)
@@ -50,13 +53,6 @@ async def get_bars(
 async def providers_status(
     router_svc: MarketDataRouter = Depends(_get_router),
 ):
-    # Lightweight health summary based on adapter status() methods.
-    statuses: list[ProviderStatus] = []
-    for name in ("alpaca", "free"):
-        adapter = router_svc._get_adapter(name)  # type: ignore[attr-defined]
-        if adapter is None:
-            continue
-        status = await adapter.status()
-        statuses.append(status)
-    return {"providers": [s.model_dump() for s in statuses]}
+    statuses = await router_svc.get_provider_statuses()
+    return {"providers": statuses}
 

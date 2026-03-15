@@ -8,7 +8,14 @@
     }
 
     function getAuthHeaders() {
-        var token = window.Auth && window.Auth.getAccessToken && window.Auth.getAccessToken();
+        if (window.Auth && window.Auth.getAuthHeaders) {
+            var h = window.Auth.getAuthHeaders();
+            if (Object.keys(h).length) {
+                h['Content-Type'] = 'application/json';
+                return h;
+            }
+        }
+        var token = window.Auth && window.Auth.getToken && window.Auth.getToken();
         if (!token) return {};
         return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
     }
@@ -125,6 +132,13 @@
 
         var addBtn = document.getElementById('holdings-add-btn');
         if (addBtn) addBtn.addEventListener('click', showAddForm);
+
+        var addParam = typeof URLSearchParams !== 'undefined' && window.location.search ? new URLSearchParams(window.location.search).get('add') : null;
+        if (addParam && addParam.trim()) {
+            var symInput = document.getElementById('holding-symbol');
+            if (symInput) symInput.value = addParam.trim().toUpperCase();
+            showAddForm();
+        }
 
         var cancelBtn = document.getElementById('add-holding-cancel');
         if (cancelBtn) cancelBtn.addEventListener('click', hideAddForm);

@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict
 from uuid import UUID
 
@@ -8,6 +9,7 @@ from app.services.recommendation_data_service import RecommendationDataService
 from app.services.recommendation_engine import RecommendationEngine
 from app.services.service_factory import ServiceFactory
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["recommendations"])
 
 
@@ -29,7 +31,9 @@ async def run_recommendations(
     try:
         result = engine.run_for_user(user_id)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        msg = str(exc).strip() if str(exc).strip() else "Recommendation run failed. Ensure migrations (003) are applied."
+        logger.exception("Recommendations run failed for user_id=%s: %s", user_id, exc)
+        raise HTTPException(status_code=500, detail=msg)
     return result
 
 

@@ -18,8 +18,12 @@ client = TestClient(app)
 
 class FakeRouter:
     async def get_quote(self, symbol: str) -> Quote:
+        quote, _, _ = await self.get_quote_with_meta(symbol)
+        return quote
+
+    async def get_quote_with_meta(self, symbol: str):
         now = datetime.now(timezone.utc)
-        return Quote(
+        quote = Quote(
             symbol=symbol.upper(),
             price="123.45",
             currency="USD",
@@ -27,6 +31,7 @@ class FakeRouter:
             provider="fake",
             stale_seconds=0,
         )
+        return quote, False, None
 
     async def get_bars(self, symbol: str, interval: str, start: datetime, end: datetime):
         return [
@@ -43,6 +48,9 @@ class FakeRouter:
             )
         ]
 
+    async def get_provider_statuses(self):
+        return [{"provider": "fake", "status": "healthy"}]
+
 
 @pytest.fixture(autouse=True)
 def override_router_dependency(monkeypatch):
@@ -57,6 +65,8 @@ def test_get_quote_returns_normalized_payload():
     assert body["symbol"] == "MSFT"
     assert body["price"] == "123.45"
     assert body["provider"] == "fake"
+    assert "fallback_used" in body
+    assert body["fallback_used"] is False
 
 
 def test_get_bars_requires_start_and_end():
@@ -73,4 +83,12 @@ def test_get_bars_returns_series():
     assert body["symbol"] == "MSFT"
     assert body["interval"] == "1d"
     assert len(body["items"]) == 1
+
+
+def test_providers_status_returns_list():
+    r = client.get("/api/v1/market/providers/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert "providers" in body
+    assert isinstance(body["providers"], list)
 

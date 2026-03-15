@@ -122,13 +122,13 @@ class ExpenseResource(BaseResource):
             balance_before = Decimal("0")
             if prev and prev.get("balance_after") is not None:
                 balance_before = prev["balance_after"]
-            new_balance = balance_before + payload.amount
+            new_balance = balance_before - payload.amount
             self.data_service.update_expense_balance_after(
                 conn, str(expense_id), user_id, new_balance
             )
             data["balance_after"] = new_balance
             self.data_service.recalc_balance_after(
-                conn, user_id, date_val, created_at, str(expense_id), new_balance
+                conn, user_id, date_val, created_at, str(expense_id), balance_before
             )
             conn.commit()
         except HTTPException:

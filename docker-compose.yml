@@ -113,7 +113,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: python run_migration.py migrations/001_schema.sql
+    command: sh -c "python run_migration.py migrations/001_schema.sql && python run_migration.py migrations/003_recommendations_preferences.sql"
     restart: "no"
 
   expense:

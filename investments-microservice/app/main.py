@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from app.routers import holdings, internal, portfolio, market, recommendations
+from app.routers import holdings, internal, portfolio, market, recommendations, risk_profile
 from app.core.config import (
     get_cors_origins,
     SECRET_KEY,
@@ -158,6 +158,7 @@ app.include_router(holdings.router)
 app.include_router(portfolio.router)
 app.include_router(market.router)
 app.include_router(recommendations.router)
+app.include_router(risk_profile.router)
 app.include_router(internal.router)
 
 

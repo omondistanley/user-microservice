@@ -7,10 +7,44 @@
 {% block content %}
 <main id="main-content" class="container main-content">
     <div class="page-header">
-        <h1 class="page-title">Investment recommendations</h1>
-        <p class="page-subtitle">Experiment with portfolio ideas powered by your holdings and analytics.</p>
+        <h1 class="page-title">Your analyst</h1>
+        <p class="page-subtitle">Recommendations consider your industry, risk/return, and goals to help you make money, save money, and avoid losses. Works with or without holdings: no portfolio yet? We suggest a starter list. Have holdings? We rank and explain them.</p>
         <p class="page-subtitle disclaimer">Not financial advice. For informational purposes only.</p>
     </div>
+
+    <section class="card-section" id="rec-preferences-section">
+        <div class="card-header">
+            <h2>Your preferences</h2>
+            <button type="button" id="rec-prefs-save" class="btn btn-primary">Save preferences</button>
+        </div>
+        <p class="muted text-sm">These shape how we score and explain suggestions (industry focus, risk tolerance, Sharpe objective, loss aversion).</p>
+        <div class="preferences-grid" id="rec-preferences-form">
+            <div class="form-group">
+                <label for="rec-pref-risk">Risk tolerance</label>
+                <select id="rec-pref-risk" class="form-control">
+                    <option value="conservative">Conservative</option>
+                    <option value="balanced" selected>Balanced</option>
+                    <option value="aggressive">Aggressive</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="rec-pref-industries">Industries / sectors (comma-separated)</label>
+                <input type="text" id="rec-pref-industries" class="form-control" placeholder="e.g. technology, healthcare, broad_market, bonds" maxlength="256"/>
+            </div>
+            <div class="form-group">
+                <label for="rec-pref-sharpe">Target Sharpe (optional)</label>
+                <input type="number" id="rec-pref-sharpe" class="form-control" placeholder="e.g. 0.5" step="0.1" min="0" max="3"/>
+            </div>
+            <div class="form-group">
+                <label for="rec-pref-loss">Loss aversion</label>
+                <select id="rec-pref-loss" class="form-control">
+                    <option value="low">Low</option>
+                    <option value="moderate" selected>Moderate</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+        </div>
+    </section>
 
     <section class="card-section">
         <div class="card-header">

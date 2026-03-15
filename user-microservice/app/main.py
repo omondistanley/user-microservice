@@ -218,6 +218,38 @@ if INVESTMENT_SERVICE_URL:
     async def proxy_holdings_path(request: Request, path: str):
         return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/holdings", path)
 
+    @app.api_route("/api/v1/recommendations", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_recommendations_root(request: Request):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/recommendations", "")
+
+    @app.api_route("/api/v1/recommendations/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_recommendations_path(request: Request, path: str):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/recommendations", path)
+
+    @app.api_route("/api/v1/portfolio", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_portfolio_root(request: Request):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/portfolio", "")
+
+    @app.api_route("/api/v1/portfolio/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_portfolio_path(request: Request, path: str):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/portfolio", path)
+
+    @app.api_route("/api/v1/market", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_market_root(request: Request):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/market", "")
+
+    @app.api_route("/api/v1/market/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_market_path(request: Request, path: str):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/market", path)
+
+    @app.api_route("/api/v1/risk-profile", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_risk_profile_root(request: Request):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/risk-profile", "")
+
+    @app.api_route("/api/v1/risk-profile/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_risk_profile_path(request: Request, path: str):
+        return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/risk-profile", path)
+
 
 def _render(page: str, request: Request, **context):
     if templates is None:
@@ -403,7 +435,18 @@ async def ready():
 
 @app.get("/", include_in_schema=False)
 async def home(request: Request):
-    return RedirectResponse(url="/login", status_code=302)
+    return _render("landing.html", request)
+
+
+@app.get("/landing", include_in_schema=False)
+async def landing_page(request: Request):
+    return _render("landing.html", request)
+
+
+@app.get("/wireframe", include_in_schema=False)
+async def wireframe_page(request: Request):
+    """End-to-end HTML wireframe: new user journey, all screens, hash routing."""
+    return _render("wireframe.html", request)
 
 
 @app.get("/dashboard", include_in_schema=False)

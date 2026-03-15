@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trckr — End-to-end wireframe (new user journey)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0A0F1E;
+      --indigo: #6366F1;
+      --indigo-600: #4F46E5;
+      --slate-50: #F8FAFC;
+      --slate-200: #E2E8F0;
+      --slate-400: #94A3B8;
+      --slate-600: #475569;
+      --slate-800: #1E293B;
+      --white: #FFFFFF;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); color: var(--slate-800); background: #f1f5f9; line-height: 1.5; min-height: 100vh; }
+
+    /* ─── Wireframe: one screen visible ───────────────────────────────── */
+    .wireframe-screen { display: none; min-height: 100vh; padding-bottom: 4rem; }
+    .wireframe-screen.active { display: block; }
+
+    /* App screens get padding under fixed nav */
+    body.app-mode { padding-top: 52px; }
+    .wireframe-app-nav {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+      background: var(--navy); color: #fff; padding: 10px 16px;
+      flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px;
+    }
+    body.app-mode .wireframe-app-nav { display: flex; }
+    .wireframe-app-nav a { color: rgba(255,255,255,.85); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
+    .wireframe-app-nav a:hover { background: rgba(255,255,255,.1); color: #fff; }
+    .wireframe-app-nav .wf-logout { margin-left: auto; color: rgba(255,255,255,.7); }
+
+    /* Journey bar */
+    .wireframe-journey {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 299;
+      background: #fff; border-top: 1px solid var(--slate-200); padding: 8px 12px;
+      overflow-x: auto; white-space: nowrap; font-size: 12px; color: var(--slate-600);
+    }
+    body.app-mode .wireframe-journey { display: block; }
+    .wireframe-journey a { color: var(--indigo); text-decoration: none; margin: 0 4px; }
+    .wireframe-journey span { margin: 0 2px; }
+
+    /* Shared wireframe block style */
+    .wf-block { background: #fff; border: 1px dashed var(--slate-200); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .wf-block h3 { font-size: 14px; color: var(--slate-600); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px; }
+    .wf-placeholder { color: var(--slate-400); font-size: 14px; }
+    .wf-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #fff; border-bottom: 1px solid var(--slate-200); margin-bottom: 20px; }
+    .wf-header h1 { font-size: 18px; font-weight: 700; }
+    .wf-back { color: var(--indigo); text-decoration: none; font-weight: 500; font-size: 14px; }
+    .wf-back:hover { text-decoration: underline; }
+    .wf-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .wf-btn { display: inline-flex; align-items: center; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: none; font-family: var(--font); }
+    .wf-btn-primary { background: var(--indigo); color: #fff; }
+    .wf-btn-primary:hover { background: var(--indigo-600); }
+    .wf-btn-secondary { background: var(--slate-50); color: var(--slate-800); border: 1px solid var(--slate-200); }
+    .wf-btn-secondary:hover { background: var(--slate-200); }
+    .wf-list { list-style: none; }
+    .wf-list li { padding: 12px 16px; border-bottom: 1px solid var(--slate-200); display: flex; justify-content: space-between; align-items: center; }
+    .wf-list li:last-child { border-bottom: none; }
+    .wf-list a { color: var(--indigo); text-decoration: none; font-weight: 500; }
+    .container { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+    /* Landing hero (compact) */
+    .wireframe-landing-hero { background: linear-gradient(145deg, var(--navy) 0%, #111827 100%); color: #fff; padding: 100px 24px 60px; text-align: center; }
+    .wireframe-landing-hero h1 { font-size: 36px; margin-bottom: 12px; }
+    .wireframe-landing-hero p { color: rgba(255,255,255,.8); margin-bottom: 24px; max-width: 480px; margin-left: auto; margin-right: auto; }
+    .wireframe-landing-hero .wf-actions { justify-content: center; margin-top: 24px; }
+    .wireframe-landing-hero .wf-btn { color: #fff; border: 1px solid rgba(255,255,255,.3); background: transparent; }
+    .wireframe-landing-hero .wf-btn-primary { background: var(--indigo); border-color: var(--indigo); }
+    .wireframe-landing-footer { padding: 32px 24px; text-align: center; color: var(--slate-600); font-size: 14px; }
+    .wireframe-landing-footer a { color: var(--indigo); text-decoration: none; }
+
+    /* Auth forms */
+    .wf-auth { max-width: 400px; margin: 0 auto; padding: 40px 24px; }
+    .wf-auth h1 { font-size: 24px; margin-bottom: 8px; }
+    .wf-auth .wf-auth-sub { color: var(--slate-600); margin-bottom: 24px; font-size: 14px; }
+    .wf-auth .form-group { margin-bottom: 16px; }
+    .wf-auth label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+    .wf-auth input { width: 100%; padding: 10px 12px; border: 1px solid var(--slate-200); border-radius: 8px; font-size: 14px; }
+    .wf-auth .wf-actions { margin-top: 24px; }
+    .wf-auth .wf-auth-link { font-size: 14px; color: var(--slate-600); margin-top: 16px; display: block; }
+    .wf-auth .wf-auth-link a { color: var(--indigo); text-decoration: none; }
+
+    /* Table placeholder */
+    .wf-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .wf-table th, .wf-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--slate-200); }
+    .wf-table th { color: var(--slate-600); font-weight: 600; }
+    .wf-table td a { color: var(--indigo); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- App nav (shown when hash is an app screen) -->
+<nav class="wireframe-app-nav" aria-label="Wireframe app navigation">
+  <a href="#dashboard">Dashboard</a>
+  <a href="#expenses-list">Expenses</a>
+  <a href="#income-list">Income</a>
+  <a href="#recurring-list">Recurring</a>
+  <a href="#budgets-list">Budgets</a>
+  <a href="#goals-list">Goals</a>
+  <a href="#net-worth">Net worth</a>
+  <a href="#investments">Investments</a>
+  <a href="#recommendations">Recommendations</a>
+  <a href="#insights">Insights</a>
+  <a href="#reports">Reports</a>
+  <a href="#link-bank">Link bank</a>
+  <a href="#settings-integrations">Settings</a>
+  <a href="#landing" class="wf-logout">Exit to landing</a>
+</nav>
+
+<!-- Journey bar -->
+<div class="wireframe-journey" id="journey-bar">
+  <a href="#landing">Landing</a><span>→</span><span id="journey-current">…</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- LANDING -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="landing" class="wireframe-screen active" aria-label="Landing">
+  <div class="wireframe-landing-hero">
+    <h1>Trckr — Your finances, finally clear</h1>
+    <p>Track expenses, budgets, savings goals, and net worth in one place. Self-hosted. Plaid, Teller & open banking.</p>
+    <div class="wf-actions">
+      <a href="#register" class="wf-btn wf-btn-primary">Get Started</a>
+      <a href="#login" class="wf-btn">Sign In</a>
+    </div>
+  </div>
+  <div class="wireframe-landing-footer">
+    <a href="#dashboard">Skip to app (wireframe)</a>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- REGISTER -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="register" class="wireframe-screen" aria-label="Register">
+  <div class="wf-auth">
+    <a href="#landing" class="wf-back">← Landing</a>
+    <h1>Create account</h1>
+    <p class="wf-auth-sub">Sign up for Trckr</p>
+    <div class="form-group">
+      <label for="reg-email">Email</label>
+      <input type="email" id="reg-email" placeholder="you@example.com" />
+    </div>
+    <div class="form-group">
+      <label for="reg-password">Password</label>
+      <input type="password" id="reg-password" placeholder="••••••••" />
+    </div>
+    <div class="wf-actions">
+      <button type="button" class="wf-btn wf-btn-primary" id="wireframe-register-btn">Create account</button>
+    </div>
+    <p class="wf-auth-link">Already have an account? <a href="#login">Sign in</a></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- LOGIN -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="login" class="wireframe-screen" aria-label="Login">
+  <div class="wf-auth">
+    <a href="#landing" class="wf-back">← Landing</a>
+    <h1>Welcome back</h1>
+    <p class="wf-auth-sub">Sign in to your account</p>
+    <div class="form-group">
+      <label for="login-email">Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" />
+    </div>
+    <div class="form-group">
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" />
+    </div>
+    <div class="wf-actions">
+      <button type="button" class="wf-btn wf-btn-primary" id="wireframe-login-btn">Sign in</button>
+    </div>
+    <p class="wf-auth-link">No account? <a href="#register">Create one</a></p>
+    <p class="wf-auth-link"><a href="#forgot-password">Forgot password?</a></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- DASHBOARD -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="dashboard" class="wireframe-screen" aria-label="Dashboard">
+  <div class="container">
+    <div class="wf-header">
+      <h1>Dashboard</h1>
+      <span class="wf-placeholder">Notifications (wireframe)</span>
+    </div>
+    <div class="wf-block">
+      <h3>Net worth</h3>
+      <p class="wf-placeholder">$24,350 ↑ +2.1% vs last month</p>
+    </div>
+    <div class="wf-block">
+      <h3>Monthly budget</h3>
+      <p class="wf-placeholder">$1,840 / $2,500 — 74% used</p>
+      <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px;"><div style="width:74%;height:100%;background:var(--indigo);"></div></div>
+    </div>
+    <div class="wf-block">
+      <h3>Cashflow</h3>
+      <p class="wf-placeholder">Income $3,200 · Expenses $1,840 · Savings $1,360</p>
+    </div>
+    <div class="wf-block">
+      <h3>Quick links</h3>
+      <ul class="wf-list">
+        <li><a href="#expenses-list">Expenses</a> <span class="wf-placeholder">+ Add, Import CSV</span></li>
+        <li><a href="#income-list">Income</a></li>
+        <li><a href="#recurring-list">Recurring</a></li>
+        <li><a href="#budgets-list">Budgets</a></li>
+        <li><a href="#goals-list">Savings goals</a></li>
+        <li><a href="#net-worth">Net worth</a></li>
+        <li><a href="#investments">Investments</a></li>
+        <li><a href="#recommendations">Recommendations</a></li>
+        <li><a href="#insights">Insights</a></li>
+        <li><a href="#reports">Reports</a></li>
+        <li><a href="#link-bank">Link bank</a></li>
+        <li><a href="#settings-integrations">Settings / Integrations</a></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- EXPENSES LIST -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="expenses-list" class="wireframe-screen" aria-label="Expenses">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Expenses</h1>
+      <div class="wf-actions" style="margin:0;">
+        <a href="#expense-add" class="wf-btn wf-btn-primary">+ Add</a>
+        <a href="#expenses-import" class="wf-btn wf-btn-secondary">Import CSV</a>
+      </div>
+    </div>
+    <div class="wf-block">
+      <h3>Filters (wireframe)</h3>
+      <p class="wf-placeholder">Date from · Date to · Category · Tag</p>
+    </div>
+    <div class="wf-block">
+      <h3>List</h3>
+      <table class="wf-table">
+        <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>2025-03-12</td><td>Coffee shop</td><td>$4.20</td><td><a href="#expense-detail">View</a></td></tr>
+          <tr><td>2025-03-11</td><td>Netflix</td><td>$12.99</td><td><a href="#expense-detail">View</a></td></tr>
+          <tr><td>2025-03-10</td><td>Supermarket</td><td>$67.00</td><td><a href="#expense-detail">View</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- EXPENSE ADD -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="expense-add" class="wireframe-screen" aria-label="Add expense">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#expenses-list" class="wf-back">← Expenses</a>
+      <h1>Add expense</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Form (wireframe)</h3>
+      <p class="wf-placeholder">Amount · Date · Category · Description · Receipt (optional)</p>
+      <div class="wf-actions"><button type="button" class="wf-btn wf-btn-primary">Save</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- EXPENSE DETAIL -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="expense-detail" class="wireframe-screen" aria-label="Expense detail">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#expenses-list" class="wf-back">← Expenses</a>
+      <h1>Expense detail</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">Coffee shop · $4.20 · 2025-03-12 · Food & drink</p>
+      <div class="wf-actions"><a href="#expense-add" class="wf-btn wf-btn-secondary">Edit</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- EXPENSES IMPORT -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="expenses-import" class="wireframe-screen" aria-label="Import CSV">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#expenses-list" class="wf-back">← Expenses</a>
+      <h1>Import CSV</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Upload (wireframe)</h3>
+      <p class="wf-placeholder">Drag & drop or choose file · Dry run · Preview · Commit</p>
+      <div class="wf-actions"><button type="button" class="wf-btn wf-btn-secondary">Select file</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- INCOME LIST -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="income-list" class="wireframe-screen" aria-label="Income">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Income</h1>
+      <a href="#income-add" class="wf-btn wf-btn-primary">+ Add</a>
+    </div>
+    <div class="wf-block">
+      <table class="wf-table">
+        <thead><tr><th>Date</th><th>Source</th><th>Amount</th></tr></thead>
+        <tbody>
+          <tr><td>2025-03-01</td><td>Salary</td><td>$3,000</td></tr>
+          <tr><td>2025-03-05</td><td>Freelance</td><td>$200</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- INCOME ADD -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="income-add" class="wireframe-screen" aria-label="Add income">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#income-list" class="wf-back">← Income</a>
+      <h1>Add income</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">Amount · Date · Type · Source · Currency</p>
+      <div class="wf-actions"><button type="button" class="wf-btn wf-btn-primary">Save</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- RECURRING LIST -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="recurring-list" class="wireframe-screen" aria-label="Recurring">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Recurring expenses</h1>
+      <span class="wf-placeholder">+ Add template</span>
+    </div>
+    <div class="wf-block">
+      <table class="wf-table">
+        <thead><tr><th>Description</th><th>Amount</th><th>Next due</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Netflix</td><td>$12.99</td><td>2025-04-01</td><td><a href="#">Run now</a></td></tr>
+          <tr><td>Rent</td><td>$1,200</td><td>2025-04-01</td><td><a href="#">Run now</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- BUDGETS LIST -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="budgets-list" class="wireframe-screen" aria-label="Budgets">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Budgets</h1>
+      <a href="#budget-add" class="wf-btn wf-btn-primary">+ Add</a>
+    </div>
+    <div class="wf-block">
+      <h3>Total spent this period (wireframe)</h3>
+      <p class="wf-placeholder">$1,840 / $2,500</p>
+    </div>
+    <div class="wf-block">
+      <ul class="wf-list">
+        <li><a href="#budget-detail">Food</a> $480 / $500</li>
+        <li><a href="#budget-detail">Transport</a> $180 / $300</li>
+        <li><a href="#budget-detail">Entertainment</a> $160 / $100 (over)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- BUDGET ADD -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="budget-add" class="wireframe-screen" aria-label="Add budget">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#budgets-list" class="wf-back">← Budgets</a>
+      <h1>Add budget</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">Category · Amount · Period start/end</p>
+      <div class="wf-actions"><button type="button" class="wf-btn wf-btn-primary">Save</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- BUDGET DETAIL -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="budget-detail" class="wireframe-screen" aria-label="Budget detail">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#budgets-list" class="wf-back">← Budgets</a>
+      <h1>Budget: Food</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">$480 / $500 · 96% · Alert at 80%</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- GOALS LIST -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="goals-list" class="wireframe-screen" aria-label="Savings goals">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Savings goals</h1>
+      <a href="#goal-add" class="wf-btn wf-btn-primary">+ Add goal</a>
+    </div>
+    <div class="wf-block">
+      <h3>Total progress (wireframe)</h3>
+      <p class="wf-placeholder">$3,200 saved across 2 goals</p>
+    </div>
+    <div class="wf-block">
+      <ul class="wf-list">
+        <li><a href="#goal-detail">Emergency fund</a> $2,400 / $5,000</li>
+        <li><a href="#goal-detail">Holiday</a> $800 / $1,200</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- GOAL ADD -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="goal-add" class="wireframe-screen" aria-label="Add goal">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#goals-list" class="wf-back">← Goals</a>
+      <h1>Add savings goal</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">Name · Target amount · Target date · Start amount</p>
+      <div class="wf-actions"><button type="button" class="wf-btn wf-btn-primary">Save</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- GOAL DETAIL -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="goal-detail" class="wireframe-screen" aria-label="Goal detail">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#goals-list" class="wf-back">← Goals</a>
+      <h1>Emergency fund</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">$2,400 / $5,000 · 48% · Add contribution</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- NET WORTH -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="net-worth" class="wireframe-screen" aria-label="Net worth">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Net worth</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Total net worth</h3>
+      <p class="wf-placeholder">$24,350 (assets − liabilities)</p>
+    </div>
+    <div class="wf-block">
+      <h3>Assets</h3>
+      <p class="wf-placeholder">Cash $3,200 · Investments $21,150</p>
+    </div>
+    <div class="wf-block">
+      <h3>Liabilities</h3>
+      <p class="wf-placeholder">Debt / spending obligation (placeholder)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- INVESTMENTS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="investments" class="wireframe-screen" aria-label="Investments">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Investments</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Portfolio value (wireframe)</h3>
+      <p class="wf-placeholder">$21,150 · Holdings · Market data</p>
+    </div>
+    <div class="wf-block">
+      <table class="wf-table">
+        <thead><tr><th>Symbol</th><th>Quantity</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>AAPL</td><td>10</td><td>$1,720</td></tr>
+          <tr><td>VOO</td><td>25</td><td>$11,250</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="wf-actions"><a href="#recommendations" class="wf-btn wf-btn-secondary">Recommendations</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- RECOMMENDATIONS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="recommendations" class="wireframe-screen" aria-label="Recommendations">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Recommendations</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Run (wireframe)</h3>
+      <p class="wf-placeholder">Generate recommendations · Risk metrics · Optional AI explainer (not advice)</p>
+      <div class="wf-actions"><button type="button" class="wf-btn wf-btn-primary">Run</button></div>
+    </div>
+    <div class="wf-block">
+      <h3>Latest run</h3>
+      <p class="wf-placeholder">Per-holding score · why_selected · key_risk_contributors · narrative</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- INSIGHTS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="insights" class="wireframe-screen" aria-label="Insights">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Insights</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Forecast (wireframe)</h3>
+      <p class="wf-placeholder">Spend forecast · Moving average · Next 2 months</p>
+    </div>
+    <div class="wf-block">
+      <h3>Anomalies</h3>
+      <p class="wf-placeholder">Amount outlier · New merchant · Feedback (valid/ignore)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- REPORTS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="reports" class="wireframe-screen" aria-label="Reports">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Reports</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Comparison (wireframe)</h3>
+      <p class="wf-placeholder">Current period vs previous · By category · Saved views</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- LINK BANK -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="link-bank" class="wireframe-screen" aria-label="Link bank">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Link bank account</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Providers (wireframe)</h3>
+      <p class="wf-placeholder">Plaid · Teller · TrueLayer · OAuth, read-only</p>
+      <div class="wf-actions">
+        <a href="#link-bank-select" class="wf-btn wf-btn-primary">Link with Plaid</a>
+        <a href="#link-bank-select" class="wf-btn wf-btn-secondary">Link with Teller</a>
+      </div>
+    </div>
+    <p class="wf-placeholder">Not configured? <a href="#expenses-import">Import CSV</a> or <a href="#expense-add">add manually</a>.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- LINK BANK SELECT -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="link-bank-select" class="wireframe-screen" aria-label="Select bank">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#link-bank" class="wf-back">← Link bank</a>
+      <h1>Select institution</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">Bank list (wireframe) · Search</p>
+      <div class="wf-actions"><a href="#link-bank-success" class="wf-btn wf-btn-primary">Continue (demo)</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- LINK BANK SUCCESS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="link-bank-success" class="wireframe-screen" aria-label="Link success">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Account linked</h1>
+    </div>
+    <div class="wf-block">
+      <p class="wf-placeholder">Success · Transactions will sync</p>
+      <div class="wf-actions"><a href="#dashboard" class="wf-btn wf-btn-primary">Go to dashboard</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SETTINGS / INTEGRATIONS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="settings-integrations" class="wireframe-screen" aria-label="Settings">
+  <div class="container">
+    <div class="wf-header">
+      <a href="#dashboard" class="wf-back">← Dashboard</a>
+      <h1>Settings / Integrations</h1>
+    </div>
+    <div class="wf-block">
+      <h3>Connected accounts</h3>
+      <p class="wf-placeholder">Bank items · Disconnect</p>
+    </div>
+    <div class="wf-block">
+      <h3>Calendar</h3>
+      <p class="wf-placeholder">ICS URL for recurring reminders</p>
+    </div>
+    <div class="wf-block">
+      <h3>Digest</h3>
+      <p class="wf-placeholder">Weekly / monthly · Email or Slack</p>
+    </div>
+    <div class="wf-block">
+      <h3>Export</h3>
+      <p class="wf-placeholder">Portable JSON export</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- FORGOT PASSWORD -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="forgot-password" class="wireframe-screen" aria-label="Forgot password">
+  <div class="wf-auth">
+    <a href="#login" class="wf-back">← Sign in</a>
+    <h1>Forgot password</h1>
+    <p class="wf-auth-sub">We’ll send a reset link to your email.</p>
+    <div class="form-group">
+      <label for="forgot-email">Email</label>
+      <input type="email" id="forgot-email" placeholder="you@example.com" />
+    </div>
+    <div class="wf-actions"><button type="button" class="wf-btn wf-btn-primary">Send reset link</button></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- RESET PASSWORD -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="reset-password" class="wireframe-screen" aria-label="Reset password">
+  <div class="wf-auth">
+    <a href="#login" class="wf-back">← Sign in</a>
+    <h1>Reset password</h1>
+    <p class="wf-auth-sub">Enter new password (wireframe).</p>
+    <div class="form-group">
+      <label for="reset-pw">New password</label>
+      <input type="password" id="reset-pw" placeholder="••••••••" />
+    </div>
+    <div class="wf-actions"><button type="button" class="wf-btn wf-btn-primary">Reset</button></div>
+  </div>
+</section>
+
+<script>
+(function() {
+  var APP_SCREENS = [
+    'dashboard', 'expenses-list', 'expense-add', 'expense-detail', 'expenses-import',
+    'income-list', 'income-add', 'recurring-list', 'budgets-list', 'budget-add', 'budget-detail',
+    'goals-list', 'goal-add', 'goal-detail', 'net-worth', 'investments', 'recommendations',
+    'insights', 'reports', 'link-bank', 'link-bank-select', 'link-bank-success', 'settings-integrations'
+  ];
+  var SCREEN_LABELS = {
+    'landing': 'Landing',
+    'register': 'Register',
+    'login': 'Login',
+    'dashboard': 'Dashboard',
+    'expenses-list': 'Expenses',
+    'expense-add': 'Add expense',
+    'expense-detail': 'Expense detail',
+    'expenses-import': 'Import CSV',
+    'income-list': 'Income',
+    'income-add': 'Add income',
+    'recurring-list': 'Recurring',
+    'budgets-list': 'Budgets',
+    'budget-add': 'Add budget',
+    'budget-detail': 'Budget detail',
+    'goals-list': 'Goals',
+    'goal-add': 'Add goal',
+    'goal-detail': 'Goal detail',
+    'net-worth': 'Net worth',
+    'investments': 'Investments',
+    'recommendations': 'Recommendations',
+    'insights': 'Insights',
+    'reports': 'Reports',
+    'link-bank': 'Link bank',
+    'link-bank-select': 'Select bank',
+    'link-bank-success': 'Success',
+    'settings-integrations': 'Settings',
+    'forgot-password': 'Forgot password',
+    'reset-password': 'Reset password'
+  };
+
+  function getCurrentId() {
+    var hash = (location.hash || '#landing').slice(1);
+    return hash || 'landing';
+  }
+
+  function isAppScreen(id) {
+    return APP_SCREENS.indexOf(id) !== -1;
+  }
+
+  function showScreen(id) {
+    id = id || 'landing';
+    document.querySelectorAll('.wireframe-screen').forEach(function(el) {
+      el.classList.toggle('active', el.id === id);
+    });
+    document.body.classList.toggle('app-mode', isAppScreen(id));
+    var label = SCREEN_LABELS[id] || id;
+    var j = document.getElementById('journey-current');
+    if (j) j.textContent = label;
+  }
+
+  function onHashChange() {
+    showScreen(getCurrentId());
+  }
+
+  window.addEventListener('hashchange', onHashChange);
+  window.addEventListener('load', function() {
+    if (!location.hash) location.hash = 'landing';
+    onHashChange();
+  });
+
+  document.getElementById('wireframe-register-btn').addEventListener('click', function() {
+    location.hash = 'dashboard';
+  });
+  document.getElementById('wireframe-login-btn').addEventListener('click', function() {
+    location.hash = 'dashboard';
+  });
+})();
+</script>

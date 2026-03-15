@@ -3,11 +3,24 @@
 
     var API = window.API_BASE || '';
 
+    function apiErrorDetail(body) {
+        if (!body) return 'Request failed';
+        var d = body.detail;
+        if (typeof d === 'string') return d;
+        if (Array.isArray(d) && d.length) {
+            return d.map(function (e) {
+                var loc = (e.loc && e.loc.slice(1).join('.')) || '';
+                return (loc ? loc + ': ' : '') + (e.msg || e.message || '');
+            }).join('; ');
+        }
+        return body.detail ? String(body.detail) : 'Request failed';
+    }
+
     function getAuthHeaders() {
         if (window.Auth && window.Auth.getAuthHeaders) {
             return window.Auth.getAuthHeaders();
         }
-        var token = window.Auth && window.Auth.getAccessToken && window.Auth.getAccessToken();
+        var token = window.Auth && window.Auth.getToken && window.Auth.getToken();
         if (!token) return {};
         return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
     }
@@ -22,7 +35,7 @@
         }).then(function (r) {
             if (!r.ok) {
                 return r.json().catch(function () { return {}; }).then(function (body) {
-                    throw new Error(body.detail || 'Failed to run recommendations');
+                    throw new Error(apiErrorDetail(body) || 'Failed to run recommendations');
                 });
             }
             return r.json();
@@ -47,6 +60,33 @@
         });
     }
 
+    function fetchRiskProfile() {
+        return fetch(API + '/api/v1/risk-profile', { headers: getAuthHeaders() }).then(function (r) {
+            if (!r.ok) return null;
+            return r.json();
+        }).catch(function () { return null; });
+    }
+
+    function saveRiskProfile(payload) {
+        var headers = getAuthHeaders();
+        headers['Content-Type'] = 'application/json';
+        var body = {};
+        if (payload.risk_tolerance != null) body.risk_tolerance = payload.risk_tolerance;
+        if (payload.industry_preferences != null) body.industry_preferences = payload.industry_preferences;
+        if (payload.sharpe_objective != null) body.sharpe_objective = payload.sharpe_objective;
+        if (payload.loss_aversion != null) body.loss_aversion = payload.loss_aversion;
+        return fetch(API + '/api/v1/risk-profile', {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(body)
+        }).then(function (r) {
+            if (!r.ok) return r.json().catch(function () { return {}; }).then(function (b) {
+                throw new Error(apiErrorDetail(b) || 'Failed to save preferences');
+            });
+            return r.json();
+        });
+    }
+
     function formatPct(x) {
         var n = Number(x);
         if (!isFinite(n)) return '—';
@@ -63,7 +103,7 @@
     function renderSummary(summaryEl, data) {
         if (!summaryEl) return;
         if (!data || !data.portfolio) {
-            summaryEl.textContent = 'No recommendation run yet.';
+            summaryEl.innerHTML = '<p class="muted">Run recommendations above to see portfolio risk metrics (Sharpe, volatility, drawdown). Add holdings on the <a href="/investments">Investments</a> page first for meaningful numbers.</p>';
             return;
         }
         var p = data.portfolio;
@@ -85,8 +125,9 @@
         var run = payload && payload.run;
         var items = payload && payload.items || [];
         if (!run || !items.length) {
-            statusEl.textContent = 'No recommendations yet. Click “Generate recommendations” to run the engine.';
-            listEl.innerHTML = '';
+            statusEl.textContent = 'Click “Generate recommendations” to get a starter list (no holdings needed) or to rank your current holdings. Save your preferences above first for best results.';
+            listEl.innerHTML = '<p class="muted">Generate recommendations to see analyst suggestions. With no holdings you get a starter portfolio; with holdings you get ranked positions and risk notes.</p>';
+            if (listEl.setAttribute) listEl.setAttribute('data-run-id', '');
             return;
         }
         statusEl.textContent = 'Latest run at ' + (run.created_at || '—');
@@ -100,6 +141,7 @@
             html += '<span class="rec-confidence">Confidence: ' + escapeHtml(formatPct(it.confidence)) + '</span>';
             html += '</div>';
             html += '<button type="button" class="btn btn-secondary btn-sm rec-explain-btn" data-symbol="' + escapeHtml(sym) + '">View details</button>';
+            html += ' <a href="/investments?add=' + encodeURIComponent(sym) + '" class="btn btn-sm btn-ghost rec-add-holding" data-symbol="' + escapeHtml(sym) + '">Add to holdings</a>';
             html += '</li>';
         });
         listEl.innerHTML = html;
@@ -157,6 +199,12 @@
             if (ex.confidence) {
                 html += '<h4>Confidence</h4><p>Confidence index: ' + formatPct(ex.confidence.value) + '</p>';
             }
+            if (ex.analyst_note) {
+                html += '<h4>Analyst note</h4><p>' + escapeHtml(String(ex.analyst_note)) + '</p>';
+            }
+            if (ex.narrative) {
+                html += '<h4>Summary</h4><p>' + escapeHtml(String(ex.narrative)) + '</p>';
+            }
             if (ex.news_factors) {
                 html += '<h4>News & events</h4>';
                 if (ex.news_factors.event_flags && ex.news_factors.event_flags.length) {
@@ -184,10 +232,58 @@
         var summaryEl = document.getElementById('rec-portfolio-summary');
         if (!listEl || !statusEl) return;
 
+        fetchRiskProfile().then(function (profile) {
+            if (profile) {
+                var riskEl = document.getElementById('rec-pref-risk');
+                var indEl = document.getElementById('rec-pref-industries');
+                var sharpeEl = document.getElementById('rec-pref-sharpe');
+                var lossEl = document.getElementById('rec-pref-loss');
+                if (riskEl && profile.risk_tolerance) riskEl.value = profile.risk_tolerance;
+                if (indEl && profile.industry_preferences && profile.industry_preferences.length)
+                    indEl.value = profile.industry_preferences.join(', ');
+                if (sharpeEl && profile.sharpe_objective != null) sharpeEl.value = profile.sharpe_objective;
+                if (lossEl && profile.loss_aversion) lossEl.value = profile.loss_aversion;
+            }
+        });
+
+        var savePrefsBtn = document.getElementById('rec-prefs-save');
+        if (savePrefsBtn) {
+            savePrefsBtn.addEventListener('click', function () {
+                var riskEl = document.getElementById('rec-pref-risk');
+                var indEl = document.getElementById('rec-pref-industries');
+                var sharpeEl = document.getElementById('rec-pref-sharpe');
+                var lossEl = document.getElementById('rec-pref-loss');
+                var industries = (indEl && indEl.value.trim()) ? indEl.value.trim().split(/\s*,\s*/).filter(Boolean) : null;
+                var sharpe = sharpeEl && sharpeEl.value.trim() ? parseFloat(sharpeEl.value, 10) : null;
+                if (sharpe !== null && isNaN(sharpe)) sharpe = null;
+                var payload = {
+                    risk_tolerance: riskEl ? riskEl.value : undefined,
+                    industry_preferences: industries,
+                    sharpe_objective: sharpe,
+                    loss_aversion: lossEl ? lossEl.value : undefined
+                };
+                savePrefsBtn.disabled = true;
+                saveRiskProfile(payload).then(function () {
+                    savePrefsBtn.textContent = 'Saved';
+                    setTimeout(function () { savePrefsBtn.textContent = 'Save preferences'; savePrefsBtn.disabled = false; }, 1500);
+                }).catch(function (err) {
+                    alert(err.message || 'Failed to save preferences');
+                    savePrefsBtn.disabled = false;
+                });
+            });
+        }
+
         fetchLatest().then(function (data) {
             renderList(listEl, statusEl, data);
+            var hasRun = data && data.run;
+            var hasItems = data && data.items && data.items.length > 0;
+            if (summaryEl) {
+                if (hasRun && hasItems) renderSummary(summaryEl, data);
+                else renderSummary(summaryEl, null);
+            }
         }).catch(function () {
             statusEl.textContent = 'Could not load latest recommendations. Make sure you are logged in.';
+            if (summaryEl) summaryEl.innerHTML = '<p class="muted">Log in and try again to see portfolio risk metrics here.</p>';
         });
 
         var runBtn = document.getElementById('rec-run-btn');
