@@ -120,7 +120,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "python run_migration.py migrations/001_schema.sql && python run_migration.py migrations/003_recommendations_preferences.sql && python run_migration.py migrations/004_security_universe.sql"
+    command: sh -c "python run_migration.py migrations/001_schema.sql && python run_migration.py migrations/003_recommendations_preferences.sql && python run_migration.py migrations/004_security_universe.sql && python run_migration.py migrations/005_sector_cache.sql && python run_migration.py migrations/006_etf_holdings.sql && python run_migration.py migrations/008_tax_lots.sql && python run_migration.py migrations/009_scenarios.sql && python run_migration.py migrations/010_fundamental_snapshot.sql && python run_migration.py migrations/011_sentiment_snapshot.sql"
     restart: "no"
 
   expense:

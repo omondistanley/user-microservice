@@ -52,11 +52,29 @@ class HoldingsDataService:
                 vals,
             )
             row = cur.fetchone()
-            conn.commit()
             if row:
                 data["holding_id"] = row["holding_id"]
                 data["created_at"] = row["created_at"]
                 data["updated_at"] = row["updated_at"]
+                # Create initial tax lot for cost basis (migration 008)
+                try:
+                    purchase_date = (data.get("created_at") or datetime.now(timezone.utc))
+                    if hasattr(purchase_date, "date"):
+                        purchase_date = purchase_date.date()
+                    cur.execute(
+                        'INSERT INTO investments_db.tax_lot (holding_id, quantity, cost_per_share, purchase_date, source) '
+                        'VALUES (%s, %s, %s, %s, %s)',
+                        (
+                            row["holding_id"],
+                            data.get("quantity"),
+                            data.get("avg_cost"),
+                            purchase_date,
+                            "manual",
+                        ),
+                    )
+                except Exception:
+                    pass  # table may not exist yet
+            conn.commit()
             return data
         finally:
             conn.close()
@@ -176,5 +194,15 @@ class HoldingsDataService:
             )
             rows = cur.fetchall()
             return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    def list_distinct_symbols(self) -> List[str]:
+        """Return distinct symbols across all holdings (for ETF sync job)."""
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(f'SELECT DISTINCT symbol FROM "{SCHEMA}"."{TABLE}" ORDER BY symbol')
+            return [r["symbol"] for r in cur.fetchall() if r.get("symbol")]
         finally:
             conn.close()
