@@ -75,6 +75,13 @@ BRAVE_TIMEOUT_SECONDS: int = int(os.environ.get("BRAVE_TIMEOUT_SECONDS", "8"))
 AI_EXPLAINER_TIMEOUT_SECONDS: int = int(os.environ.get("AI_EXPLAINER_TIMEOUT_SECONDS", "10"))
 AI_EXPLAINER_MAX_NARRATIVE_CHARS: int = int(os.environ.get("AI_EXPLAINER_MAX_NARRATIVE_CHARS", "500"))
 
+# News pipeline (Benzinga primary, Finnhub/Alpha Vantage supplement)
+BENZINGA_API_KEY: str = os.environ.get("BENZINGA_API_KEY", "")
+BENZINGA_BASE_URL: str = os.environ.get("BENZINGA_BASE_URL", "https://api.benzinga.com").rstrip("/")
+NEWS_PROVIDER_ORDER: str = os.environ.get("NEWS_PROVIDER_ORDER", "benzinga,finnhub,alphavantage")
+NEWS_TIMEOUT_SECONDS: int = int(os.environ.get("NEWS_TIMEOUT_SECONDS", "8"))
+NEWS_PAGE_SIZE: int = int(os.environ.get("NEWS_PAGE_SIZE", "20"))
+
 
 def get_cors_origins() -> list:
     if not CORS_ORIGINS or CORS_ORIGINS.strip() == "*":

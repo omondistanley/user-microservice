@@ -73,6 +73,12 @@ class FinnhubAdapter(MarketDataAdapter):
         as_of = _parse_ts(ts_raw)
         now = datetime.now(timezone.utc)
         stale_seconds = int(max(0, (now - as_of).total_seconds()))
+        change_pct = None
+        if "dp" in data and data["dp"] is not None:
+            try:
+                change_pct = Decimal(str(data["dp"]))
+            except Exception:
+                pass
         return Quote(
             symbol=symbol.upper(),
             price=Decimal(str(price)),
@@ -80,6 +86,7 @@ class FinnhubAdapter(MarketDataAdapter):
             as_of=as_of,
             provider=self.provider_name,
             stale_seconds=stale_seconds,
+            change_pct=change_pct,
         )
 
     async def get_bars(

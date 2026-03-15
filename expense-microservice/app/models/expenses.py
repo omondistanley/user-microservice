@@ -61,6 +61,7 @@ class ExpenseResponse(BaseModel):
     updated_at: datetime
     source: Optional[str] = None
     plaid_transaction_id: Optional[str] = None
+    apple_wallet_transaction_id: Optional[str] = None
     tags: list[TagResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)

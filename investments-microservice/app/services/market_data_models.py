@@ -12,6 +12,7 @@ class Quote(BaseModel):
     as_of: datetime
     provider: str
     stale_seconds: int = Field(ge=0)
+    change_pct: Optional[Decimal] = None
 
 
 class Bar(BaseModel):

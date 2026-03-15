@@ -109,6 +109,7 @@ class ExpenseDataService:
             "currency", "budget_category_id", "description", "balance_after",
             "created_at", "updated_at",
             "source", "plaid_transaction_id", "teller_transaction_id",
+            "apple_wallet_transaction_id",
             "household_id",
         ]
         keys = [k for k in cols if k in data]
@@ -182,6 +183,23 @@ class ExpenseDataService:
             cur.execute(
                 f'SELECT * FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s AND teller_transaction_id = %s AND deleted_at IS NULL',
                 (user_id, teller_transaction_id),
+            )
+            row = cur.fetchone()
+            return _dict_row(row)
+        finally:
+            conn.close()
+
+    def get_expense_by_apple_wallet_transaction_id(
+        self, user_id: int, apple_wallet_transaction_id: str
+    ) -> Optional[Dict]:
+        if not apple_wallet_transaction_id:
+            return None
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s AND apple_wallet_transaction_id = %s AND deleted_at IS NULL',
+                (user_id, apple_wallet_transaction_id),
             )
             row = cur.fetchone()
             return _dict_row(row)

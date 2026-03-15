@@ -2023,3 +2023,37 @@ body.welcome-page .btn-secondary:hover {
         justify-content: center;
     }
 }
+
+/* Recommendations terminal-style table */
+.rec-table-wrap {
+    overflow-x: auto;
+    margin-top: var(--sp-2);
+}
+.rec-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+.rec-table th,
+.rec-table td {
+    padding: var(--sp-2) var(--sp-3);
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.rec-table th {
+    font-weight: var(--fw-semi);
+    color: var(--text-muted);
+}
+.rec-table .rec-symbol {
+    font-weight: var(--fw-bold);
+}
+.rec-table .rec-actions {
+    white-space: nowrap;
+}
+.rec-news-list {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+.rec-news-list li {
+    margin-bottom: 0.25rem;
+}

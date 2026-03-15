@@ -78,7 +78,8 @@ services:
              python run_migration.py migrations/011_savings_goals.sql &&
              python run_migration.py migrations/012_anomaly_feedback.sql &&
              python run_migration.py migrations/013_receipt_ocr.sql &&
-             python run_migration.py migrations/014_plaid_provider.sql"
+             python run_migration.py migrations/014_plaid_provider.sql &&
+             python run_migration.py migrations/015_apple_wallet.sql"
     restart: "no"
 
   budget-migrations:
@@ -202,6 +203,44 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
       HSTS_MAX_AGE_SECONDS: ${HSTS_MAX_AGE_SECONDS:-31536000}
+      # Market data (recommendations list + explain)
+      MARKET_DATA_PROVIDER_ORDER: ${MARKET_DATA_PROVIDER_ORDER:-alpaca,finnhub,twelvedata,alphavantage}
+      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+      ALPACA_API_SECRET: ${ALPACA_API_SECRET:-}
+      ALPACA_DATA_BASE_URL: ${ALPACA_DATA_BASE_URL:-https://data.alpaca.markets}
+      FREE_MARKET_API_KEY: ${FREE_MARKET_API_KEY:-}
+      FREE_MARKET_BASE_URL: ${FREE_MARKET_BASE_URL:-https://finnhub.io/api/v1}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      FINNHUB_BASE_URL: ${FINNHUB_BASE_URL:-https://finnhub.io/api/v1}
+      TWELVEDATA_API_KEY: ${TWELVEDATA_API_KEY:-}
+      TWELVEDATA_BASE_URL: ${TWELVEDATA_BASE_URL:-https://api.twelvedata.com}
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+      ALPHAVANTAGE_BASE_URL: ${ALPHAVANTAGE_BASE_URL:-https://www.alphavantage.co}
+      QUOTE_CACHE_MAX_AGE_SECONDS: ${QUOTE_CACHE_MAX_AGE_SECONDS:-60}
+      MARKET_QUOTE_DEVIATION_PCT: ${MARKET_QUOTE_DEVIATION_PCT:-0.05}
+      MARKET_PROVIDER_STATUS_CACHE_SECONDS: ${MARKET_PROVIDER_STATUS_CACHE_SECONDS:-60}
+      # AI explainer (recommendation summary)
+      AI_EXPLAINER_PROVIDER_ORDER: ${AI_EXPLAINER_PROVIDER_ORDER:-groq,brave,generic}
+      AI_EXPLAINER_API_BASE: ${AI_EXPLAINER_API_BASE:-}
+      AI_EXPLAINER_API_KEY: ${AI_EXPLAINER_API_KEY:-}
+      AI_EXPLAINER_MODEL: ${AI_EXPLAINER_MODEL:-}
+      AI_EXPLAINER_TIMEOUT_SECONDS: ${AI_EXPLAINER_TIMEOUT_SECONDS:-10}
+      AI_EXPLAINER_MAX_NARRATIVE_CHARS: ${AI_EXPLAINER_MAX_NARRATIVE_CHARS:-500}
+      GROQ_API_BASE: ${GROQ_API_BASE:-https://api.groq.com/openai/v1}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_TIMEOUT_SECONDS: ${GROQ_TIMEOUT_SECONDS:-6}
+      GROQ_MAX_TOKENS: ${GROQ_MAX_TOKENS:-150}
+      BRAVE_API_BASE: ${BRAVE_API_BASE:-https://api.search.brave.com/res/v1}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+      BRAVE_MODEL: ${BRAVE_MODEL:-brave}
+      BRAVE_TIMEOUT_SECONDS: ${BRAVE_TIMEOUT_SECONDS:-8}
+      # News pipeline (recommendation details + /api/v1/news)
+      NEWS_PROVIDER_ORDER: ${NEWS_PROVIDER_ORDER:-benzinga,finnhub,alphavantage}
+      BENZINGA_API_KEY: ${BENZINGA_API_KEY:-}
+      BENZINGA_BASE_URL: ${BENZINGA_BASE_URL:-https://api.benzinga.com}
+      NEWS_TIMEOUT_SECONDS: ${NEWS_TIMEOUT_SECONDS:-8}
+      NEWS_PAGE_SIZE: ${NEWS_PAGE_SIZE:-20}
     depends_on:
       investment-migrations:
         condition: service_completed_successfully

@@ -38,6 +38,7 @@ def _row_to_response(row: Dict[str, Any]) -> ExpenseResponse:
         updated_at=row["updated_at"],
         source=row.get("source"),
         plaid_transaction_id=row.get("plaid_transaction_id"),
+        apple_wallet_transaction_id=row.get("apple_wallet_transaction_id"),
         tags=row.get("tags") or [],
     )
 
@@ -68,6 +69,7 @@ class ExpenseResource(BaseResource):
         source: Optional[str] = None,
         plaid_transaction_id: Optional[str] = None,
         teller_transaction_id: Optional[str] = None,
+        apple_wallet_transaction_id: Optional[str] = None,
     ) -> ExpenseResponse:
         resolved = self.data_service.resolve_category(
             payload.category_code, payload.category
@@ -100,6 +102,8 @@ class ExpenseResource(BaseResource):
             data["plaid_transaction_id"] = plaid_transaction_id
         if teller_transaction_id is not None:
             data["teller_transaction_id"] = teller_transaction_id
+        if apple_wallet_transaction_id is not None:
+            data["apple_wallet_transaction_id"] = apple_wallet_transaction_id
         conn = self.data_service.get_connection(autocommit=False)
         created_tags: list[Dict[str, Any]] = []
         try:

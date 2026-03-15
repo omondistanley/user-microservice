@@ -42,19 +42,19 @@
         });
     }
 
-    function fetchLatest() {
-        return fetch(API + '/api/v1/recommendations/latest', {
-            headers: getAuthHeaders()
-        }).then(function (r) {
+    function fetchLatest(enrich) {
+        var url = API + '/api/v1/recommendations/latest';
+        if (enrich) url += '?enrich=1';
+        return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
             if (!r.ok) throw new Error('Failed to load latest recommendations');
             return r.json();
         });
     }
 
-    function fetchExplain(runId) {
-        return fetch(API + '/api/v1/recommendations/' + encodeURIComponent(runId) + '/explain', {
-            headers: getAuthHeaders()
-        }).then(function (r) {
+    function fetchExplain(runId, symbol) {
+        var url = API + '/api/v1/recommendations/' + encodeURIComponent(runId) + '/explain';
+        if (symbol) url += '?symbol=' + encodeURIComponent(symbol);
+        return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
             if (!r.ok) throw new Error('Failed to load explanation');
             return r.json();
         });
@@ -131,19 +131,30 @@
             return;
         }
         statusEl.textContent = 'Latest run at ' + (run.created_at || '—');
-        var html = '<ul class="recommendation-items">';
+        var html = '<div class="rec-table-wrap"><table class="rec-table"><thead><tr>';
+        html += '<th>Symbol</th><th>Name</th><th>Sector</th><th>Score</th><th>Conf.</th><th>Last price</th><th>Change %</th><th>1M trend</th><th>Actions</th></tr></thead><tbody>';
         items.forEach(function (it, idx) {
             var sym = (it.symbol || '').toUpperCase();
-            html += '<li class="recommendation-item" data-index="' + idx + '">';
-            html += '<div class="rec-symbol">' + escapeHtml(sym) + '</div>';
-            html += '<div class="rec-meta">';
-            html += '<span class="rec-score">Score: ' + escapeHtml(String(it.score)) + '</span>';
-            html += '<span class="rec-confidence">Confidence: ' + escapeHtml(formatPct(it.confidence)) + '</span>';
-            html += '</div>';
+            var name = it.full_name || it.description || '—';
+            var sector = it.sector || '—';
+            var lastPrice = it.last_price != null ? '$' + escapeHtml(String(it.last_price)) : '—';
+            var changePct = it.change_pct != null ? (Number(it.change_pct) >= 0 ? '+' : '') + Number(it.change_pct).toFixed(2) + '%' : '—';
+            var trend1m = it.trend_1m_pct != null ? (Number(it.trend_1m_pct) >= 0 ? '+' : '') + Number(it.trend_1m_pct).toFixed(2) + '%' : '—';
+            html += '<tr class="recommendation-item" data-index="' + idx + '">';
+            html += '<td class="rec-symbol">' + escapeHtml(sym) + '</td>';
+            html += '<td class="rec-name">' + escapeHtml(name) + '</td>';
+            html += '<td class="rec-sector">' + escapeHtml(sector) + '</td>';
+            html += '<td class="rec-score">' + escapeHtml(String(it.score)) + '</td>';
+            html += '<td class="rec-confidence">' + escapeHtml(formatPct(it.confidence)) + '</td>';
+            html += '<td class="rec-last-price">' + lastPrice + '</td>';
+            html += '<td class="rec-change-pct">' + escapeHtml(changePct) + '</td>';
+            html += '<td class="rec-trend-1m">' + escapeHtml(trend1m) + '</td>';
+            html += '<td class="rec-actions">';
             html += '<button type="button" class="btn btn-secondary btn-sm rec-explain-btn" data-symbol="' + escapeHtml(sym) + '">View details</button>';
             html += ' <a href="/investments?add=' + encodeURIComponent(sym) + '" class="btn btn-sm btn-ghost rec-add-holding" data-symbol="' + escapeHtml(sym) + '">Add to holdings</a>';
-            html += '</li>';
+            html += '</td></tr>';
         });
+        html += '</tbody></table></div>';
         listEl.innerHTML = html;
         listEl.setAttribute('data-run-id', run.run_id || '');
     }
@@ -158,7 +169,7 @@
         wrap.style.display = 'block';
         wrap.setAttribute('aria-hidden', 'false');
 
-        fetchExplain(runId).then(function (data) {
+        fetchExplain(runId, symbol).then(function (data) {
             var items = data && data.items || [];
             var match = null;
             items.forEach(function (it) {
@@ -172,6 +183,27 @@
             }
             var ex = match.explanation;
             var html = '';
+            if (ex.security) {
+                var sec = ex.security;
+                html += '<h4>Security</h4><ul>';
+                html += '<li><strong>Name</strong>: ' + escapeHtml(sec.full_name || '—') + '</li>';
+                html += '<li><strong>Sector</strong>: ' + escapeHtml(sec.sector || '—') + '</li>';
+                html += '<li><strong>Asset type</strong>: ' + escapeHtml(sec.asset_type || '—') + '</li>';
+                if (sec.why_it_matters) {
+                    html += '<li><strong>Why it matters</strong>: ' + escapeHtml(String(sec.why_it_matters)) + '</li>';
+                }
+                html += '</ul>';
+            }
+            if (ex.market) {
+                var m = ex.market;
+                html += '<h4>Market</h4><ul>';
+                html += '<li><strong>Current price</strong>: $' + escapeHtml(String(m.current_price || '—')) + '</li>';
+                if (m.as_of) html += '<li><strong>As of</strong>: ' + escapeHtml(String(m.as_of)) + '</li>';
+                if (m.trend_1m_pct != null) html += '<li><strong>1M trend</strong>: ' + escapeHtml(String(m.trend_1m_pct)) + '%</li>';
+                if (m['52w_high'] != null) html += '<li><strong>52w high</strong>: $' + escapeHtml(String(m['52w_high'])) + '</li>';
+                if (m['52w_low'] != null) html += '<li><strong>52w low</strong>: $' + escapeHtml(String(m['52w_low'])) + '</li>';
+                html += '</ul>';
+            }
             if (ex.why_selected && ex.why_selected.length) {
                 html += '<h4>Why selected</h4><ul>';
                 ex.why_selected.forEach(function (s) {
@@ -207,7 +239,16 @@
             }
             if (ex.news_factors) {
                 html += '<h4>News & events</h4>';
-                if (ex.news_factors.event_flags && ex.news_factors.event_flags.length) {
+                if (ex.news_factors.recent_news && ex.news_factors.recent_news.length) {
+                    html += '<ul class="rec-news-list">';
+                    ex.news_factors.recent_news.forEach(function (n) {
+                        var title = (n.title || 'Headline').substring(0, 80);
+                        if ((n.title || '').length > 80) title += '…';
+                        var link = n.url ? '<a href="' + escapeHtml(n.url) + '" target="_blank" rel="noopener">' + escapeHtml(title) + '</a>' : escapeHtml(title);
+                        html += '<li>' + link + (n.published_at ? ' <span class="muted">' + escapeHtml(String(n.published_at)) + '</span>' : '') + '</li>';
+                    });
+                    html += '</ul>';
+                } else if (ex.news_factors.event_flags && ex.news_factors.event_flags.length) {
                     html += '<p>Events: ' + escapeHtml(ex.news_factors.event_flags.join(', ')) + '</p>';
                 } else {
                     html += '<p class="muted">No specific news factors recorded.</p>';
@@ -273,7 +314,7 @@
             });
         }
 
-        fetchLatest().then(function (data) {
+        fetchLatest(true).then(function (data) {
             renderList(listEl, statusEl, data);
             var hasRun = data && data.run;
             var hasItems = data && data.items && data.items.length > 0;
@@ -292,8 +333,10 @@
                 statusEl.textContent = 'Generating recommendations…';
                 runBtn.disabled = true;
                 runRecommendations().then(function (data) {
-                    renderList(listEl, statusEl, data);
                     renderSummary(summaryEl, data);
+                    return fetchLatest(true);
+                }).then(function (data) {
+                    renderList(listEl, statusEl, data);
                 }).catch(function (err) {
                     alert(err.message || 'Failed to run recommendations');
                 }).finally(function () {

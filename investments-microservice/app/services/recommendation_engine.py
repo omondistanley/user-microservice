@@ -18,7 +18,7 @@ from app.services.recommendation_data_service import RecommendationDataService
 from app.services.risk_profile_service import RiskProfileDataService
 from app.services.service_factory import ServiceFactory
 from app.services.ai_explainer import generate_narrative, is_enabled as ai_explainer_enabled
-from app.services.analyst_universe import get_analyst_universe
+from app.services.analyst_universe import get_analyst_universe, get_security_info
 
 
 def _get_holdings_service() -> HoldingsDataService:
@@ -158,7 +158,17 @@ class RecommendationEngine:
                 why.append("Matches or complements your stated industry/sector preferences.")
             why.append(f"Use this as a starting idea; add the symbol to Holdings when you are ready.")
 
+            sec = get_security_info(sym) or {}
+            security = {
+                "full_name": sec.get("full_name") or c.get("full_name") or c.get("description") or sym,
+                "sector": sec.get("sector") or sector,
+                "description": sec.get("description") or desc,
+                "asset_type": sec.get("asset_type") or c.get("asset_type") or "etf",
+                "why_it_matters": desc + ". Low-cost diversified exposure; fits starter portfolio and risk profile.",
+            }
+
             explanation: Dict[str, Any] = {
+                "security": security,
                 "why_selected": why,
                 "key_risk_contributors": [
                     f"risk_band={risk_band}",
@@ -327,7 +337,26 @@ class RecommendationEngine:
                 why_selected.append("Compared against your target Sharpe objective to favor risk-adjusted return.")
             why_selected.append("Aims to support making money and avoiding undue losses via diversification and weight limits.")
 
+            sec = get_security_info(item["symbol"])
+            if sec:
+                security = {
+                    "full_name": sec["full_name"],
+                    "sector": sec["sector"],
+                    "description": sec["description"],
+                    "asset_type": sec["asset_type"],
+                    "why_it_matters": sec.get("description") or f"Position in your portfolio; sector {sec['sector']}.",
+                }
+            else:
+                security = {
+                    "full_name": item["symbol"],
+                    "sector": "—",
+                    "description": "",
+                    "asset_type": "unknown",
+                    "why_it_matters": "",
+                }
+
             explanation: Dict[str, Any] = {
+                "security": security,
                 "why_selected": why_selected,
                 "key_risk_contributors": [
                     f"portfolio_volatility_annual={str(vol_annual)}",

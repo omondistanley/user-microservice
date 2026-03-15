@@ -10,7 +10,26 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from app.routers import categories, expenses, income, recurring_expenses, plaid, teller, truelayer, receipts, tags, internal, expense_import, goals, insights, export_portable, reminders, bank_connectors, net_worth
+from app.routers import (
+    apple_wallet_webhook,
+    bank_connectors,
+    categories,
+    expense_import,
+    expenses,
+    goals,
+    income,
+    insights,
+    internal,
+    net_worth,
+    plaid,
+    receipts,
+    recurring_expenses,
+    reminders,
+    tags,
+    teller,
+    truelayer,
+    export_portable,
+)
 from app.core.config import (
     get_cors_origins,
     SECRET_KEY,
@@ -83,7 +102,7 @@ async def cors_preflight_middleware(request: Request, call_next):
             headers={
                 "Access-Control-Allow-Origin": origin if origin else "*",
                 "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "Authorization, Content-Type, Idempotency-Key",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, Idempotency-Key, X-Webhook-Secret",
                 "Access-Control-Max-Age": "86400",
             },
         )
@@ -183,6 +202,7 @@ app.include_router(insights.router)
 app.include_router(export_portable.router)
 app.include_router(reminders.router)
 app.include_router(net_worth.router)
+app.include_router(apple_wallet_webhook.router)
 app.include_router(internal.router)
 
 
