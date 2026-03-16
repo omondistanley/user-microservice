@@ -1,54 +1,67 @@
 {% extends "layout.html" %}
-{% block title %}Income — Expense Tracker{% endblock %}
-{% block back_link %}
-<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
-{% endblock %}
+{% block title %}Income — FinTrack{% endblock %}
+{% block body_class %}income-page{% endblock %}
+{% block head_extra %}{% endblock %}
 {% block content %}
-<div class="container">
-    <section class="card-section">
-        <h2>Income</h2>
-        <p class="lead">Track salary, freelance, and other earnings.</p>
-        <p><a href="/income/add" class="btn btn-primary">Add income</a></p>
-
-        <form id="income-filter-form" style="display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:1rem;">
-            <div class="form-group">
-                <label for="income-date-from">Date from</label>
-                <input id="income-date-from" class="form-control" type="date">
-            </div>
-            <div class="form-group">
-                <label for="income-date-to">Date to</label>
-                <input id="income-date-to" class="form-control" type="date">
-            </div>
-            <div class="form-group">
-                <label for="income-type">Type</label>
-                <select id="income-type" class="form-control">
-                    <option value="">All</option>
-                    <option value="salary">Salary</option>
-                    <option value="freelance">Freelance</option>
-                    <option value="dividend">Dividend</option>
-                    <option value="interest">Interest</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="income-page-size">Per page</label>
-                <select id="income-page-size" class="form-control">
-                    <option value="10">10</option>
-                    <option value="20" selected>20</option>
-                    <option value="50">50</option>
-                </select>
-            </div>
-            <div class="form-group" style="display:flex;align-items:flex-end;">
-                <button type="submit" class="btn btn-secondary">Apply filters</button>&nbsp;
-                <button type="button" id="income-clear-filters" class="btn btn-secondary">Clear</button>
-            </div>
-        </form>
-
-        <p id="income-list-message" class="note" style="display:none;margin-bottom:1rem;"></p>
-        <div id="income-list" class="expense-list-wrap">Loading…</div>
-        <div id="income-pagination" style="margin-top:1rem;"></div>
-    </section>
+<div class="page-header">
+    <h1 class="page-title">Income</h1>
+    <a href="/income/add" class="btn btn-primary">+ Add income</a>
 </div>
+
+<div class="stat-row">
+    <div class="stat-card">
+        <div class="stat-label">Total Income</div>
+        <div class="stat-value" id="income-stat-total">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">This Month</div>
+        <div class="stat-value" id="income-stat-month">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Average</div>
+        <div class="stat-value" id="income-stat-avg">—</div>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem;">
+    <form id="income-filter-form" style="display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+        <div class="form-group">
+            <label class="form-label" for="income-date-from">Date from</label>
+            <input id="income-date-from" class="form-input" type="date">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="income-date-to">Date to</label>
+            <input id="income-date-to" class="form-input" type="date">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="income-type">Type</label>
+            <select id="income-type" class="form-select">
+                <option value="">All</option>
+                <option value="salary">Salary</option>
+                <option value="freelance">Freelance</option>
+                <option value="dividend">Dividend</option>
+                <option value="interest">Interest</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="income-page-size">Per page</label>
+            <select id="income-page-size" class="form-select">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+            </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;gap:0.5rem;">
+            <button type="submit" class="btn btn-primary">Apply</button>
+            <button type="button" id="income-clear-filters" class="btn btn-ghost">Clear</button>
+        </div>
+    </form>
+</div>
+
+<p id="income-list-message" class="note" style="display:none;margin-bottom:1rem;"></p>
+<div id="income-list">Loading…</div>
+<div id="income-pagination" style="margin-top:1rem;"></div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/income.js"></script>
@@ -89,6 +102,30 @@
         el.textContent = text;
         el.style.borderColor = ok ? '#28a745' : '#dc3545';
     }
+    function loadStats() {
+        if (!window.Income) return;
+        window.Income.list({ page_size: 100 }).then(function(data) {
+            var items = (data && data.items) ? data.items : [];
+            var total = 0;
+            var now = new Date();
+            var thisMonth = 0;
+            items.forEach(function(item) {
+                var amt = Number(item.amount) || 0;
+                total += amt;
+                var d = item.date ? new Date(String(item.date).slice(0, 10)) : null;
+                if (d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
+                    thisMonth += amt;
+                }
+            });
+            var avg = items.length ? total / items.length : 0;
+            var totalEl = document.getElementById('income-stat-total');
+            var monthEl = document.getElementById('income-stat-month');
+            var avgEl = document.getElementById('income-stat-avg');
+            if (totalEl) totalEl.textContent = '$' + fmtAmount(total);
+            if (monthEl) monthEl.textContent = '$' + fmtAmount(thisMonth);
+            if (avgEl) avgEl.textContent = '$' + fmtAmount(avg);
+        }).catch(function() {});
+    }
     function renderPagination() {
         var wrap = document.getElementById('income-pagination');
         if (!wrap) return;
@@ -101,9 +138,9 @@
         if (state.page > pages) state.page = pages;
         wrap.innerHTML =
             '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
-            '<button type="button" class="btn btn-secondary btn-sm" id="income-prev-page"' + (state.page <= 1 ? ' disabled' : '') + '>Previous</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" id="income-prev-page"' + (state.page <= 1 ? ' disabled' : '') + '>Previous</button>' +
             '<span class="note">Page ' + state.page + ' of ' + pages + ' · ' + total + ' total</span>' +
-            '<button type="button" class="btn btn-secondary btn-sm" id="income-next-page"' + (state.page >= pages ? ' disabled' : '') + '>Next</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" id="income-next-page"' + (state.page >= pages ? ' disabled' : '') + '>Next</button>' +
             '</div>';
     }
     function incomeRow(item) {
@@ -124,39 +161,39 @@
                     '<strong>' + fmtAmount(item.amount) + ' ' + esc(currency) + '</strong>' +
                 '</div>' +
                 '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
-                    '<button type="button" class="btn btn-secondary btn-sm income-edit-toggle" data-income-id="' + incomeId + '">Edit</button>' +
-                    '<button type="button" class="btn btn-secondary btn-sm income-delete" data-income-id="' + incomeId + '">Delete</button>' +
+                    '<button type="button" class="btn btn-ghost btn-sm income-edit-toggle" data-income-id="' + incomeId + '">Edit</button>' +
+                    '<button type="button" class="btn btn-ghost btn-sm income-delete" data-income-id="' + incomeId + '">Delete</button>' +
                 '</div>' +
-                '<form class="income-edit-form" data-income-id="' + incomeId + '" style="display:none;margin-top:0.75rem;padding:0.75rem;border:1px solid #ddd;border-radius:8px;">' +
+                '<form class="income-edit-form" data-income-id="' + incomeId + '" style="display:none;margin-top:0.75rem;padding:0.75rem;border:1px solid var(--border-subtle);border-radius:var(--radius-md);">' +
                     '<div style="display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">' +
                         '<div class="form-group">' +
-                            '<label>Amount</label>' +
-                            '<input name="amount" class="form-control" type="number" min="0" step="0.01" required value="' + esc(item.amount) + '">' +
+                            '<label class="form-label">Amount</label>' +
+                            '<input name="amount" class="form-input" type="number" min="0" step="0.01" required value="' + esc(item.amount) + '">' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label>Date</label>' +
-                            '<input name="date" class="form-control" type="date" required value="' + esc(dateVal) + '">' +
+                            '<label class="form-label">Date</label>' +
+                            '<input name="date" class="form-input" type="date" required value="' + esc(dateVal) + '">' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label>Currency</label>' +
-                            '<input name="currency" class="form-control" type="text" maxlength="3" required value="' + esc(currency) + '">' +
+                            '<label class="form-label">Currency</label>' +
+                            '<input name="currency" class="form-input" type="text" maxlength="3" required value="' + esc(currency) + '">' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label>Type</label>' +
-                            '<select name="income_type" class="form-control" required>' + buildTypeOptions(incomeType) + '</select>' +
+                            '<label class="form-label">Type</label>' +
+                            '<select name="income_type" class="form-select" required>' + buildTypeOptions(incomeType) + '</select>' +
                         '</div>' +
                         '<div class="form-group">' +
-                            '<label>Source</label>' +
-                            '<input name="source_label" class="form-control" type="text" maxlength="255" value="' + esc(sourceLabel) + '">' +
+                            '<label class="form-label">Source</label>' +
+                            '<input name="source_label" class="form-input" type="text" maxlength="255" value="' + esc(sourceLabel) + '">' +
                         '</div>' +
                         '<div class="form-group" style="grid-column:1/-1;">' +
-                            '<label>Description</label>' +
-                            '<input name="description" class="form-control" type="text" maxlength="2000" value="' + esc(description) + '">' +
+                            '<label class="form-label">Description</label>' +
+                            '<input name="description" class="form-input" type="text" maxlength="2000" value="' + esc(description) + '">' +
                         '</div>' +
                     '</div>' +
                     '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
                         '<button type="submit" class="btn btn-primary btn-sm">Save</button>' +
-                        '<button type="button" class="btn btn-secondary btn-sm income-edit-cancel" data-income-id="' + incomeId + '">Cancel</button>' +
+                        '<button type="button" class="btn btn-ghost btn-sm income-edit-cancel" data-income-id="' + incomeId + '">Cancel</button>' +
                     '</div>' +
                 '</form>' +
             '</li>'
@@ -349,6 +386,7 @@
             }
         });
     }
+    loadStats();
     load();
 })();
 </script>

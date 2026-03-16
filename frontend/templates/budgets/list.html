@@ -1,71 +1,56 @@
 {% extends "layout.html" %}
-{% block body_class %}budgets-page budgets-new{% endblock %}
-{% block title %}Budgets — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#135bec",
-          "background-light": "#f6f6f8",
-          "background-dark": "#101622",
-        },
-        fontFamily: { "display": ["Manrope", "sans-serif"] },
-        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
-<style>
-  body { min-height: max(884px, 100dvh); }
-</style>
-{% endblock %}
+{% block body_class %}budgets-page{% endblock %}
+{% block title %}Budgets — FinTrack{% endblock %}
 {% block content %}
-<div class="relative flex min-h-screen w-full max-w-md flex-col overflow-x-hidden bg-white dark:bg-[#101622] font-display text-slate-900 dark:text-slate-100 pb-24">
-  <!-- Header -->
-  <div class="flex items-center justify-between p-4 pb-2">
-    <a href="/dashboard" class="flex size-12 shrink-0 items-center text-slate-900 dark:text-slate-100" aria-label="Back">
-      <span class="material-symbols-outlined text-2xl">arrow_back</span>
-    </a>
-    <h2 class="flex-1 text-center text-lg font-bold leading-tight tracking-[-0.015em] pr-12">Budgets</h2>
-  </div>
-  <!-- Scrollable Content -->
-  <div class="flex-1 overflow-y-auto pb-24">
-    <!-- Overall Budget Circle -->
-    <div class="flex flex-col items-center justify-center py-6 px-4">
-      <div class="relative flex size-48 items-center justify-center rounded-full border-[12px] border-slate-200 dark:border-slate-800">
-        <div id="budget-circle-fill" class="absolute inset-0 rounded-full border-[12px] border-primary transition-all" style="clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%, 0% 0%, 0% 0%);"></div>
-        <div class="flex flex-col items-center text-center">
-          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Spent</p>
-          <p id="budget-total-spent" class="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">$0</p>
-          <p id="budget-total-limit" class="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">of $0</p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Budgets</h1>
+        <p class="page-meta" id="budget-period"></p>
+    </div>
+    <a href="/budgets/add" class="btn btn-primary">+ New Budget</a>
+</div>
+
+<!-- Stats row -->
+<div class="stat-row" style="margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="stat-label">Total Budgeted</div>
+        <div class="stat-value" id="budget-total-limit">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Spent</div>
+        <div class="stat-value" id="budget-total-spent">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Remaining</div>
+        <div class="stat-value" id="budget-remaining">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">On Track</div>
+        <div class="stat-value" id="budget-on-track">—</div>
+    </div>
+</div>
+
+<!-- Overall progress -->
+<div class="card" style="margin-bottom:24px;display:flex;align-items:center;gap:32px;">
+    <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
+        <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg);">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--s100)" stroke-width="14"/>
+            <circle id="budget-circle-fill" cx="60" cy="60" r="50" fill="none" stroke="var(--indigo)" stroke-width="14"
+                stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round" style="transition:stroke-dashoffset .6s ease;"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <span id="budget-pct-num" style="font-size:22px;font-weight:900;color:var(--s900);">0%</span>
         </div>
-      </div>
-      <div class="mt-4 flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-800 px-4 py-1.5">
-        <span class="size-2 rounded-full bg-primary"></span>
-        <span id="budget-pct-label" class="text-sm font-medium text-slate-600 dark:text-slate-300">0% of monthly budget</span>
-      </div>
     </div>
-    <!-- Categories List -->
-    <div class="px-4 py-2">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold leading-tight tracking-[-0.015em]">Categories</h3>
-        <a href="/budgets/add" class="text-sm font-medium text-primary hover:text-primary/80">Edit</a>
-      </div>
-      <div id="budgets-categories-list" class="flex flex-col gap-5">
-        <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
-      </div>
+    <div>
+        <div style="font-size:16px;font-weight:700;color:var(--s900);margin-bottom:4px;" id="budget-pct-label">0% of monthly budget used</div>
+        <div style="font-size:13px;color:var(--s500);">Based on expenses this month vs your budget limits.</div>
     </div>
-  </div>
-  <!-- FAB -->
-  <a href="/budgets/add" class="absolute bottom-24 right-4 flex size-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary/90" aria-label="Add budget">
-    <span class="material-symbols-outlined text-2xl">add</span>
-  </a>
+</div>
+
+<!-- Budget cards -->
+<div id="budgets-categories-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+    <p style="color:var(--s400);font-size:14px;">Loading…</p>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -73,134 +58,137 @@
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/budgets.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
-  document.documentElement.classList.add('dark');
+    var totalSpentEl  = document.getElementById('budget-total-spent');
+    var totalLimitEl  = document.getElementById('budget-total-limit');
+    var remainingEl   = document.getElementById('budget-remaining');
+    var onTrackEl     = document.getElementById('budget-on-track');
+    var pctLabelEl    = document.getElementById('budget-pct-label');
+    var pctNumEl      = document.getElementById('budget-pct-num');
+    var circleFillEl  = document.getElementById('budget-circle-fill');
+    var periodEl      = document.getElementById('budget-period');
+    var listEl        = document.getElementById('budgets-categories-list');
 
-  var totalSpentEl = document.getElementById('budget-total-spent');
-  var totalLimitEl = document.getElementById('budget-total-limit');
-  var pctLabelEl = document.getElementById('budget-pct-label');
-  var circleFillEl = document.getElementById('budget-circle-fill');
-  var listEl = document.getElementById('budgets-categories-list');
+    var CAT_EMOJI = { 1:'🍕', 2:'🚗', 3:'✈️', 4:'🔧', 5:'🎭', 6:'💊', 7:'🛍️', 8:'📋' };
 
-  var CATEGORY_ICONS = {
-    1: 'restaurant',
-    2: 'directions_car',
-    3: 'flight_takeoff',
-    4: 'build',
-    5: 'movie',
-    6: 'local_hospital',
-    7: 'shopping_bag',
-    8: 'receipt_long'
-  };
+    function fmt(val) {
+        if (val == null || val === '') return '$0.00';
+        var n = parseFloat(val, 10);
+        return isNaN(n) ? '$0.00' : '$' + n.toFixed(2);
+    }
 
-  function fmt(val) {
-    if (val == null || val === '') return '0.00';
-    if (window.Budgets && window.Budgets.formatAmount) return window.Budgets.formatAmount(val) || '0.00';
-    var n = parseFloat(val, 10);
-    return isNaN(n) ? '0.00' : n.toFixed(2);
-  }
+    function getCatEmoji(code, name) {
+        var n = (name || '').toLowerCase();
+        if (n.indexOf('food') !== -1 || n.indexOf('grocery') !== -1 || n.indexOf('restaurant') !== -1) return '🍕';
+        if (n.indexOf('transport') !== -1 || n.indexOf('car') !== -1) return '🚗';
+        if (n.indexOf('travel') !== -1) return '✈️';
+        if (n.indexOf('entertain') !== -1 || n.indexOf('movie') !== -1) return '🎭';
+        if (n.indexOf('health') !== -1 || n.indexOf('medical') !== -1) return '💊';
+        if (n.indexOf('shop') !== -1 || n.indexOf('cloth') !== -1) return '🛍️';
+        if (n.indexOf('hous') !== -1 || n.indexOf('rent') !== -1) return '🏠';
+        return CAT_EMOJI[code] || '📋';
+    }
 
-  function getIcon(code, name) {
-    var n = (name || '').toLowerCase();
-    if (n.indexOf('housing') !== -1 || n.indexOf('home') !== -1) return 'home';
-    return CATEGORY_ICONS[code] || 'receipt_long';
-  }
+    function load() {
+        var now = new Date();
+        var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+        var today = now.toISOString().slice(0, 10);
+        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        if (periodEl) periodEl.textContent = months[now.getMonth()] + ' ' + now.getFullYear();
 
-  function circleClipPath(pct) {
-    if (pct <= 0) return 'polygon(50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%, 50% 50%)';
-    if (pct >= 100) return 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%, 50% 50%)';
-    var deg = (pct / 100) * 360;
-    var rad = (deg * Math.PI) / 180;
-    var x = 50 + 50 * Math.sin(rad);
-    var y = 50 - 50 * Math.cos(rad);
-    if (deg <= 90) return 'polygon(50% 50%, 50% 0%, ' + x + '% ' + y + '%, 50% 50%)';
-    if (deg <= 180) return 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, ' + x + '% ' + y + '%, 50% 50%)';
-    if (deg <= 270) return 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ' + x + '% ' + y + '%, 50% 50%)';
-    return 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%, ' + x + '% ' + y + '%, 50% 50%)';
-  }
+        if (!listEl) return;
+        listEl.innerHTML = '<p style="color:var(--s400);font-size:14px;">Loading…</p>';
 
-  function load() {
-    var now = new Date();
-    var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    var today = now.toISOString().slice(0, 10);
+        Promise.all([
+            window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page: 1, page_size: 100 }) : Promise.resolve({ items: [] }),
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today) : Promise.resolve({ items: [] })
+        ]).then(function(res) {
+            var budgets = (res[0] && res[0].items) || [];
+            var summaryItems = (res[1] && res[1].items) || [];
+            var spentByCode = {};
+            summaryItems.forEach(function(s) {
+                var k = s.group_key != null ? String(s.group_key) : '';
+                spentByCode[k] = Number(s.total_amount) || 0;
+            });
 
-    if (!listEl) return;
-    listEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>';
+            var totalLimit = 0, totalSpent = 0, onTrack = 0;
+            budgets.forEach(function(b) {
+                totalLimit += Number(b.amount) || 0;
+                var key = b.category_code != null ? String(b.category_code) : '';
+                var spent = spentByCode[key] || 0;
+                totalSpent += spent;
+                if (spent <= Number(b.amount)) onTrack++;
+            });
 
-    Promise.all([
-      window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page: 1, page_size: 100 }) : Promise.resolve({ items: [] }),
-      window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today) : Promise.resolve({ items: [] })
-    ]).then(function(res) {
-      var budgetData = res[0];
-      var summaryData = res[1];
-      var budgets = (budgetData && budgetData.items) || [];
-      var summaryItems = (summaryData && summaryData.items) || [];
-      var spentByCode = {};
-      summaryItems.forEach(function(s) {
-        var k = s.group_key != null ? String(s.group_key) : '';
-        spentByCode[k] = Number(s.total_amount) || 0;
-      });
+            var pct = totalLimit > 0 ? Math.min(100, Math.round((totalSpent / totalLimit) * 100)) : 0;
+            var remaining = totalLimit - totalSpent;
 
-      var totalLimit = 0;
-      var totalSpent = 0;
-      budgets.forEach(function(b) {
-        totalLimit += Number(b.amount) || 0;
-        var key = b.category_code != null ? String(b.category_code) : '';
-        totalSpent += spentByCode[key] || 0;
-      });
+            if (totalSpentEl) totalSpentEl.textContent = fmt(totalSpent);
+            if (totalLimitEl) totalLimitEl.textContent = fmt(totalLimit);
+            if (remainingEl) {
+                remainingEl.textContent = fmt(Math.max(0, remaining));
+                remainingEl.style.color = remaining < 0 ? 'var(--rose)' : 'var(--emerald)';
+            }
+            if (onTrackEl) onTrackEl.textContent = onTrack + ' / ' + budgets.length;
+            if (pctNumEl) pctNumEl.textContent = pct + '%';
+            if (pctLabelEl) pctLabelEl.textContent = pct + '% of monthly budget used';
+            if (circleFillEl) {
+                var circumference = 314;
+                var offset = circumference - (pct / 100) * circumference;
+                circleFillEl.style.strokeDashoffset = offset;
+                circleFillEl.style.stroke = pct >= 100 ? 'var(--rose)' : pct >= 75 ? 'var(--amber)' : 'var(--indigo)';
+            }
 
-      var pct = totalLimit > 0 ? Math.min(100, Math.round((totalSpent / totalLimit) * 100)) : 0;
-      if (totalSpentEl) totalSpentEl.textContent = '$' + fmt(totalSpent);
-      if (totalLimitEl) totalLimitEl.textContent = 'of $' + fmt(totalLimit);
-      if (pctLabelEl) pctLabelEl.textContent = pct + '% of monthly budget';
-      if (circleFillEl) circleFillEl.style.clipPath = circleClipPath(pct);
+            if (budgets.length === 0) {
+                listEl.innerHTML = '<div class="card" style="text-align:center;padding:40px;grid-column:1/-1;">' +
+                    '<div style="font-size:40px;margin-bottom:12px;">🎯</div>' +
+                    '<p style="font-size:15px;font-weight:600;color:var(--s700);margin-bottom:8px;">No budgets yet</p>' +
+                    '<p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Set monthly limits to track your spending.</p>' +
+                    '<a href="/budgets/add" class="btn btn-primary">+ Create Budget</a></div>';
+                return;
+            }
 
-      if (budgets.length === 0) {
-        listEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No budgets yet. <a href="/budgets/add" class="text-primary font-medium">Add one</a> to get started.</p>';
-        return;
-      }
+            var html = budgets.map(function(b) {
+                var key = b.category_code != null ? String(b.category_code) : '';
+                var spent = spentByCode[key] || 0;
+                var limit = Number(b.amount) || 0;
+                var pctBar = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+                var over = spent > limit;
+                var near = !over && pctBar >= 75;
+                var fillClass = over ? 'red' : (near ? 'amber' : 'green');
+                var name = (b.name || b.category_name || '').trim() || 'Budget';
+                var emoji = getCatEmoji(b.category_code, name);
+                var left = limit - spent;
+                var leftText = over ? ('-' + fmt(Math.abs(left)) + ' over budget') : (fmt(left) + ' left');
+                var badgeColor = over ? 'rose' : (near ? 'amber' : 'emerald');
+                var href = b.budget_id ? '/budgets/' + b.budget_id : '#';
+                var cardBorder = over ? 'border-color:var(--rose);' : '';
+                return '<a href="' + href + '" class="card" style="text-decoration:none;color:inherit;display:block;' + cardBorder + '">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                    '<div style="width:40px;height:40px;border-radius:10px;background:var(--s100);display:flex;align-items:center;justify-content:center;font-size:18px;">' + emoji + '</div>' +
+                    '<span style="font-size:14px;font-weight:700;color:var(--s900);">' + name.replace(/</g,'&lt;') + '</span>' +
+                    '</div>' +
+                    '<span class="badge badge-' + badgeColor + '">' + pctBar + '%</span>' +
+                    '</div>' +
+                    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">' +
+                    '<span style="font-size:18px;font-weight:800;color:' + (over ? 'var(--rose)' : 'var(--s900)') + ';">' + fmt(spent) + '</span>' +
+                    '<span style="font-size:12px;color:var(--s400);">of ' + fmt(limit) + '</span>' +
+                    '</div>' +
+                    '<div class="progress-bar"><div class="progress-fill ' + fillClass + '" style="width:' + pctBar + '%;"></div></div>' +
+                    '<div style="font-size:12px;font-weight:500;margin-top:6px;color:' + (over ? 'var(--rose)' : 'var(--s500)') + ';">' + leftText + '</div>' +
+                    '</a>';
+            }).join('');
+            listEl.innerHTML = html;
+        }).catch(function() {
+            if (listEl) listEl.innerHTML = '<p style="color:var(--rose);font-size:14px;">Could not load budgets.</p>';
+        });
+    }
 
-      var html = budgets.map(function(b) {
-        var key = b.category_code != null ? String(b.category_code) : '';
-        var spent = spentByCode[key] || 0;
-        var limit = Number(b.amount) || 0;
-        var pctBar = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
-        var over = spent > limit;
-        var near = !over && pctBar >= 75;
-        var barColor = over ? 'bg-red-500' : (near ? 'bg-orange-500' : 'bg-primary');
-        var nameClass = over ? 'font-medium text-red-600 dark:text-red-400' : 'font-medium';
-        var spentClass = over ? 'font-bold text-red-600 dark:text-red-400' : 'font-bold';
-        var iconBg = over ? 'bg-red-500/10 text-red-500' : (near ? 'bg-orange-500/10 text-orange-500' : 'bg-primary/10 text-primary');
-        var icon = getIcon(b.category_code, b.name || b.category_name);
-        var name = (b.name || b.category_name || '').trim() || 'Budget';
-        var left = limit - spent;
-        var leftText = over ? ('-$' + fmt(Math.abs(left)) + ' over budget') : ('$' + fmt(left) + ' left');
-        var leftClass = over ? 'text-xs text-red-500 text-right' : 'text-xs text-slate-500 dark:text-slate-400 text-right';
-        var href = b.budget_id ? '/budgets/' + b.budget_id : '#';
-        return '<a href="' + href + '" class="flex flex-col gap-2">' +
-          '<div class="flex items-center justify-between">' +
-          '<div class="flex items-center gap-3">' +
-          '<div class="flex size-10 items-center justify-center rounded-full ' + iconBg + '"><span class="material-symbols-outlined">' + icon + '</span></div>' +
-          '<span class="' + nameClass + '">' + (name.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span>' +
-          '</div>' +
-          '<div class="text-right">' +
-          '<p class="' + spentClass + '">$' + fmt(spent) + '</p>' +
-          '<p class="text-xs text-slate-500 dark:text-slate-400">of $' + fmt(limit) + '</p>' +
-          '</div></div>' +
-          '<div class="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">' +
-          '<div class="h-full rounded-full ' + barColor + ' transition-[width]" style="width:' + pctBar + '%;"></div></div>' +
-          '<p class="' + leftClass + '">' + leftText + '</p></a>';
-      }).join('');
-      listEl.innerHTML = html;
-    }).catch(function(err) {
-      if (listEl) listEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Could not load budgets.</p>';
-    });
-  }
-
-  if (window.Budgets && window.Expenses) {
-    load();
-  } else {
-    if (listEl) listEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Sign in to see budgets.</p>';
-  }
+    if (window.Budgets && window.Expenses) {
+        load();
+    } else {
+        if (listEl) listEl.innerHTML = '<p style="color:var(--s400);font-size:14px;">Sign in to see budgets.</p>';
+    }
 })();
 </script>
 {% endblock %}

@@ -1,135 +1,107 @@
 {% extends "layout.html" %}
-{% block body_class %}dashboard-page dashboard-new{% endblock %}
-{% block title %}Dashboard — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#135bec",
-          "background-light": "#f6f6f8",
-          "background-dark": "#101622",
-        },
-        fontFamily: {
-          "display": ["Manrope", "sans-serif"]
-        },
-        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
-<style>
-    body { font-family: 'Manrope', sans-serif; }
-</style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-</style>
-{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+{% block title %}Dashboard — FinTrack{% endblock %}
 {% block content %}
-<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden max-w-[480px] mx-auto border-x border-slate-200 dark:border-slate-800 bg-background-light dark:bg-background-dark pb-[72px]">
-    <!-- Header -->
-    <div class="flex items-center p-4 pb-2 justify-between sticky top-0 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur z-10">
-        <div class="flex size-12 shrink-0 items-center">
-            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-primary/20" data-alt="User profile avatar image" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%236b7280%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E');"></div>
-        </div>
-        <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Dashboard</h2>
-        <div class="flex w-12 items-center justify-end">
-            <button type="button" id="notifications-toggle" class="flex items-center justify-center size-10 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors" aria-label="Notifications">
-                <span class="material-symbols-outlined text-2xl">notifications</span>
-            </button>
-        </div>
+
+<!-- 4-stat row -->
+<div class="stat-row">
+    <div class="stat-card">
+        <div class="stat-label">Running Balance</div>
+        <div class="stat-value" id="dashboard-total-balance">—</div>
+        <div class="stat-change" id="dashboard-balance-change"></div>
     </div>
-    <!-- Running balance Card -->
-    <div class="px-4 py-3">
-        <div class="flex flex-col gap-2 rounded-xl bg-gradient-to-br from-primary to-blue-700 p-6 items-center text-center shadow-lg shadow-primary/20 relative overflow-hidden">
-            <div class="absolute -right-10 -top-10 size-40 bg-white/10 rounded-full blur-2xl"></div>
-            <div class="absolute -left-10 -bottom-10 size-40 bg-black/10 rounded-full blur-2xl"></div>
-            <p class="text-blue-100 text-sm font-medium leading-normal relative z-10">Running balance</p>
-            <p id="dashboard-total-balance" class="text-white tracking-tight text-4xl font-extrabold leading-tight relative z-10">—</p>
-            <div id="dashboard-balance-trend" class="flex items-center gap-1 mt-2 bg-white/20 px-3 py-1 rounded-full relative z-10 backdrop-blur-sm" style="display: none;">
-                <span class="material-symbols-outlined text-emerald-300 text-sm">trending_up</span>
-                <span class="text-white text-xs font-semibold"></span>
+    <div class="stat-card">
+        <div class="stat-label">Monthly Expenses</div>
+        <div class="stat-value" id="dashboard-expenses">—</div>
+        <div class="stat-change down" id="dashboard-expense-change"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Monthly Income</div>
+        <div class="stat-value" id="dashboard-income">—</div>
+        <div class="stat-change up" id="dashboard-income-change"></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Savings Rate</div>
+        <div class="stat-value" id="dashboard-savings-rate">—</div>
+        <div class="stat-change" id="dashboard-savings-change"></div>
+    </div>
+</div>
+
+<!-- Two-column content -->
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-top:0;">
+
+    <!-- LEFT -->
+    <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Recent Transactions -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Recent Transactions</h2>
+                <a href="/expenses" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">View all →</a>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th style="text-align:right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboard-transactions-tbody">
+                        <tr><td colspan="4" style="color:var(--s400);text-align:center;padding:24px;">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Spending by Category -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Spending by Category</h2>
+                <a href="/reports" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">Full report →</a>
+            </div>
+            <div id="dashboard-category-bars">
+                <p style="color:var(--s400);font-size:13px;">Loading…</p>
             </div>
         </div>
     </div>
-    <!-- Monthly Budget Progress -->
-    <div class="flex flex-col gap-3 px-4 py-3">
-        <div class="flex justify-between items-end mb-1">
-            <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-normal">Monthly Budget</p>
-            <p class="text-slate-500 dark:text-slate-400 text-sm font-medium leading-normal"><span id="dashboard-budget-spent" class="text-slate-900 dark:text-slate-100 font-bold">$0.00</span> / <span id="dashboard-budget-limit">$0</span></p>
-        </div>
-        <div class="rounded-full bg-slate-200 dark:bg-slate-800 h-2.5 overflow-hidden">
-            <div id="dashboard-budget-bar" class="h-full rounded-full bg-primary transition-[width]" style="width: 0%;"></div>
-        </div>
-        <p class="text-slate-500 dark:text-slate-400 text-xs font-medium leading-normal text-right"><span id="dashboard-budget-pct">0</span>% used</p>
-    </div>
-    <!-- Cashflow Card -->
-    <div class="px-4 py-3">
-        <div class="flex flex-col gap-4 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-slate-100 dark:border-slate-700/50">
-            <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight">Cashflow</h3>
-            <div class="flex gap-4">
-                <div class="flex-1 flex flex-col gap-1 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
-                    <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
-                        <div class="bg-emerald-100 dark:bg-emerald-500/20 p-1 rounded-full"><span class="material-symbols-outlined text-sm">arrow_downward</span></div>
-                        <span class="text-xs font-semibold uppercase tracking-wider">Income</span>
-                    </div>
-                    <p id="dashboard-income" class="text-slate-900 dark:text-slate-100 font-bold text-lg">—</p>
-                </div>
-                <div class="flex-1 flex flex-col gap-1 p-3 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20">
-                    <div class="flex items-center gap-2 text-rose-600 dark:text-rose-400 mb-1">
-                        <div class="bg-rose-100 dark:bg-rose-500/20 p-1 rounded-full"><span class="material-symbols-outlined text-sm">arrow_upward</span></div>
-                        <span class="text-xs font-semibold uppercase tracking-wider">Expenses</span>
-                    </div>
-                    <p id="dashboard-expenses" class="text-slate-900 dark:text-slate-100 font-bold text-lg">—</p>
-                </div>
+
+    <!-- RIGHT -->
+    <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Budget Overview -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Budget Overview</h2>
+                <a href="/budgets" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">All budgets →</a>
+            </div>
+            <div id="dashboard-budgets-list">
+                <p style="color:var(--s400);font-size:13px;">Loading…</p>
             </div>
         </div>
-    </div>
-    <!-- Quick Actions -->
-    <div class="px-4 py-4">
-        <h3 class="text-slate-900 dark:text-slate-100 text-sm font-bold leading-tight mb-4">Quick Actions</h3>
-        <div class="grid grid-cols-4 gap-3">
-            <a href="/expenses/add" class="flex flex-col items-center gap-2">
-                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-                    <span class="material-symbols-outlined text-2xl">add</span>
-                </span>
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Add Expense</span>
-            </a>
-            <a href="/link-bank" class="flex flex-col items-center gap-2">
-                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-                    <span class="material-symbols-outlined text-2xl">account_balance</span>
-                </span>
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Link Bank</span>
-            </a>
-            <a href="/expenses/add" class="flex flex-col items-center gap-2">
-                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-                    <span class="material-symbols-outlined text-2xl">receipt_long</span>
-                </span>
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Scan Receipt</span>
-            </a>
-            <a href="#" class="flex flex-col items-center gap-2">
-                <span class="flex items-center justify-center size-14 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-                    <span class="material-symbols-outlined text-2xl">swap_horiz</span>
-                </span>
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-400 text-center">Transfer</span>
-            </a>
+
+        <!-- Savings Goals -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Savings Goals</h2>
+                <a href="/goals" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">All goals →</a>
+            </div>
+            <div id="dashboard-goals-list">
+                <p style="color:var(--s400);font-size:13px;">Loading…</p>
+            </div>
         </div>
-    </div>
-    <!-- Recent Transactions -->
-    <div class="px-4 py-3 flex-1">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight">Recent Transactions</h3>
-            <a class="text-primary text-sm font-semibold hover:underline" href="/expenses">See All</a>
-        </div>
-        <div id="dashboard-recent-transactions" class="flex flex-col gap-4">
-            <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
+
+        <!-- Quick Actions -->
+        <div class="card" style="background:var(--s50);border-color:var(--s100);">
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:12px;">Quick Actions</h2>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <a href="/expenses/add" class="btn btn-primary btn-sm" style="justify-content:center;">+ Add Expense</a>
+                <a href="/income/add" class="btn btn-ghost btn-sm" style="justify-content:center;">+ Add Income</a>
+                <a href="/link-bank" class="btn btn-ghost btn-sm" style="justify-content:center;">🏦 Link Bank</a>
+                <a href="/expenses/import" class="btn btn-ghost btn-sm" style="justify-content:center;">📥 Import CSV</a>
+            </div>
         </div>
     </div>
 </div>
@@ -140,9 +112,6 @@
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/budgets.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
-    // Enable dark mode on dashboard
-    document.documentElement.classList.add('dark');
-
     // OAuth token from hash
     var hash = window.location.hash;
     if (hash && hash.indexOf('access_token=') !== -1) {
@@ -158,30 +127,20 @@
         }
     }
 
-    var totalBalanceEl = document.getElementById('dashboard-total-balance');
-    var balanceTrendEl = document.getElementById('dashboard-balance-trend');
-    var budgetSpentEl = document.getElementById('dashboard-budget-spent');
-    var budgetLimitEl = document.getElementById('dashboard-budget-limit');
-    var budgetBarEl = document.getElementById('dashboard-budget-bar');
-    var budgetPctEl = document.getElementById('dashboard-budget-pct');
-    var incomeEl = document.getElementById('dashboard-income');
-    var expensesEl = document.getElementById('dashboard-expenses');
-    var recentEl = document.getElementById('dashboard-recent-transactions');
+    var balanceEl   = document.getElementById('dashboard-total-balance');
+    var expensesEl  = document.getElementById('dashboard-expenses');
+    var incomeEl    = document.getElementById('dashboard-income');
+    var savingsEl   = document.getElementById('dashboard-savings-rate');
+    var tbodyEl     = document.getElementById('dashboard-transactions-tbody');
+    var catsEl      = document.getElementById('dashboard-category-bars');
+    var budgetsEl   = document.getElementById('dashboard-budgets-list');
+    var goalsEl     = document.getElementById('dashboard-goals-list');
     var currentCurrency = 'USD';
 
     function fmt(val) {
         if (val == null || val === '') return '—';
-        if (window.Expenses && typeof window.Expenses.formatAmount === 'function') {
-            var s = window.Expenses.formatAmount(val);
-            return s !== '' ? s : '—';
-        }
-        var n = parseFloat(val, 10);
-        return isNaN(n) ? '—' : n.toFixed(2);
-    }
-
-    function fmtMoney(val, currency) {
-        var s = fmt(val);
-        return s === '—' ? s : '$' + s;
+        var n = parseFloat(val);
+        return isNaN(n) ? '—' : '$' + n.toFixed(2);
     }
 
     function fmtDateShort(val) {
@@ -192,146 +151,179 @@
         var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         var d = parseInt(p[2], 10);
         var m = parseInt(p[1], 10) - 1;
-        var y = parseInt(p[0], 10);
         var today = new Date();
-        var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        var todayStr = today.toISOString().slice(0, 10);
+        var yest = new Date(today); yest.setDate(yest.getDate() - 1);
+        var yesterdayStr = yest.toISOString().slice(0, 10);
         if (s === todayStr) return 'Today';
-        var yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        var yesterdayStr = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
         if (s === yesterdayStr) return 'Yesterday';
         return (mon[m] || p[1]) + ' ' + d;
     }
 
-    function getCategoryIcon(categoryName) {
-        var c = (categoryName || '').toLowerCase();
-        if (c.indexOf('food') !== -1 || c.indexOf('grocery') !== -1) return { icon: 'restaurant', bgClass: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' };
-        if (c.indexOf('entertainment') !== -1 || c.indexOf('subscription') !== -1 || c.indexOf('netflix') !== -1) return { icon: 'subscriptions', bgClass: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400' };
-        if (c.indexOf('transport') !== -1 || c.indexOf('gas') !== -1) return { icon: 'local_gas_station', bgClass: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' };
-        if (c.indexOf('salary') !== -1 || c.indexOf('income') !== -1) return { icon: 'work', bgClass: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' };
-        return { icon: 'receipt_long', bgClass: 'bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400' };
+    var CAT_EMOJI = {'food':'🍕','grocery':'🍕','restaurant':'🍕','transport':'🚗','car':'🚗','travel':'✈️','entertainment':'🎭','health':'💊','medical':'💊','shopping':'🛍️','housing':'🏠','rent':'🏠','utilities':'💡','salary':'💼','income':'💼'};
+    function getCatEmoji(name) {
+        var n = (name || '').toLowerCase();
+        for (var k in CAT_EMOJI) { if (n.indexOf(k) !== -1) return CAT_EMOJI[k]; }
+        return '📋';
     }
 
     function initCurrency() {
-        try {
-            var stored = localStorage.getItem('default_currency');
-            if (stored) currentCurrency = stored.toUpperCase();
-        } catch (e) {}
+        try { var s = localStorage.getItem('default_currency'); if (s) currentCurrency = s.toUpperCase(); } catch(e){}
         if (window.Settings && window.Settings.get) {
             window.Settings.get().then(function(s) {
-                if (s && s.default_currency) {
-                    currentCurrency = s.default_currency.toUpperCase();
-                    try { localStorage.setItem('default_currency', currentCurrency); } catch (e) {}
-                }
+                if (s && s.default_currency) { currentCurrency = s.default_currency.toUpperCase(); try { localStorage.setItem('default_currency', currentCurrency); } catch(e){} }
                 loadAll();
             }).catch(function() { loadAll(); });
-        } else {
-            loadAll();
-        }
+        } else { loadAll(); }
     }
 
     function loadAll() {
-        loadBudgetAndCashflow();
-        loadRecentTransactions();
-    }
-
-    function loadBudgetAndCashflow() {
         var now = new Date();
         var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
         var today = now.toISOString().slice(0, 10);
 
+        // Cashflow + budgets + category summary
         Promise.all([
+            window.Income && window.Income.getCashflow ? window.Income.getCashflow(firstDay, today, currentCurrency) : Promise.resolve(null),
             window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page: 1, page_size: 10 }) : Promise.resolve({ items: [] }),
-            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today, currentCurrency) : Promise.resolve({ items: [] }),
-            window.Income && window.Income.getCashflow ? window.Income.getCashflow(firstDay, today, currentCurrency) : Promise.resolve(null)
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today, currentCurrency) : Promise.resolve({ items: [] })
         ]).then(function(res) {
-            var budgetData = res[0];
-            var catSummary = (res[1] && res[1].items) || [];
-            var cashflow = res[2];
+            var cashflow = res[0];
+            var budgetData = res[1];
+            var catSummary = (res[2] && res[2].items) || [];
             var budgets = (budgetData && budgetData.items) || [];
 
-            var totalLimit = 0;
-            var totalSpent = 0;
-            budgets.forEach(function(b) {
-                totalLimit += Number(b.amount) || 0;
-                var key = b.category_code != null ? String(b.category_code) : '';
-                var s = catSummary.find(function(c) { return String(c.group_key) === key; });
-                totalSpent += Number((s && s.total_amount) || 0);
-            });
-            if (budgetSpentEl) budgetSpentEl.textContent = '$' + fmt(totalSpent);
-            if (budgetLimitEl) budgetLimitEl.textContent = '$' + fmt(totalLimit);
-            var pct = totalLimit > 0 ? Math.min(100, Math.round((totalSpent / totalLimit) * 100)) : 0;
-            if (budgetBarEl) budgetBarEl.style.width = pct + '%';
-            if (budgetPctEl) budgetPctEl.textContent = pct;
+            var incomeTotal = cashflow && cashflow.income_total != null ? Number(cashflow.income_total) : null;
+            var expenseTotal = cashflow && cashflow.expense_total != null ? Number(cashflow.expense_total) : null;
+            var net = (incomeTotal != null && expenseTotal != null) ? (incomeTotal - expenseTotal) : null;
+            var savingsRate = (incomeTotal && incomeTotal > 0 && net != null) ? Math.round((net / incomeTotal) * 100) : null;
 
-            var incomeTotal = (cashflow && cashflow.income_total != null) ? Number(cashflow.income_total) : null;
-            var expenseTotal = (cashflow && cashflow.expense_total != null) ? Number(cashflow.expense_total) : null;
-            if (incomeEl) incomeEl.textContent = incomeTotal != null ? '$' + fmt(incomeTotal) : '—';
-            if (expensesEl) expensesEl.textContent = expenseTotal != null ? '$' + fmt(expenseTotal) : '—';
-            // Running balance = income − expenses (same period as Cashflow card) so it updates when income or expenses change
-            var net = (incomeTotal != null && expenseTotal != null) ? (incomeTotal - expenseTotal) : (cashflow && cashflow.savings != null ? Number(cashflow.savings) : null);
-            if (totalBalanceEl) totalBalanceEl.textContent = net != null ? fmtMoney(net) : '—';
-            if (balanceTrendEl) balanceTrendEl.style.display = 'none';
-        }).catch(function() {
-            if (incomeEl) incomeEl.textContent = '—';
-            if (expensesEl) expensesEl.textContent = '—';
-            if (totalBalanceEl) totalBalanceEl.textContent = '—';
-        });
-    }
+            if (balanceEl) balanceEl.textContent = net != null ? fmt(net) : '—';
+            if (expensesEl) expensesEl.textContent = expenseTotal != null ? fmt(expenseTotal) : '—';
+            if (incomeEl) incomeEl.textContent = incomeTotal != null ? fmt(incomeTotal) : '—';
+            if (savingsEl) savingsEl.textContent = savingsRate != null ? savingsRate + '%' : '—';
 
-    function loadRecentTransactions() {
-        if (!recentEl) return;
-        if (!window.Expenses || !window.Expenses.buildListQuery) {
-            recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No transactions yet.</p>';
-            return;
-        }
-        var query = window.Expenses.buildListQuery({ page: 1, page_size: 5 });
-        var api = window.EXPENSE_API_BASE || '';
-        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
-        var fn = (window.Auth && window.Auth.requestWithRefresh)
-            ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses' + query, { headers: headers }); }
-            : function() { return fetch(api + '/api/v1/expenses' + query, { headers: headers }); };
-        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
-            .then(function(d) {
-                var list = (d && d.items) || [];
-                if (list.length === 0) {
-                    recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No transactions yet.</p>';
-                    return;
-                }
-                var html = list.map(function(item) {
-                    var amt = item.amount != null ? item.amount : item.value;
-                    var isIncome = Number(amt) >= 0;
-                    var label = (item.description || '').trim() || item.category_name || 'Expense';
-                    var cat = item.category_name || '';
-                    var dateStr = fmtDateShort(item.date);
-                    var info = [cat, dateStr].filter(Boolean).join(' • ');
-                    var iconInfo = getCategoryIcon(cat || label);
-                    var href = item.expense_id ? '/expenses/' + item.expense_id : '#';
-                    var amtStr = fmt(amt);
-                    var amtClass = isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100';
-                    var amtDisplay = isIncome ? '+' : '-';
-                    if (isIncome) amtDisplay += '$' + amtStr; else amtDisplay += '$' + amtStr;
-                    return '<a href="' + href + '" class="flex items-center justify-between group cursor-pointer p-2 -mx-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">' +
-                        '<div class="flex items-center gap-3">' +
-                        '<div class="flex items-center justify-center size-12 rounded-full ' + iconInfo.bgClass + '">' +
-                        '<span class="material-symbols-outlined">' + iconInfo.icon + '</span></div>' +
-                        '<div class="flex flex-col">' +
-                        '<p class="text-slate-900 dark:text-slate-100 text-sm font-bold">' + (label || '—').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' +
-                        '<p class="text-slate-500 dark:text-slate-400 text-xs font-medium">' + (info || '—') + '</p>' +
-                        '</div></div>' +
-                        '<p class="' + amtClass + ' font-bold text-sm">' + amtDisplay + '</p></a>';
+            // Category bars
+            if (catsEl && catSummary.length > 0) {
+                var maxAmt = Math.max.apply(null, catSummary.map(function(i) { return Number(i.total_amount||0); }));
+                catsEl.innerHTML = catSummary.slice(0, 6).map(function(i) {
+                    var amt = Number(i.total_amount || 0);
+                    var pct = maxAmt > 0 ? Math.round((amt / maxAmt) * 100) : 0;
+                    var label = i.label || i.group_key || 'Other';
+                    var emoji = getCatEmoji(label);
+                    return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
+                        '<span style="font-size:16px;width:20px;">' + emoji + '</span>' +
+                        '<span style="font-size:13px;color:var(--s600);width:90px;flex-shrink:0;">' + label + '</span>' +
+                        '<div style="flex:1;height:8px;background:var(--s100);border-radius:4px;overflow:hidden;">' +
+                        '<div style="width:' + pct + '%;height:100%;background:var(--indigo);border-radius:4px;"></div></div>' +
+                        '<span style="font-size:12px;font-weight:700;color:var(--s700);width:56px;text-align:right;">' + fmt(amt) + '</span></div>';
                 }).join('');
-                recentEl.innerHTML = html;
-            })
-            .catch(function() {
-                recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Could not load transactions.</p>';
-            });
+            } else if (catsEl) {
+                catsEl.innerHTML = '<p style="color:var(--s400);font-size:13px;">No expenses this month.</p>';
+            }
+
+            // Budget list
+            if (budgetsEl) {
+                if (budgets.length === 0) {
+                    budgetsEl.innerHTML = '<p style="color:var(--s400);font-size:13px;">No budgets. <a href="/budgets/add" style="color:var(--indigo);">Create one</a></p>';
+                } else {
+                    var spentByCode = {};
+                    catSummary.forEach(function(s) { spentByCode[String(s.group_key||'')] = Number(s.total_amount||0); });
+                    budgetsEl.innerHTML = budgets.slice(0, 4).map(function(b) {
+                        var key = b.category_code != null ? String(b.category_code) : '';
+                        var spent = spentByCode[key] || 0;
+                        var limit = Number(b.amount) || 0;
+                        var pctBar = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+                        var over = spent > limit;
+                        var fillColor = over ? 'var(--rose)' : pctBar >= 75 ? 'var(--amber)' : 'var(--emerald)';
+                        var name = (b.name || b.category_name || 'Budget').replace(/</g,'&lt;');
+                        return '<div style="margin-bottom:16px;">' +
+                            '<div style="display:flex;justify-content:space-between;margin-bottom:6px;">' +
+                            '<span style="font-size:13px;font-weight:600;color:var(--s800);">' + name + '</span>' +
+                            '<span style="font-size:12px;color:' + (over?'var(--rose)':'var(--s500)') + ';">' + fmt(spent) + ' / ' + fmt(limit) + '</span>' +
+                            '</div>' +
+                            '<div class="progress-bar"><div class="progress-fill" style="width:' + pctBar + '%;background:' + fillColor + ';"></div></div>' +
+                            '</div>';
+                    }).join('');
+                }
+            }
+        }).catch(function() {
+            if (balanceEl) balanceEl.textContent = '—';
+        });
+
+        // Recent transactions
+        if (tbodyEl && window.Expenses && window.Expenses.buildListQuery) {
+            var q = window.Expenses.buildListQuery({ page: 1, page_size: 8 });
+            var api = window.EXPENSE_API_BASE || '';
+            var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+            var fn = (window.Auth && window.Auth.requestWithRefresh)
+                ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses' + q, { headers: headers }); }
+                : function() { return fetch(api + '/api/v1/expenses' + q, { headers: headers }); };
+            fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+                .then(function(d) {
+                    var list = (d && d.items) || [];
+                    if (list.length === 0) {
+                        tbodyEl.innerHTML = '<tr><td colspan="4" style="color:var(--s400);text-align:center;padding:24px;">No transactions yet.</td></tr>';
+                        return;
+                    }
+                    tbodyEl.innerHTML = list.map(function(item) {
+                        var amt = item.amount != null ? item.amount : item.value;
+                        var label = (item.description || '').trim() || item.category_name || 'Expense';
+                        var cat = item.category_name || '';
+                        var href = item.expense_id ? '/expenses/' + item.expense_id : '#';
+                        var amtColor = Number(amt) >= 0 ? 'color:var(--emerald)' : 'color:var(--rose)';
+                        var sign = Number(amt) >= 0 ? '+' : '-';
+                        return '<tr>' +
+                            '<td>' + fmtDateShort(item.date) + '</td>' +
+                            '<td><a href="' + href + '" style="color:var(--s800);text-decoration:none;font-weight:600;">' + label.replace(/</g,'&lt;') + '</a></td>' +
+                            '<td>' + (cat ? '<span class="badge badge-slate">' + cat + '</span>' : '—') + '</td>' +
+                            '<td style="text-align:right;font-weight:700;' + amtColor + ';">' + sign + '$' + Math.abs(parseFloat(amt)||0).toFixed(2) + '</td>' +
+                            '</tr>';
+                    }).join('');
+                })
+                .catch(function() {
+                    tbodyEl.innerHTML = '<tr><td colspan="4" style="color:var(--s400);text-align:center;">Could not load.</td></tr>';
+                });
+        }
+
+        // Goals
+        if (goalsEl && window.Auth && window.Auth.getAuthHeaders) {
+            var api = window.EXPENSE_API_BASE || '';
+            var headers = window.Auth.getAuthHeaders();
+            var fn2 = (window.Auth && window.Auth.requestWithRefresh)
+                ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/goals?page=1&page_size=3', { headers: headers }); }
+                : function() { return fetch(api + '/api/v1/goals?page=1&page_size=3', { headers: headers }); };
+            fn2().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+                .then(function(d) {
+                    var list = (d && d.items) || [];
+                    if (list.length === 0) {
+                        goalsEl.innerHTML = '<p style="color:var(--s400);font-size:13px;">No goals. <a href="/goals/add" style="color:var(--indigo);">Create one</a></p>';
+                        return;
+                    }
+                    goalsEl.innerHTML = list.map(function(g) {
+                        var current = Number(g.current_amount || g.saved_amount || 0);
+                        var target = Number(g.target_amount || g.goal_amount || 0);
+                        var pct = target > 0 ? Math.min(100, Math.round((current/target)*100)) : 0;
+                        var name = (g.name || g.title || 'Goal').replace(/</g,'&lt;');
+                        return '<div style="margin-bottom:16px;">' +
+                            '<div style="display:flex;justify-content:space-between;margin-bottom:6px;">' +
+                            '<span style="font-size:13px;font-weight:600;color:var(--s800);">' + name + '</span>' +
+                            '<span style="font-size:12px;color:var(--s500);">' + fmt(current) + ' / ' + fmt(target) + '</span>' +
+                            '</div>' +
+                            '<div class="progress-bar"><div class="progress-fill indigo" style="width:' + pct + '%;"></div></div>' +
+                            '<div style="font-size:11px;color:var(--s400);margin-top:4px;">' + pct + '% complete</div>' +
+                            '</div>';
+                    }).join('');
+                }).catch(function() {
+                    goalsEl.innerHTML = '<p style="color:var(--s400);font-size:13px;">Could not load goals.</p>';
+                });
+        }
     }
 
     if (window.Auth && window.Auth.getAuthHeaders) {
         setTimeout(initCurrency, 0);
     } else {
-        recentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Sign in to see transactions.</p>';
+        if (tbodyEl) tbodyEl.innerHTML = '<tr><td colspan="4" style="color:var(--s400);text-align:center;padding:24px;">Sign in to see transactions.</td></tr>';
     }
 })();
 </script>

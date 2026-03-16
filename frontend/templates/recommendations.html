@@ -1,30 +1,35 @@
 {% extends "layout.html" %}
 {% block body_class %}recommendations-page{% endblock %}
-{% block title %}Recommendations — Expense Tracker{% endblock %}
-{% block head_extra %}
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&amp;display=swap" rel="stylesheet"/>
-{% endblock %}
-{% block back_link %}
-<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
-{% endblock %}
+{% block title %}Recommendations — FinTrack{% endblock %}
+{% block head_extra %}{% endblock %}
 {% block content %}
-<main id="main-content" class="container main-content">
-    <div class="page-header">
-        <h1 class="page-title">Your analyst</h1>
-        <p class="page-subtitle">Recommendations consider your industry, risk/return, and goals to help you make money, save money, and avoid losses. Works with or without holdings: no portfolio yet? We suggest a starter list. Have holdings? We rank and explain them.</p>
-        <p class="page-subtitle disclaimer">Not financial advice. For informational purposes only.</p>
-    </div>
+<div class="page-header">
+    <h1 class="page-title">Recommendations</h1>
+    <button type="button" id="rec-run-btn" class="btn btn-primary">Run Analysis</button>
+</div>
 
-    <section class="card-section" id="rec-preferences-section">
-        <div class="card-header">
-            <h2>Your preferences</h2>
-            <button type="button" id="rec-prefs-save" class="btn btn-primary">Save preferences</button>
-        </div>
-        <p class="muted text-sm">These shape how we score and explain suggestions (industry focus, risk tolerance, Sharpe objective, loss aversion).</p>
-        <div class="preferences-grid" id="rec-preferences-form">
+<!-- Run Analysis card -->
+<div class="card">
+    <div class="page-header" style="margin-bottom: 0.75rem;">
+        <h2 class="page-title" style="font-size: 1.1rem;">Run Analysis</h2>
+    </div>
+    <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Analyses your holdings, industry preferences, risk tolerance, and financial goals to produce
+        ranked investment suggestions. Works with or without holdings — no portfolio yet? You get a
+        starter list. Have holdings? We rank and explain each position.
+        <br><span style="opacity:0.7;">Not financial advice. For informational purposes only.</span>
+    </p>
+
+    <!-- Preferences form -->
+    <div id="rec-preferences-section">
+        <h3 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary);">Your preferences</h3>
+        <p class="muted" style="font-size: 0.8125rem; margin-bottom: 0.75rem;">
+            These shape how we score and explain suggestions (industry focus, risk tolerance, Sharpe objective, loss aversion).
+        </p>
+        <div class="preferences-grid" id="rec-preferences-form" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
             <div class="form-group">
                 <label for="rec-pref-risk">Risk tolerance</label>
-                <select id="rec-pref-risk" class="form-control">
+                <select id="rec-pref-risk" class="form-select">
                     <option value="conservative">Conservative</option>
                     <option value="balanced" selected>Balanced</option>
                     <option value="aggressive">Aggressive</option>
@@ -32,72 +37,130 @@
             </div>
             <div class="form-group">
                 <label for="rec-pref-industries">Industries / sectors (comma-separated)</label>
-                <input type="text" id="rec-pref-industries" class="form-control" placeholder="e.g. technology, healthcare, broad_market, bonds" maxlength="256"/>
+                <input type="text" id="rec-pref-industries" class="form-input"
+                    placeholder="e.g. technology, healthcare, bonds" maxlength="256" />
             </div>
             <div class="form-group">
                 <label for="rec-pref-sharpe">Target Sharpe (optional)</label>
-                <input type="number" id="rec-pref-sharpe" class="form-control" placeholder="e.g. 0.50" step="0.01" min="0" max="3"/>
+                <input type="number" id="rec-pref-sharpe" class="form-input"
+                    placeholder="e.g. 0.50" step="0.01" min="0" max="3" />
             </div>
             <div class="form-group">
                 <label for="rec-pref-loss">Loss aversion</label>
-                <select id="rec-pref-loss" class="form-control">
+                <select id="rec-pref-loss" class="form-select">
                     <option value="low">Low</option>
                     <option value="moderate" selected>Moderate</option>
                     <option value="high">High</option>
                 </select>
             </div>
         </div>
-    </section>
-
-    <section class="card-section">
-        <div class="card-header">
-            <h2>Suggested positions</h2>
-            <button type="button" id="rec-run-btn" class="btn btn-primary">Generate recommendations</button>
+        <div style="margin-top: 0.75rem;">
+            <button type="button" id="rec-prefs-save" class="btn btn-primary">Save preferences</button>
         </div>
-        <div id="rec-status" class="muted">Loading latest recommendations…</div>
+    </div>
+
+    <hr style="border: none; border-top: 1px solid var(--border); margin: 1.25rem 0;" />
+
+    <div style="display:flex; align-items:center; gap: 1rem; flex-wrap: wrap;">
+        <button type="button" id="run-recommendations-btn" class="btn btn-primary">Run</button>
+        <span id="rec-run-loading" style="display:none; font-size:0.875rem; color:var(--text-muted);">
+            Generating recommendations&hellip;
+        </span>
+        <div id="rec-status" class="muted" style="font-size: 0.875rem;"></div>
+    </div>
+</div>
+
+<!-- Latest Results card -->
+<div class="card" style="margin-top: 1.25rem;">
+    <div class="page-header" style="margin-bottom: 0.75rem;">
+        <h2 class="page-title" style="font-size: 1.1rem;">Latest Results</h2>
+    </div>
+    <p class="muted" style="font-size: 0.8125rem; margin-bottom: 1rem;">
+        Details include live price, trend, and recent news when market data is configured.
+        Click a score to see how it was calculated.
+    </p>
+    <div id="recommendations-results">
         <div id="rec-list" class="recommendations-list"></div>
-        <p class="muted text-sm" style="margin-top: 0.5rem;">Details include live price, trend, and recent news when market data and news are configured. Click a score to see how it was calculated.</p>
-    </section>
+    </div>
+</div>
 
-    <section class="card-section">
-        <div class="card-header">
-            <h2>Portfolio risk snapshot</h2>
-        </div>
-        <div id="rec-portfolio-summary" class="portfolio-summary muted">
-            No recommendation run yet.
-        </div>
-    </section>
+<!-- Portfolio Risk Snapshot card -->
+<div class="card" style="margin-top: 1.25rem;">
+    <div class="page-header" style="margin-bottom: 0.75rem;">
+        <h2 class="page-title" style="font-size: 1.1rem;">Portfolio Risk Snapshot</h2>
+    </div>
+    <div id="rec-portfolio-summary" class="muted">
+        No recommendation run yet.
+    </div>
+</div>
 
-    <!-- Explainability drawer -->
-    <div id="rec-explain-wrap" class="modal-wrap" style="display: none;" aria-hidden="true">
-        <div class="modal-backdrop" id="rec-explain-backdrop"></div>
-        <div class="modal-card modal-wide" role="dialog" aria-labelledby="rec-explain-title" aria-modal="true">
-            <h3 id="rec-explain-title" class="modal-title">Why this recommendation?</h3>
-            <div id="rec-explain-body" class="explain-body">
-                <!-- Filled by JS -->
-            </div>
-            <div class="form-actions">
-                <button type="button" id="rec-explain-close" class="btn btn-secondary">Close</button>
-            </div>
+<!-- Explainability drawer -->
+<div id="rec-explain-wrap" class="modal-wrap" style="display: none;" aria-hidden="true">
+    <div class="modal-backdrop" id="rec-explain-backdrop"></div>
+    <div class="modal-card modal-wide" role="dialog" aria-labelledby="rec-explain-title" aria-modal="true">
+        <h3 id="rec-explain-title" class="modal-title">Why this recommendation?</h3>
+        <div id="rec-explain-body" class="explain-body">
+            <!-- Filled by JS -->
+        </div>
+        <div class="form-actions">
+            <button type="button" id="rec-explain-close" class="btn btn-ghost">Close</button>
         </div>
     </div>
+</div>
 
-    <!-- Score breakdown modal (click score column) -->
-    <div id="rec-score-modal-wrap" class="modal-wrap" style="display: none;" aria-hidden="true" aria-label="Score breakdown">
-        <div class="modal-backdrop rec-score-modal-backdrop" aria-hidden="true"></div>
-        <div class="modal-card" role="dialog" aria-labelledby="rec-score-modal-title" aria-modal="true" aria-describedby="rec-score-modal-body">
-            <h3 id="rec-score-modal-title" class="modal-title">Score breakdown</h3>
-            <div id="rec-score-modal-body" class="rec-score-modal-body">
-                <!-- Filled by JS -->
-            </div>
-            <div class="form-actions">
-                <button type="button" id="rec-score-modal-close" class="btn btn-secondary">Close</button>
-            </div>
+<!-- Score breakdown modal -->
+<div id="rec-score-modal-wrap" class="modal-wrap" style="display: none;" aria-hidden="true" aria-label="Score breakdown">
+    <div class="modal-backdrop rec-score-modal-backdrop" aria-hidden="true"></div>
+    <div class="modal-card" role="dialog" aria-labelledby="rec-score-modal-title" aria-modal="true" aria-describedby="rec-score-modal-body">
+        <h3 id="rec-score-modal-title" class="modal-title">Score breakdown</h3>
+        <div id="rec-score-modal-body" class="rec-score-modal-body">
+            <!-- Filled by JS -->
+        </div>
+        <div class="form-actions">
+            <button type="button" id="rec-score-modal-close" class="btn btn-ghost">Close</button>
         </div>
     </div>
-</main>
+</div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/recommendations.js"></script>
-{% endblock %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function () {
+    // Wire the "Run" button inside the card to the same handler as the header button
+    var runCardBtn = document.getElementById('run-recommendations-btn');
+    var runHeaderBtn = document.getElementById('rec-run-btn');
+    var loadingEl = document.getElementById('rec-run-loading');
 
+    function triggerRun() {
+        if (runHeaderBtn) runHeaderBtn.click();
+    }
+    if (runCardBtn) {
+        runCardBtn.addEventListener('click', triggerRun);
+    }
+
+    // Show/hide the loading indicator based on rec-run-btn disabled state
+    if (runHeaderBtn && loadingEl) {
+        var origClick = null;
+        var observer = new MutationObserver(function () {
+            if (runHeaderBtn.disabled) {
+                loadingEl.style.display = 'inline';
+                if (runCardBtn) runCardBtn.disabled = true;
+            } else {
+                loadingEl.style.display = 'none';
+                if (runCardBtn) runCardBtn.disabled = false;
+            }
+        });
+        observer.observe(runHeaderBtn, { attributes: true, attributeFilter: ['disabled'] });
+    }
+
+    // Score badge helper available for any inline rendering
+    window.RecBadgeClass = function (score) {
+        var n = parseFloat(score);
+        if (!isFinite(n)) return 'badge-slate';
+        if (n >= 0.65) return 'badge-emerald';
+        if (n >= 0.40) return 'badge-amber';
+        return 'badge-rose';
+    };
+})();
+</script>
+{% endblock %}

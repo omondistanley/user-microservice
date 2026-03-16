@@ -1,108 +1,90 @@
 {% extends "layout.html" %}
-{% block body_class %}reports-page analytics-page{% endblock %}
-{% block title %}Spending Analytics — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#135bec",
-          "background-light": "#f6f6f8",
-          "background-dark": "#101622",
-          "income": "#10b981",
-          "expense": "#ef4444",
-        },
-        fontFamily: { "display": ["Manrope", "sans-serif"] },
-        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
-<style>
-  body { min-height: max(884px, 100dvh); }
-</style>
-{% endblock %}
-{% block back_link %}
-<div class="container" style="max-width: 430px; margin: 0 auto;"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
-{% endblock %}
+{% block body_class %}reports-page{% endblock %}
+{% block title %}Reports — Expense Tracker{% endblock %}
 {% block content %}
-<div class="relative flex min-h-screen w-full flex-col max-w-[430px] mx-auto bg-white dark:bg-background-dark shadow-2xl overflow-x-hidden font-display text-slate-900 dark:text-slate-100 antialiased">
-  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
-  <!-- Header -->
-  <div class="flex items-center bg-white dark:bg-background-dark p-4 pb-2 justify-between sticky top-0 z-10">
-    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" aria-label="Back to dashboard">
-      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-    </a>
-    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Spending Analytics</h2>
-    <div class="flex w-10 items-center justify-end">
-      <button type="button" class="flex items-center justify-center rounded-full size-10 bg-transparent text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Share">
-        <span class="material-symbols-outlined">share</span>
-      </button>
+<div class="content-inner">
+
+  <!-- Page Header with period selector -->
+  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+    <h1 class="page-title">Reports</h1>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <label for="reports-period" class="form-label" style="margin:0;white-space:nowrap;">Period</label>
+      <select id="reports-period" class="form-select" style="width:auto;">
+        <option value="month">This Month</option>
+        <option value="quarter">This Quarter</option>
+        <option value="year">This Year</option>
+      </select>
+      <label for="reports-currency" class="form-label" style="margin:0;white-space:nowrap;">Currency</label>
+      <select id="reports-currency" class="form-select" style="width:auto;">
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+        <option value="GBP">GBP</option>
+      </select>
     </div>
   </div>
-  <!-- Date Range Picker -->
-  <div class="px-4 py-2 sticky top-[60px] bg-white dark:bg-background-dark z-10">
-    <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-      <button type="button" class="analytics-range flex-1 py-2 text-sm font-bold rounded-lg bg-white dark:bg-slate-700 shadow-sm text-primary" data-range="month">This Month</button>
-      <button type="button" class="analytics-range flex-1 py-2 text-sm font-semibold text-slate-500 dark:text-slate-400" data-range="3months">Last 3 Months</button>
-      <button type="button" class="analytics-range flex-1 py-2 text-sm font-semibold text-slate-500 dark:text-slate-400" data-range="custom">Custom</button>
+
+  <!-- Summary Stat Row -->
+  <div class="stat-row" id="reports-stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value" id="reports-total-spent">—</div>
     </div>
-    <div id="analytics-custom-dates" class="mt-2 flex gap-2 items-end" style="display: none;">
-      <div class="flex-1"><label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">From</label><input type="date" id="analytics-date-from" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"></div>
-      <div class="flex-1"><label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">To</label><input type="date" id="analytics-date-to" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"></div>
-      <button type="button" id="analytics-custom-apply" class="py-2 px-3 rounded-lg bg-primary text-white text-sm font-bold">Apply</button>
+    <div class="stat-card">
+      <div class="stat-label">vs Previous Period</div>
+      <div class="stat-value" id="reports-vs-previous">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top Category</div>
+      <div class="stat-value" id="reports-top-category">—</div>
     </div>
   </div>
-  <div class="flex flex-col gap-6 p-4 pb-24">
-    <!-- Spending by Category (Donut) -->
-    <section class="bg-white dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-      <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold mb-4">Spending by Category</h3>
-      <div class="flex items-center justify-between gap-6">
-        <div id="analytics-donut" class="relative size-32 flex items-center justify-center">
-          <svg class="size-full -rotate-90" viewBox="0 0 36 36">
-            <circle class="stroke-slate-100 dark:stroke-slate-800" cx="18" cy="18" fill="none" r="15.9" stroke-width="3.5"></circle>
-          </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total</span>
-            <span id="analytics-donut-total" class="text-lg font-extrabold text-slate-900 dark:text-slate-100">$0</span>
-          </div>
+
+  <!-- Two-card layout -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.25rem;margin-top:1.25rem;">
+
+    <!-- Spending by Category -->
+    <div class="card">
+      <h2 style="font-size:1rem;font-weight:600;margin:0 0 1rem;">Spending by Category</h2>
+      <div class="table-wrap">
+        <table id="reports-category-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th style="text-align:right;">Amount</th>
+              <th style="text-align:right;">Share</th>
+              <th>Trend</th>
+            </tr>
+          </thead>
+          <tbody id="reports-category-tbody">
+            <tr>
+              <td colspan="4" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Period Comparison -->
+    <div class="card" id="reports-comparison">
+      <h2 style="font-size:1rem;font-weight:600;margin:0 0 1rem;">Period Comparison</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;" id="reports-comparison-inner">
+        <div>
+          <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-muted,#6b7280);margin-bottom:0.5rem;">Current</div>
+          <div id="reports-current-total" style="font-size:1.5rem;font-weight:700;">—</div>
+          <div id="reports-current-label"  style="font-size:0.8rem;color:var(--color-muted,#6b7280);margin-top:0.25rem;">—</div>
         </div>
-        <div id="analytics-donut-legend" class="flex flex-col gap-2 flex-1">
-          <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
+        <div>
+          <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-muted,#6b7280);margin-bottom:0.5rem;">Previous</div>
+          <div id="reports-prev-total" style="font-size:1.5rem;font-weight:700;">—</div>
+          <div id="reports-prev-label"   style="font-size:0.8rem;color:var(--color-muted,#6b7280);margin-top:0.25rem;">—</div>
         </div>
       </div>
-    </section>
-    <!-- Trends (Income vs Expenses) -->
-    <section class="bg-white dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-      <div class="flex items-center justify-between mb-6">
-        <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold">Trends</h3>
-        <div class="flex gap-4 text-[10px] font-bold uppercase tracking-wider">
-          <div class="flex items-center gap-1.5 text-income"><span class="size-2 rounded-sm bg-income"></span> Income</div>
-          <div class="flex items-center gap-1.5 text-expense"><span class="size-2 rounded-sm bg-expense"></span> Expenses</div>
-        </div>
-      </div>
-      <div id="analytics-trends-bars" class="flex items-end justify-between h-40 gap-2 mb-2">
-        <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
-      </div>
-    </section>
-    <!-- Top Merchants -->
-    <section class="bg-white dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold">Top Merchants</h3>
-        <button type="button" class="text-xs text-primary font-bold">View All</button>
-      </div>
-      <div id="analytics-merchants" class="divide-y divide-slate-50 dark:divide-slate-800">
-        <p class="text-slate-500 dark:text-slate-400 text-sm py-4">Loading…</p>
-      </div>
-    </section>
-  </div>
-</div>
+      <!-- Progress bars showing spend proportion -->
+      <div style="margin-top:1.25rem;" id="reports-comparison-bars"></div>
+    </div>
+
+  </div><!-- end grid -->
+</div><!-- end content-inner -->
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
@@ -111,198 +93,226 @@
 (function() {
   var CATEGORY_NAMES = { 1: 'Food', 2: 'Transportation', 3: 'Travel', 4: 'Utilities', 5: 'Entertainment', 6: 'Health', 7: 'Shopping', 8: 'Other' };
   var DONUT_COLORS = ['stroke-primary', 'stroke-emerald-500', 'stroke-orange-400', 'stroke-purple-500', 'stroke-rose-500', 'stroke-amber-400', 'stroke-blue-500', 'stroke-slate-500'];
-  var currentRange = 'month';
+  var currentRange    = 'month';
   var currentCurrency = 'USD';
   var dateFrom = '';
-  var dateTo = '';
+  var dateTo   = '';
 
-  function getDateRange() {
+  /* ---- date range helpers ---- */
+  function getDateRange(range) {
     var now = new Date();
     var y = now.getFullYear(), m = now.getMonth();
-    if (currentRange === 'month') {
-      dateFrom = new Date(y, m, 1).toISOString().slice(0, 10);
-      dateTo = new Date().toISOString().slice(0, 10);
-    } else if (currentRange === '3months') {
-      dateFrom = new Date(y, m - 2, 1).toISOString().slice(0, 10);
-      dateTo = new Date().toISOString().slice(0, 10);
+    var from, to = now.toISOString().slice(0, 10);
+    if (range === 'month') {
+      from = new Date(y, m, 1).toISOString().slice(0, 10);
+    } else if (range === 'quarter') {
+      var qStart = Math.floor(m / 3) * 3;
+      from = new Date(y, qStart, 1).toISOString().slice(0, 10);
+    } else if (range === 'year') {
+      from = new Date(y, 0, 1).toISOString().slice(0, 10);
+    } else {
+      from = new Date(y, m, 1).toISOString().slice(0, 10);
     }
-    return { dateFrom: dateFrom, dateTo: dateTo };
+    return { dateFrom: from, dateTo: to };
   }
 
-  function setRangeButtons(active) {
-    document.querySelectorAll('.analytics-range').forEach(function(btn) {
-      var isActive = btn.getAttribute('data-range') === active;
-      btn.className = 'analytics-range flex-1 py-2 text-sm font-semibold rounded-lg ' + (isActive ? 'bg-white dark:bg-slate-700 shadow-sm text-primary font-bold' : 'text-slate-500 dark:text-slate-400');
-    });
-    var customEl = document.getElementById('analytics-custom-dates');
-    if (customEl) customEl.style.display = active === 'custom' ? 'flex' : 'none';
+  function getPrevDateRange(range) {
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth();
+    var from, to;
+    if (range === 'month') {
+      to   = new Date(y, m, 0).toISOString().slice(0, 10);
+      from = new Date(y, m - 1, 1).toISOString().slice(0, 10);
+    } else if (range === 'quarter') {
+      var qStart = Math.floor(m / 3) * 3;
+      to   = new Date(y, qStart, 0).toISOString().slice(0, 10);
+      from = new Date(y, qStart - 3, 1).toISOString().slice(0, 10);
+    } else if (range === 'year') {
+      to   = new Date(y - 1, 11, 31).toISOString().slice(0, 10);
+      from = new Date(y - 1, 0, 1).toISOString().slice(0, 10);
+    } else {
+      to   = new Date(y, m, 0).toISOString().slice(0, 10);
+      from = new Date(y, m - 1, 1).toISOString().slice(0, 10);
+    }
+    return { dateFrom: from, dateTo: to };
   }
 
+  function rangeLabel(range) {
+    return range === 'month' ? 'This Month'
+         : range === 'quarter' ? 'This Quarter'
+         : 'This Year';
+  }
+  function prevRangeLabel(range) {
+    return range === 'month' ? 'Last Month'
+         : range === 'quarter' ? 'Last Quarter'
+         : 'Last Year';
+  }
+
+  /* ---- formatting ---- */
   function fmt(v) {
     if (v == null || v === '') return '0.00';
     var n = parseFloat(v, 10);
     return isNaN(n) ? '0.00' : n.toFixed(2);
   }
 
-  function load() {
-    var range = currentRange === 'custom' ? { dateFrom: dateFrom || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10), dateTo: dateTo || new Date().toISOString().slice(0, 10) } : getDateRange();
-    dateFrom = range.dateFrom;
-    dateTo = range.dateTo;
+  /* ---- rendering ---- */
+  function renderCategoryTable(catItems, totalCat) {
+    var tbody = document.getElementById('reports-category-tbody');
+    if (!tbody) return;
+    if (!catItems.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No spending in this period.</td></tr>';
+      return;
+    }
+    var topCat = catItems[0];
+    var topCatEl = document.getElementById('reports-top-category');
+    if (topCatEl && topCat) {
+      topCatEl.textContent = topCat.label || CATEGORY_NAMES[topCat.group_key] || 'Other';
+    }
 
+    tbody.innerHTML = catItems.map(function(item) {
+      var amt  = Number(item.total_amount) || 0;
+      var pct  = totalCat > 0 ? (amt / totalCat * 100) : 0;
+      var name = item.label || CATEGORY_NAMES[item.group_key] || ('Category ' + item.group_key);
+      var barClass = pct > 70 ? 'red' : pct > 40 ? 'amber' : 'green';
+      return '<tr>'
+        + '<td>' + name + '</td>'
+        + '<td style="text-align:right;font-weight:600;">$' + fmt(amt) + '</td>'
+        + '<td style="text-align:right;">' + Math.round(pct) + '%</td>'
+        + '<td style="min-width:80px;">'
+        +   '<div class="progress-bar"><div class="progress-fill ' + barClass + '" style="width:' + Math.round(pct) + '%;"></div></div>'
+        + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function renderComparison(currentTotal, prevTotal, range) {
+    var curEl   = document.getElementById('reports-current-total');
+    var curLbl  = document.getElementById('reports-current-label');
+    var prevEl  = document.getElementById('reports-prev-total');
+    var prevLbl = document.getElementById('reports-prev-label');
+    var barsEl  = document.getElementById('reports-comparison-bars');
+
+    if (curEl)  curEl.textContent  = '$' + fmt(currentTotal);
+    if (curLbl) curLbl.textContent = rangeLabel(range);
+    if (prevEl)  prevEl.textContent  = '$' + fmt(prevTotal);
+    if (prevLbl) prevLbl.textContent = prevRangeLabel(range);
+
+    /* vs-previous stat */
+    var vsEl = document.getElementById('reports-vs-previous');
+    if (vsEl && prevTotal > 0) {
+      var diff = ((currentTotal - prevTotal) / prevTotal * 100);
+      var isUp = diff >= 0;
+      vsEl.textContent = (isUp ? '+' : '') + diff.toFixed(1) + '%';
+      vsEl.className   = 'stat-value stat-change ' + (isUp ? 'up' : 'down');
+    } else if (vsEl) {
+      vsEl.textContent = '—';
+      vsEl.className   = 'stat-value';
+    }
+
+    /* comparison progress bars */
+    if (barsEl) {
+      var maxVal = Math.max(currentTotal, prevTotal, 1);
+      var curPct  = Math.round(currentTotal / maxVal * 100);
+      var prevPct = Math.round(prevTotal    / maxVal * 100);
+      barsEl.innerHTML =
+        '<div style="margin-bottom:0.6rem;">'
+        + '<div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.25rem;">'
+        +   '<span>' + rangeLabel(range) + '</span><span style="font-weight:600;">$' + fmt(currentTotal) + '</span>'
+        + '</div>'
+        + '<div class="progress-bar"><div class="progress-fill green" style="width:' + curPct + '%;"></div></div>'
+        + '</div>'
+        + '<div>'
+        + '<div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.25rem;">'
+        +   '<span>' + prevRangeLabel(range) + '</span><span style="font-weight:600;">$' + fmt(prevTotal) + '</span>'
+        + '</div>'
+        + '<div class="progress-bar"><div class="progress-fill amber" style="width:' + prevPct + '%;"></div></div>'
+        + '</div>';
+    }
+  }
+
+  /* ---- main load ---- */
+  function load() {
     if (!window.Auth || !window.Auth.getAuthHeaders) return;
 
-    var catPromise = window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', range.dateFrom, range.dateTo, currentCurrency) : Promise.resolve({ items: [] });
-    var monthPromise = window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('month', range.dateFrom, range.dateTo, currentCurrency) : Promise.resolve({ items: [] });
-    var incomePromise = window.Income && window.Income.getSummary ? window.Income.getSummary('month', range.dateFrom, range.dateTo, currentCurrency) : Promise.resolve({ items: [] });
-    var listPromise = window.Expenses && window.Expenses.buildListQuery ? new Promise(function(resolve) {
-      var q = window.Expenses.buildListQuery({ date_from: range.dateFrom, date_to: range.dateTo, page_size: 200 });
-      var api = (window.EXPENSE_API_BASE !== undefined && window.EXPENSE_API_BASE !== '') ? window.EXPENSE_API_BASE : (window.API_BASE || '');
-      var h = window.Auth.getAuthHeaders();
-      var url = api + '/api/v1/expenses' + q;
-      var fn = window.Auth.requestWithRefresh ? function() { return window.Auth.requestWithRefresh(url, { headers: h }); } : function() { return fetch(url, { headers: h }); };
-      fn().then(function(r) { return r.ok ? r.json() : { items: [] }; }).then(resolve).catch(function() { resolve({ items: [] }); });
-    }) : Promise.resolve({ items: [] });
+    var range     = getDateRange(currentRange);
+    var prevRange = getPrevDateRange(currentRange);
+    dateFrom = range.dateFrom;
+    dateTo   = range.dateTo;
 
-    Promise.all([catPromise, monthPromise, incomePromise, listPromise]).then(function(res) {
-      var catItems = (res[0] && res[0].items) || [];
-      var monthItems = (res[1] && res[1].items) || [];
-      var incomeItems = (res[2] && res[2].items) || [];
-      var expenses = (res[3] && res[3].items) || [];
+    /* reset UI */
+    var tbody = document.getElementById('reports-category-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Loading…</td></tr>';
+    var totalSpentEl = document.getElementById('reports-total-spent');
+    if (totalSpentEl) totalSpentEl.textContent = '…';
 
-      var totalCat = 0;
-      catItems.forEach(function(i) { totalCat += Number(i.total_amount) || 0; });
-      var donutEl = document.getElementById('analytics-donut');
-      var legendEl = document.getElementById('analytics-donut-legend');
-      var totalEl = document.getElementById('analytics-donut-total');
-      if (totalEl) totalEl.textContent = '$' + fmt(totalCat);
-      if (catItems.length === 0) {
-        if (legendEl) legendEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-xs">No spending in this period.</p>';
-        if (donutEl) {
-          var svg = donutEl.querySelector('svg');
-          if (svg) { while (svg.childNodes.length > 1) svg.removeChild(svg.lastChild); }
-        }
-      } else {
-        var pcts = [];
-        catItems.forEach(function(i) {
-          var amt = Number(i.total_amount) || 0;
-          var code = i.group_key != null ? String(i.group_key) : '';
-          pcts.push({ pct: totalCat > 0 ? (amt / totalCat) * 100 : 0, name: i.label || CATEGORY_NAMES[i.group_key] || 'Category ' + code, color: DONUT_COLORS[pcts.length % DONUT_COLORS.length], code: code });
-        });
-        var circ = 100;
-        var offset = 0;
-        var circlesHtml = '';
-        pcts.forEach(function(p) {
-          var dash = (p.pct * circ / 100) + ' ' + circ;
-          circlesHtml += '<circle class="' + p.color + '" cx="18" cy="18" fill="none" r="15.9" stroke-dasharray="' + dash + '" stroke-dashoffset="' + (-offset) + '" stroke-linecap="round" stroke-width="3.8"></circle>';
-          offset += p.pct * circ / 100;
-        });
-        if (donutEl) {
-          var svg = donutEl.querySelector('svg');
-          if (svg) {
-            while (svg.childNodes.length > 1) svg.removeChild(svg.lastChild);
-            var frag = document.createRange().createContextualFragment(circlesHtml);
-            svg.appendChild(frag);
-          }
-        }
-        if (legendEl) {
-          legendEl.innerHTML = pcts.map(function(p) {
-            var colorClass = p.color.replace('stroke-', 'bg-');
-            var label = (p.name.length > 12 ? p.name.slice(0, 12) + '…' : p.name);
-            var link = p.code ? '<a href="/reports/category/' + encodeURIComponent(p.code) + '" class="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary">' : '<div class="flex items-center gap-2 text-slate-600 dark:text-slate-400">';
-            var close = p.code ? '</a>' : '</div>';
-            return '<div class="flex items-center justify-between text-xs">' + link + '<span class="size-2 rounded-full ' + colorClass + ' shrink-0"></span><span>' + label + '</span>' + close + '<span class="font-bold">' + Math.round(p.pct) + '%</span></div>';
-          }).join('');
-        }
-      }
+    var catPromise  = window.Expenses && window.Expenses.getSummary
+      ? window.Expenses.getSummary('category', range.dateFrom,     range.dateTo,     currentCurrency)
+      : Promise.resolve({ items: [] });
+    var prevCatPromise = window.Expenses && window.Expenses.getSummary
+      ? window.Expenses.getSummary('category', prevRange.dateFrom, prevRange.dateTo, currentCurrency)
+      : Promise.resolve({ items: [] });
 
-      var maxMonths = currentRange === 'month' ? 6 : 3;
-      var monthLabels = [];
-      var expenseByMonth = {};
-      var incomeByMonth = {};
-      monthItems.forEach(function(i) {
-        var k = (i.group_key || i.label || '').slice(0, 7);
-        if (k) { expenseByMonth[k] = Number(i.total_amount) || 0; }
-      });
-      incomeItems.forEach(function(i) {
-        var k = (i.group_key || i.label || '').slice(0, 7);
-        if (k) { incomeByMonth[k] = Number(i.total_amount) || 0; }
-      });
-      var now = new Date();
-      for (var i = maxMonths - 1; i >= 0; i--) {
-        var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        monthLabels.push({ key: d.toISOString().slice(0, 7), label: d.toLocaleString('en-US', { month: 'short' }), expense: expenseByMonth[d.toISOString().slice(0, 7)] || 0, income: incomeByMonth[d.toISOString().slice(0, 7)] || 0 });
-      }
-      var maxVal = 1;
-      monthLabels.forEach(function(m) { maxVal = Math.max(maxVal, m.income, m.expense); });
-      var trendsEl = document.getElementById('analytics-trends-bars');
-      if (trendsEl) {
-        trendsEl.innerHTML = monthLabels.map(function(m) {
-          var incH = maxVal > 0 ? (m.income / maxVal) * 100 : 0;
-          var expH = maxVal > 0 ? (m.expense / maxVal) * 100 : 0;
-          return '<div class="flex-1 flex flex-col justify-end gap-1 items-center h-full"><div class="w-2.5 bg-income rounded-t-sm" style="height:' + incH + '%;"></div><div class="w-2.5 bg-expense rounded-t-sm" style="height:' + expH + '%;"></div><span class="text-[10px] text-slate-400 mt-2">' + m.label + '</span></div>';
-        }).join('');
-      }
+    Promise.all([catPromise, prevCatPromise]).then(function(res) {
+      var catItems  = (res[0] && res[0].items) || [];
+      var prevItems = (res[1] && res[1].items) || [];
 
-      var byDesc = {};
-      expenses.forEach(function(e) {
-        var key = (e.description || '').trim().toLowerCase().replace(/\s+/g, ' ') || 'Other';
-        if (!byDesc[key]) byDesc[key] = { name: (e.description || 'Other').trim() || 'Other', total: 0, count: 0 };
-        byDesc[key].total += Math.abs(Number(e.amount) || 0);
-        byDesc[key].count += 1;
-      });
-      var merchants = Object.keys(byDesc).map(function(k) { return byDesc[k]; }).sort(function(a, b) { return b.total - a.total; }).slice(0, 10);
-      var merchantIcons = { amazon: 'shopping_bag', shell: 'local_gas_station', 'whole foods': 'grocery', walmart: 'shopping_cart', starbucks: 'coffee', netflix: 'smart_display', spotify: 'music_note' };
-      var merchantsEl = document.getElementById('analytics-merchants');
-      if (merchantsEl) {
-        if (merchants.length === 0) merchantsEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">No transactions in this period.</p>';
-        else {
-          merchantsEl.innerHTML = merchants.map(function(m) {
-            var nameLower = m.name.toLowerCase();
-            var icon = 'receipt_long';
-            for (var key in merchantIcons) { if (nameLower.indexOf(key) !== -1) { icon = merchantIcons[key]; break; } }
-            return '<div class="flex items-center justify-between py-3"><div class="flex items-center gap-3"><div class="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center"><span class="material-symbols-outlined text-slate-600 dark:text-slate-400">' + icon + '</span></div><div><p class="text-sm font-bold text-slate-900 dark:text-slate-100">' + (m.name.length > 20 ? m.name.slice(0, 20) + '…' : m.name) + '</p><p class="text-[11px] text-slate-500">' + m.count + ' transaction' + (m.count !== 1 ? 's' : '') + '</p></div></div><p class="text-sm font-bold text-expense">-$' + fmt(m.total) + '</p></div>';
-          }).join('');
-        }
-      }
+      var currentTotal = 0;
+      catItems.forEach(function(i) { currentTotal += Number(i.total_amount) || 0; });
+      var prevTotal = 0;
+      prevItems.forEach(function(i) { prevTotal += Number(i.total_amount) || 0; });
+
+      if (totalSpentEl) totalSpentEl.textContent = '$' + fmt(currentTotal);
+
+      renderCategoryTable(catItems, currentTotal);
+      renderComparison(currentTotal, prevTotal, currentRange);
     }).catch(function() {
-      document.getElementById('analytics-donut-legend').innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-xs">Unable to load data.</p>';
-      document.getElementById('analytics-trends-bars').innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Unable to load data.</p>';
-      document.getElementById('analytics-merchants').innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Unable to load data.</p>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-muted,#6b7280);">Unable to load data.</td></tr>';
     });
   }
 
+  /* ---- period selector ---- */
+  var periodSel = document.getElementById('reports-period');
+  if (periodSel) {
+    periodSel.addEventListener('change', function() {
+      currentRange = this.value;
+      load();
+    });
+  }
+
+  /* ---- currency selector ---- */
+  var currencySel = document.getElementById('reports-currency');
+  if (currencySel) {
+    currencySel.addEventListener('change', function() {
+      currentCurrency = this.value;
+      load();
+    });
+  }
+
+  /* ---- keep analytics-range buttons working (legacy, from original template) ---- */
   document.querySelectorAll('.analytics-range').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      currentRange = this.getAttribute('data-range');
-      setRangeButtons(currentRange);
-      if (currentRange !== 'custom') load();
+      currentRange = this.getAttribute('data-range') || currentRange;
+      document.querySelectorAll('.analytics-range').forEach(function(b) {
+        b.classList.remove('bg-white', 'dark:bg-slate-700', 'text-primary', 'dark:text-primary', 'shadow-sm');
+        b.classList.add('text-slate-500', 'dark:text-slate-400');
+      });
+      btn.classList.add('bg-white', 'dark:bg-slate-700', 'text-primary', 'dark:text-primary', 'shadow-sm');
+      btn.classList.remove('text-slate-500', 'dark:text-slate-400');
+      if (periodSel) periodSel.value = currentRange;
+      load();
     });
   });
-  var customApply = document.getElementById('analytics-custom-apply');
-  if (customApply) {
-    customApply.addEventListener('click', function() {
-      var from = document.getElementById('analytics-date-from');
-      var to = document.getElementById('analytics-date-to');
-      if (from && to && from.value && to.value) {
-        dateFrom = from.value;
-        dateTo = to.value;
-        load();
-      }
-    });
-  }
-  var customFrom = document.getElementById('analytics-date-from');
-  var customTo = document.getElementById('analytics-date-to');
-  if (customFrom && customTo) {
-    var t = new Date();
-    customTo.value = t.toISOString().slice(0, 10);
-    customFrom.value = new Date(t.getFullYear(), t.getMonth(), 1).toISOString().slice(0, 10);
-  }
 
-  setRangeButtons('month');
-  try { var stored = localStorage.getItem('default_currency'); if (stored) currentCurrency = stored.toUpperCase(); } catch (e) {}
+  /* ---- currency from settings ---- */
+  try { var stored = localStorage.getItem('default_currency'); if (stored) currentCurrency = stored.toUpperCase(); } catch(e) {}
   if (window.Settings && window.Settings.get) {
-    window.Settings.get().then(function(s) { if (s && s.default_currency) currentCurrency = s.default_currency.toUpperCase(); }).catch(function() {}).finally(load);
-  } else { load(); }
+    window.Settings.get()
+      .then(function(s) { if (s && s.default_currency) { currentCurrency = s.default_currency.toUpperCase(); if (currencySel) currencySel.value = currentCurrency; } })
+      .catch(function() {})
+      .finally(load);
+  } else {
+    load();
+  }
 })();
 </script>
 {% endblock %}

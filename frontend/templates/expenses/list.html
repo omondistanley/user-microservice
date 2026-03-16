@@ -1,72 +1,89 @@
 {% extends "layout.html" %}
 {% block body_class %}expenses-page{% endblock %}
-{% block title %}Expenses — Expense Tracker{% endblock %}
-{% block back_link %}
-<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
-{% endblock %}
+{% block title %}Expenses — FinTrack{% endblock %}
 {% block content %}
-<div class="container">
-
-    <!-- Page header -->
-    <div class="page-header">
-        <div>
-            <h1 class="page-title">Expenses</h1>
-            <p class="page-meta" id="expenses-balance"></p>
-        </div>
-        <a href="/expenses/add" class="btn btn-primary">+ Add</a>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Expenses</h1>
+        <p class="page-meta" id="expenses-balance"></p>
     </div>
+    <a href="/expenses/add" class="btn btn-primary">+ Add Expense</a>
+</div>
 
-    <!-- Success flash -->
-    <div id="expenses-added-msg" class="auth-alert auth-alert--success" style="display:none; margin-bottom:var(--sp-4);"></div>
+<div id="expenses-added-msg" class="auth-alert auth-alert--success" style="display:none;margin-bottom:16px;"></div>
 
-    <!-- Inline filter bar (always visible) -->
-    <div class="filter-bar" id="inline-filter-bar">
-        <div class="filter-bar-inputs">
-            <input type="date" id="filter-date-from" class="form-control filter-input" placeholder="From" title="From date">
-            <input type="date" id="filter-date-to"   class="form-control filter-input" placeholder="To"   title="To date">
-            <select id="filter-category" class="form-control filter-input">
-                <option value="">All categories</option>
-            </select>
-            <input type="text" id="filter-tag" class="form-control filter-input" list="filter-tag-suggestions" placeholder="Tag…">
-            <datalist id="filter-tag-suggestions"></datalist>
-        </div>
-        <div class="filter-bar-actions">
-            <button type="button" id="filter-apply-btn" class="btn btn-primary btn-sm">Apply</button>
-            <button type="button" id="filter-clear-btn" class="btn btn-secondary btn-sm">Clear</button>
-        </div>
+<!-- Stats row -->
+<div class="stat-row" id="expenses-stats-row" style="margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="stat-label">Total Spent</div>
+        <div class="stat-value" id="stat-total-spent">—</div>
+        <div class="stat-change down" id="stat-total-change"></div>
     </div>
+    <div class="stat-card">
+        <div class="stat-label">Daily Average</div>
+        <div class="stat-value" id="stat-daily-avg">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Largest Expense</div>
+        <div class="stat-value" id="stat-largest">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Transactions</div>
+        <div class="stat-value" id="stat-tx-count">—</div>
+    </div>
+</div>
 
-    <!-- Active tag chip -->
-    <div id="active-tag-chips"></div>
-
-    <!-- Results meta row -->
-    <div class="results-meta" id="results-meta" style="display:none;">
-        <span id="results-count"></span>
-        <select id="filter-page-size" class="form-control" style="width:auto;">
-            <option value="20" selected>20 / page</option>
-            <option value="50">50 / page</option>
-            <option value="100">100 / page</option>
+<!-- Filter bar -->
+<div class="filter-bar" id="inline-filter-bar">
+    <div class="filter-bar-inputs">
+        <input type="date" id="filter-date-from" class="form-input filter-input" placeholder="From" title="From date">
+        <input type="date" id="filter-date-to"   class="form-input filter-input" placeholder="To"   title="To date">
+        <select id="filter-category" class="form-select filter-input">
+            <option value="">All categories</option>
         </select>
+        <input type="text" id="filter-tag" class="form-input filter-input" list="filter-tag-suggestions" placeholder="Search or tag…">
+        <datalist id="filter-tag-suggestions"></datalist>
     </div>
-
-    <!-- Expense list -->
-    <div id="expenses-list" class="expenses-list-wrap">
-        <div class="page-skeleton">
-            <div class="skel-row"></div>
-            <div class="skel-row"></div>
-            <div class="skel-row"></div>
-            <div class="skel-row"></div>
-            <div class="skel-row"></div>
-        </div>
+    <div class="filter-bar-actions">
+        <button type="button" id="filter-apply-btn" class="btn btn-primary btn-sm">Apply</button>
+        <button type="button" id="filter-clear-btn" class="btn btn-ghost btn-sm">Clear</button>
     </div>
+</div>
 
-    <!-- Pagination -->
-    <div id="expenses-pagination" class="pagination-bar" style="display:none;">
-        <button type="button" id="pagination-prev" class="btn btn-secondary btn-sm">← Prev</button>
-        <span id="pagination-info" class="pagination-info"></span>
-        <button type="button" id="pagination-next" class="btn btn-secondary btn-sm">Next →</button>
+<div id="active-tag-chips"></div>
+
+<!-- Results meta -->
+<div class="results-meta" id="results-meta" style="display:none;">
+    <span id="results-count"></span>
+    <select id="filter-page-size" class="form-select" style="width:auto;">
+        <option value="20" selected>20 / page</option>
+        <option value="50">50 / page</option>
+        <option value="100">100 / page</option>
+    </select>
+</div>
+
+<!-- Expense list -->
+<div id="expenses-list" class="expenses-list-wrap">
+    <div class="page-skeleton">
+        <div class="skel-row"></div><div class="skel-row"></div>
+        <div class="skel-row"></div><div class="skel-row"></div>
+        <div class="skel-row"></div>
     </div>
+</div>
 
+<!-- Pagination -->
+<div id="expenses-pagination" class="pagination-bar" style="display:none;">
+    <button type="button" id="pagination-prev" class="btn btn-ghost btn-sm">← Prev</button>
+    <span id="pagination-info" class="pagination-info"></span>
+    <button type="button" id="pagination-next" class="btn btn-ghost btn-sm">Next →</button>
+</div>
+
+<!-- Hidden summary elements used by layout.js panel -->
+<div id="expenses-summary-wrap" style="display:none;">
+    <div id="expenses-summary">
+        <div id="summary-by-category"></div>
+        <div id="summary-by-month" style="display:none;"></div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -86,23 +103,24 @@
     var resultsMeta   = document.getElementById('results-meta');
     var resultsCount  = document.getElementById('results-count');
     var activeTagChips = document.getElementById('active-tag-chips');
-    // Summary elements still used by layout.js panel
     var summaryEl          = document.getElementById('expenses-summary');
     var summaryByCategory  = document.getElementById('summary-by-category');
     var summaryByMonth     = document.getElementById('summary-by-month');
+    var statTotalSpent = document.getElementById('stat-total-spent');
+    var statDailyAvg   = document.getElementById('stat-daily-avg');
+    var statLargest    = document.getElementById('stat-largest');
+    var statTxCount    = document.getElementById('stat-tx-count');
 
     var filterOpts   = { page: 1, page_size: 20 };
     var currentTotal = 0;
     var params       = new URLSearchParams(window.location.search);
 
-    // Flash message
     if (params.get('added') && addedMsg) {
         addedMsg.textContent = 'Expense saved.';
         addedMsg.style.display = 'block';
         window.history.replaceState({}, '', window.location.pathname);
     }
 
-    // ── helpers ───────────────────────────────────────────────
     function optsToQS(opts) {
         var p = [];
         if (opts.date_from)  p.push('date_from='  + encodeURIComponent(opts.date_from));
@@ -127,10 +145,8 @@
         };
     }
 
-    function val(id) {
-        var el = document.getElementById(id);
-        return el ? el.value : '';
-    }
+    function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    function fmt(v) { var n = parseFloat(v); return isNaN(n) ? '—' : '$' + n.toFixed(2); }
 
     function prefill() {
         set('filter-date-from', params.get('date_from'));
@@ -142,10 +158,7 @@
         if (!isNaN(ps) && ps >= 1) set('filter-page-size', String(ps));
     }
 
-    function set(id, value) {
-        var el = document.getElementById(id);
-        if (el && value) el.value = value;
-    }
+    function set(id, value) { var el = document.getElementById(id); if (el && value) el.value = value; }
 
     function updatePagination(total, page, pageSize) {
         currentTotal = total;
@@ -153,9 +166,7 @@
             if (total > 0) {
                 resultsMeta.style.display = 'flex';
                 if (resultsCount) resultsCount.textContent = total + ' expense' + (total !== 1 ? 's' : '');
-            } else {
-                resultsMeta.style.display = 'none';
-            }
+            } else { resultsMeta.style.display = 'none'; }
         }
         if (!paginationEl) return;
         if (total <= pageSize) { paginationEl.style.display = 'none'; return; }
@@ -174,14 +185,36 @@
                 ' <button type="button" id="clear-tag-filter" style="background:none;border:none;cursor:pointer;color:inherit;margin-left:4px;font-size:0.85em;">✕</button></span>';
             var clearBtn = document.getElementById('clear-tag-filter');
             if (clearBtn) clearBtn.addEventListener('click', function() {
-                set('filter-tag', '');
-                filterOpts.page = 1;
-                renderList();
-                updateUrl();
+                set('filter-tag', ''); filterOpts.page = 1; renderList(); updateUrl();
             });
-        } else {
-            activeTagChips.innerHTML = '';
-        }
+        } else { activeTagChips.innerHTML = ''; }
+    }
+
+    function loadStats() {
+        if (!window.Expenses || !window.Expenses.getSummary) return;
+        var opts = getFilterOpts();
+        var now = new Date(), today = now.toISOString().slice(0,10);
+        var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+        var from = opts.date_from || firstDay, to = opts.date_to || today;
+        window.Expenses.getSummary('category', from, to).then(function(res) {
+            var items = (res && res.items) || [];
+            var total = items.reduce(function(s, i) { return s + Number(i.total_amount||0); }, 0);
+            var largest = items.reduce(function(m, i) { return Math.max(m, Number(i.total_amount||0)); }, 0);
+            var days = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
+            if (statTotalSpent) statTotalSpent.textContent = fmt(total);
+            if (statDailyAvg) statDailyAvg.textContent = fmt(total / days);
+            if (statLargest) statLargest.textContent = fmt(largest);
+        }).catch(function(){});
+        // tx count from list query
+        var api = window.EXPENSE_API_BASE || '';
+        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        var q = '?page=1&page_size=1' + (from ? '&date_from=' + from : '') + (to ? '&date_to=' + to : '');
+        var fn = window.Auth && window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses' + q, { headers: headers }); }
+            : function() { return fetch(api + '/api/v1/expenses' + q, { headers: headers }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d) { if (statTxCount && d && d.total != null) statTxCount.textContent = d.total; })
+            .catch(function(){});
     }
 
     function renderCategorySummary(items, withBudget) {
@@ -253,6 +286,7 @@
             window.Expenses.loadList(listEl, balanceEl, filterOpts, updatePagination);
         }
         loadSummary();
+        loadStats();
     }
 
     function updateUrl() {
@@ -260,7 +294,6 @@
         window.history.replaceState({}, '', '/expenses' + (qs ? '?' + qs : ''));
     }
 
-    // ── Boot ─────────────────────────────────────────────────
     if (window.Expenses) {
         if (typeof window.Expenses.loadBalance === 'function') window.Expenses.loadBalance(balanceEl);
         prefill();
@@ -282,36 +315,20 @@
                     document.getElementById('filter-tag-suggestions')
                 ).catch(function(){});
             }
-        } else {
-            renderList();
-        }
+        } else { renderList(); }
     }
 
-    // ── Event listeners ───────────────────────────────────────
     var applyBtn = document.getElementById('filter-apply-btn');
-    if (applyBtn) applyBtn.addEventListener('click', function() {
-        filterOpts.page = 1;
-        renderList();
-        updateUrl();
-    });
-
+    if (applyBtn) applyBtn.addEventListener('click', function() { filterOpts.page = 1; renderList(); updateUrl(); });
     var clearBtn = document.getElementById('filter-clear-btn');
     if (clearBtn) clearBtn.addEventListener('click', function() {
         ['filter-date-from','filter-date-to','filter-category','filter-tag'].forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.value = '';
+            var el = document.getElementById(id); if (el) el.value = '';
         });
-        filterOpts.page = 1;
-        renderList();
-        updateUrl();
+        filterOpts.page = 1; renderList(); updateUrl();
     });
-
     var pageSizeSel = document.getElementById('filter-page-size');
-    if (pageSizeSel) pageSizeSel.addEventListener('change', function() {
-        filterOpts.page = 1;
-        renderList();
-    });
-
+    if (pageSizeSel) pageSizeSel.addEventListener('change', function() { filterOpts.page = 1; renderList(); });
     if (paginationPrev) paginationPrev.addEventListener('click', function() {
         if (filterOpts.page > 1) { filterOpts.page--; renderList(); updateUrl(); }
     });
@@ -319,8 +336,6 @@
         var ps = filterOpts.page_size || 20;
         if (filterOpts.page < Math.ceil(currentTotal / ps)) { filterOpts.page++; renderList(); updateUrl(); }
     });
-
-    // Summary tabs in the slide-panel still work
     document.querySelectorAll('.summary-tab').forEach(function(btn) {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.summary-tab').forEach(function(b) { b.classList.remove('active'); });

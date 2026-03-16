@@ -1,48 +1,103 @@
 {% extends "layout.html" %}
 {% block body_class %}auth-page{% endblock %}
-{% block title %}Register — Expense Tracker{% endblock %}
-{% block back_link %}
-<div class="container"><p class="page-back-wrap"><a href="/landing" class="page-back-link" aria-label="Back to home">← Back</a></p></div>
-{% endblock %}
+{% block title %}Register — FinTrack{% endblock %}
 {% block content %}
-<div class="container">
-    <section class="card-section">
-        <h1>Create an account</h1>
-        <p class="lead">Register to start tracking your expenses.</p>
-        <p style="margin-bottom: 1rem;">
-            <a href="/auth/google" class="btn btn-secondary" style="margin-right: 0.5rem;">Sign up with Google</a>
-            <a href="/auth/apple" class="btn btn-secondary">Sign up with Apple</a>
-        </p>
-        <p style="font-size: 0.9rem; margin: 0.5rem 0;">or</p>
-        <form id="register-form" class="form-section" method="post" action="javascript:void(0)" style="max-width: 400px; margin: 0 auto; text-align: left;">
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" class="form-control" required placeholder="you@example.com">
+<div style="display:grid;grid-template-columns:1fr 1fr;min-height:100vh;">
+    <!-- Left dark panel -->
+    <div style="background:linear-gradient(160deg,#0A0F1E,#1a1f3e);padding:48px;display:flex;flex-direction:column;">
+        <div style="font-size:24px;font-weight:800;background:linear-gradient(135deg,#6366F1,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:48px;">FinTrack</div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+            <h2 style="font-size:28px;font-weight:800;color:#fff;margin-bottom:8px;">Join 50,000+ users 🎉</h2>
+            <p style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:32px;line-height:1.6;">Take control of your money in minutes. Free forever, no credit card needed.</p>
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:24px;">
+                <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:12px;">✓ What you get for free:</div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;">
+                    <li style="font-size:12px;color:rgba(255,255,255,0.6);">• 100 transactions per month</li>
+                    <li style="font-size:12px;color:rgba(255,255,255,0.6);">• 3 budget categories</li>
+                    <li style="font-size:12px;color:rgba(255,255,255,0.6);">• Basic spending reports</li>
+                    <li style="font-size:12px;color:rgba(255,255,255,0.6);">• Mobile + web access</li>
+                    <li style="font-size:12px;color:rgba(255,255,255,0.6);">• Savings goals tracking</li>
+                </ul>
             </div>
-            <div class="form-group">
-                <label for="first_name">First name</label>
-                <input type="text" id="first_name" name="first_name" class="form-control" required placeholder="Jane">
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25);">© 2026 FinTrack Inc.</div>
+    </div>
+
+    <!-- Right white form panel -->
+    <div style="padding:48px;display:flex;align-items:center;justify-content:center;background:#fff;overflow-y:auto;">
+        <div style="width:100%;max-width:380px;">
+            <h2 style="font-size:24px;font-weight:800;color:var(--s900);margin-bottom:6px;">Create your account</h2>
+            <p style="font-size:13px;color:var(--s500);margin-bottom:24px;">
+                Already have an account? <a href="/login" style="color:var(--indigo);font-weight:600;">Sign in</a>
+            </p>
+
+            <!-- OAuth buttons -->
+            <div style="display:flex;gap:10px;margin-bottom:20px;">
+                <a href="/auth/google" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1.5px solid var(--s200);border-radius:10px;background:#fff;font-size:12px;font-weight:600;color:var(--s700);text-decoration:none;">
+                    <span style="font-weight:900;color:#4285F4;">G</span> Google
+                </a>
+                <a href="/auth/apple" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:none;border-radius:10px;background:#000;font-size:12px;font-weight:600;color:#fff;text-decoration:none;">
+                     Apple
+                </a>
             </div>
-            <div class="form-group">
-                <label for="last_name">Last name</label>
-                <input type="text" id="last_name" name="last_name" class="form-control" required placeholder="Doe">
+
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                <div style="flex:1;height:1px;background:var(--s200);"></div>
+                <span style="font-size:12px;color:var(--s400);">or</span>
+                <div style="flex:1;height:1px;background:var(--s200);"></div>
             </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <div class="password-toggle-wrapper">
-                    <input type="password" id="password" name="password" class="form-control" required minlength="8" placeholder="•••••••• (min 8 characters)">
-                    <button type="button" class="btn-password-toggle" id="register-password-toggle" aria-label="Show password" title="Show password">Show</button>
+
+            <form id="register-form" method="post" action="javascript:void(0)">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label" for="first_name">First name</label>
+                        <input type="text" id="first_name" name="first_name" class="form-input" required placeholder="Alex">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="last_name">Last name</label>
+                        <input type="text" id="last_name" name="last_name" class="form-input" required placeholder="Johnson">
+                    </div>
                 </div>
-            </div>
-            <div id="register-message" class="message-error" style="display: none;"></div>
-            <button type="submit" class="btn btn-primary">Create account</button>
-            <a href="/login" class="btn btn-secondary">Log in</a>
-        </form>
-        <p style="margin-top: 1.5rem; font-size: 0.95rem;">
-            Already have an account? <a href="/login" class="auth-link">Log in</a>
-        </p>
-    </section>
+
+                <div class="form-group">
+                    <label class="form-label" for="email">Email address</label>
+                    <input type="email" id="email" name="email" class="form-input" required placeholder="alex@example.com">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <div class="password-toggle-wrapper">
+                        <input type="password" id="password" name="password" class="form-input" required minlength="8" placeholder="At least 8 characters">
+                        <button type="button" class="btn-password-toggle" id="register-password-toggle" aria-label="Show password">Show</button>
+                    </div>
+                    <div class="form-hint">8+ characters with letters, numbers &amp; symbols</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="confirm-password">Confirm password</label>
+                    <input type="password" id="confirm-password" name="confirm_password" class="form-input" required placeholder="Repeat your password">
+                </div>
+
+                <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:20px;">
+                    <input type="checkbox" id="terms" required style="margin-top:2px;accent-color:var(--indigo);">
+                    <label for="terms" style="font-size:12px;color:var(--s600);line-height:1.5;">
+                        I agree to the <a href="#" style="color:var(--indigo);">Terms of Service</a> and <a href="#" style="color:var(--indigo);">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <div id="register-message" class="auth-alert" style="display:none;"></div>
+
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;">Create account →</button>
+            </form>
+        </div>
+    </div>
 </div>
+<style>
+@media (max-width: 768px) {
+    .auth-page > div { grid-template-columns: 1fr !important; }
+    .auth-page > div > div:first-child { display: none; }
+}
+</style>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
@@ -53,32 +108,28 @@
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             msg.style.display = 'none';
+            var password = document.getElementById('password').value;
+            var confirm = document.getElementById('confirm-password').value;
+            if (password !== confirm) {
+                msg.textContent = 'Passwords do not match';
+                msg.className = 'auth-alert auth-alert--error';
+                msg.style.display = 'block';
+                return;
+            }
             var email = document.getElementById('email').value;
             var first_name = document.getElementById('first_name').value.trim();
             var last_name = document.getElementById('last_name').value.trim();
-            var password = document.getElementById('password').value;
-            window.Auth.register(email, first_name, last_name, password).then(function(data) {
-                msg.textContent = 'Account created. Redirecting to verify your email…';
-                msg.classList.remove('message-error');
-                msg.classList.add('message-success');
+            window.Auth.register(email, first_name, last_name, password).then(function() {
+                msg.textContent = 'Account created. Redirecting…';
+                msg.className = 'auth-alert auth-alert--success';
                 msg.style.display = 'block';
                 var redirectUrl = '/verify-email/pending' + (email ? '?email=' + encodeURIComponent(email) : '');
                 setTimeout(function() { window.location.href = redirectUrl; }, 1200);
             }).catch(function(err) {
                 msg.textContent = err.message || 'Registration failed';
-                msg.classList.remove('message-success');
-                msg.classList.add('message-error');
+                msg.className = 'auth-alert auth-alert--error';
                 msg.style.display = 'block';
             });
-        });
-    } else if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            if (msg) {
-                msg.textContent = 'Page failed to load correctly. Please refresh and try again.';
-                msg.classList.add('message-error');
-                msg.style.display = 'block';
-            }
         });
     }
     var toggle = document.getElementById('register-password-toggle');
@@ -86,13 +137,9 @@
     if (toggle && passwordInput) {
         toggle.addEventListener('click', function() {
             if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggle.textContent = 'Hide';
-                toggle.setAttribute('aria-label', 'Hide password');
+                passwordInput.type = 'text'; toggle.textContent = 'Hide'; toggle.setAttribute('aria-label', 'Hide password');
             } else {
-                passwordInput.type = 'password';
-                toggle.textContent = 'Show';
-                toggle.setAttribute('aria-label', 'Show password');
+                passwordInput.type = 'password'; toggle.textContent = 'Show'; toggle.setAttribute('aria-label', 'Show password');
             }
         });
     }

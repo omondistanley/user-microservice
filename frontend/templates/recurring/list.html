@@ -1,117 +1,83 @@
 {% extends "layout.html" %}
-{% block body_class %}recurring-page subscriptions-page{% endblock %}
-{% block title %}Subscriptions — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#135bec",
-          "background-light": "#f6f6f8",
-          "background-dark": "#101622",
-        },
-        fontFamily: { "display": ["Manrope", "sans-serif"] },
-        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
-<style>
-  body { min-height: max(884px, 100dvh); }
-</style>
-{% endblock %}
+{% block title %}Recurring — FinTrack{% endblock %}
+{% block body_class %}recurring-page{% endblock %}
+{% block head_extra %}{% endblock %}
 {% block content %}
-<div class="relative flex min-h-screen w-full flex-col max-w-[430px] mx-auto bg-white dark:bg-background-dark shadow-2xl overflow-x-hidden font-display text-slate-900 dark:text-slate-100 antialiased">
-  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
-  <!-- Header -->
-  <header class="sticky top-0 z-50 flex items-center bg-white/80 dark:bg-background-dark/80 backdrop-blur-md p-4 justify-between border-b border-slate-100 dark:border-slate-800">
-    <a href="/dashboard" class="flex size-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Back">
-      <span class="material-symbols-outlined text-slate-900 dark:text-slate-100">arrow_back</span>
-    </a>
-    <h1 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center">Subscriptions</h1>
-    <div class="flex w-10 items-center justify-end">
-      <a href="/recurring" class="flex size-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Search">
-        <span class="material-symbols-outlined text-slate-900 dark:text-slate-100">search</span>
-      </a>
+<div class="page-header">
+    <h1 class="page-title">Recurring</h1>
+    <button type="button" class="btn btn-primary" id="subscriptions-add-btn">+ Add</button>
+</div>
+
+<div class="stat-row">
+    <div class="stat-card">
+        <div class="stat-label">Monthly Total</div>
+        <div class="stat-value" id="subscriptions-monthly-total">$0.00</div>
+        <div class="stat-change">/ month</div>
     </div>
-  </header>
-  <main class="flex-1 pb-24">
-    <!-- Summary Card -->
-    <div class="p-4 @container">
-      <div class="relative overflow-hidden flex flex-col items-stretch justify-start rounded-xl shadow-lg bg-primary p-6 text-white">
-        <div class="absolute -right-8 -top-8 size-32 bg-white/10 rounded-full blur-2xl"></div>
-        <div class="absolute -left-4 -bottom-4 size-24 bg-blue-400/20 rounded-full blur-xl"></div>
-        <div class="relative z-10">
-          <p class="text-blue-100 text-sm font-medium mb-1">Total Monthly Spend</p>
-          <div class="flex items-baseline gap-1 mb-6">
-            <span id="subscriptions-monthly-total" class="text-3xl font-extrabold tracking-tight">$0.00</span>
-            <span class="text-blue-200 text-sm">/ month</span>
-          </div>
-          <div class="flex items-center justify-between bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-blue-200">insights</span>
-              <p id="subscriptions-active-count" class="text-sm font-medium">0 Active Services</p>
+    <div class="stat-card">
+        <div class="stat-label">Active Count</div>
+        <div class="stat-value" id="subscriptions-active-count">0</div>
+        <div class="stat-change">active services</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Next Due</div>
+        <div class="stat-value" id="recurring-next-due-stat">—</div>
+    </div>
+</div>
+
+<!-- Upcoming Bills -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <h2 style="margin:0 0 1rem;font-size:var(--text-base);font-weight:var(--fw-semi);">Upcoming Bills</h2>
+    <div id="subscriptions-upcoming">
+        <p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Loading…</p>
+    </div>
+</div>
+
+<!-- Manage Subscriptions -->
+<div class="card">
+    <h2 style="margin:0 0 1rem;font-size:var(--text-base);font-weight:var(--fw-semi);">Manage Subscriptions</h2>
+
+    <!-- Add Form (hidden by default) -->
+    <div id="subscriptions-add-form" style="display:none;margin-bottom:1.5rem;padding:1rem;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-md);">
+        <p style="font-weight:var(--fw-medium);font-size:var(--text-sm);margin:0 0 0.875rem;">Add subscription</p>
+        <form id="recurring-add-form">
+            <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+                <div class="form-group">
+                    <label class="form-label" for="rec-amount">Amount</label>
+                    <input id="rec-amount" type="number" min="0" step="0.01" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="rec-category">Category</label>
+                    <select id="rec-category" required class="form-select"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="rec-rule">Recurrence</label>
+                    <select id="rec-rule" class="form-select">
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly" selected>Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="rec-next-due">Next due</label>
+                    <input id="rec-next-due" type="date" required class="form-input">
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label class="form-label" for="rec-description">Description (optional)</label>
+                    <input id="rec-description" type="text" maxlength="200" class="form-input" placeholder="e.g. Netflix">
+                </div>
             </div>
-            <a href="/reports" class="bg-white text-primary px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-50 transition-colors">
-              View Analysis
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- Discover Section -->
-    <div class="px-4 py-2">
-      <a href="/link-bank" class="w-full flex items-center justify-between bg-white dark:bg-slate-800 border border-primary/20 p-4 rounded-xl group hover:border-primary transition-all">
-        <div class="flex items-center gap-3">
-          <div class="size-10 flex items-center justify-center bg-primary/10 rounded-full text-primary">
-            <span class="material-symbols-outlined">account_balance</span>
-          </div>
-          <div class="text-left">
-            <p class="font-bold text-sm">Discover hidden subs</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Scan linked bank accounts</p>
-          </div>
-        </div>
-        <span class="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">chevron_right</span>
-      </a>
-    </div>
-    <!-- Upcoming Bills -->
-    <section class="mt-6">
-      <div class="flex items-center justify-between px-4 mb-4">
-        <h2 class="text-xl font-bold tracking-tight">Upcoming Bills</h2>
-        <button type="button" id="subscriptions-see-all" class="text-primary text-sm font-bold">See All</button>
-      </div>
-      <div id="subscriptions-upcoming" class="space-y-1 px-4">
-        <p class="text-slate-500 dark:text-slate-400 text-sm py-4">Loading…</p>
-      </div>
-    </section>
-    <!-- Manage Subscriptions -->
-    <section class="mt-8 mb-8">
-      <div class="px-4 mb-4 flex items-center justify-between">
-        <h2 class="text-xl font-bold tracking-tight">Manage Subscriptions</h2>
-        <button type="button" class="text-primary text-sm font-bold" id="subscriptions-add-btn">Add</button>
-      </div>
-      <div id="subscriptions-add-form" class="px-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700" style="display: none;">
-        <p class="font-semibold text-sm mb-3">Add subscription</p>
-        <form id="recurring-add-form" class="space-y-3">
-          <div><label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Amount</label><input id="rec-amount" type="number" min="0" step="0.01" required class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"></div>
-          <div><label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Category</label><select id="rec-category" required class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"></select></div>
-          <div><label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Recurrence</label><select id="rec-rule" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"><option value="weekly">Weekly</option><option value="monthly" selected>Monthly</option><option value="yearly">Yearly</option></select></div>
-          <div><label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Next due</label><input id="rec-next-due" type="date" required class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"></div>
-          <div><label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Description (optional)</label><input id="rec-description" type="text" maxlength="200" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100" placeholder="e.g. Netflix"></div>
-          <div class="flex gap-2"><button type="submit" class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold">Save</button><button type="button" id="rec-add-cancel" class="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">Cancel</button></div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.875rem;">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" id="rec-add-cancel" class="btn btn-ghost">Cancel</button>
+            </div>
         </form>
-      </div>
-      <div id="subscriptions-manage" class="divide-y divide-slate-100 dark:divide-slate-800 px-4">
-        <p class="text-slate-500 dark:text-slate-400 text-sm py-4">Loading…</p>
-      </div>
-    </section>
-  </main>
+    </div>
+
+    <!-- Subscriptions List -->
+    <div id="subscriptions-manage">
+        <p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Loading…</p>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -148,12 +114,12 @@
   }
   function iconFor(name) {
     var n = (name || '').toLowerCase();
-    if (n.indexOf('netflix') !== -1 || n.indexOf('stream') !== -1) return { icon: 'smart_display', bg: 'bg-red-100 dark:bg-red-900/30 text-red-600' };
-    if (n.indexOf('spotify') !== -1 || n.indexOf('music') !== -1) return { icon: 'music_note', bg: 'bg-green-100 dark:bg-green-900/30 text-green-600' };
-    if (n.indexOf('gym') !== -1 || n.indexOf('fitness') !== -1) return { icon: 'fitness_center', bg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' };
-    if (n.indexOf('cloud') !== -1 || n.indexOf('icloud') !== -1) return { icon: 'cloud', bg: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
-    if (n.indexOf('amazon') !== -1 || n.indexOf('prime') !== -1) return { icon: 'shopping_bag', bg: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
-    return { icon: 'subscriptions', bg: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' };
+    if (n.indexOf('netflix') !== -1 || n.indexOf('stream') !== -1) return '🎬';
+    if (n.indexOf('spotify') !== -1 || n.indexOf('music') !== -1) return '🎵';
+    if (n.indexOf('gym') !== -1 || n.indexOf('fitness') !== -1) return '🏋️';
+    if (n.indexOf('cloud') !== -1 || n.indexOf('icloud') !== -1) return '☁️';
+    if (n.indexOf('amazon') !== -1 || n.indexOf('prime') !== -1) return '📦';
+    return '🔄';
   }
   function recurrenceLabel(rule) {
     var r = String(rule || 'monthly').toLowerCase();
@@ -162,8 +128,8 @@
 
   function load() {
     if (!window.RecurringExpenses || !window.RecurringExpenses.list) return;
-    upcomingEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">Loading…</p>';
-    manageEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">Loading…</p>';
+    upcomingEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Loading…</p>';
+    manageEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Loading…</p>';
 
     window.RecurringExpenses.list({ active_only: false, page: 1, page_size: 100 }).then(function(data) {
       var items = (data && data.items) || [];
@@ -175,6 +141,15 @@
       if (monthlyTotalEl) monthlyTotalEl.textContent = '$' + fmtAmount(totalMonthly);
       if (activeCountEl) activeCountEl.textContent = active.length + ' Active Service' + (active.length === 1 ? '' : 's');
 
+      // Next due stat
+      var nextDueEl = document.getElementById('recurring-next-due-stat');
+      if (nextDueEl) {
+        var byDueStat = active.slice().sort(function(a, b) {
+          return (a.next_due_date || '').localeCompare(b.next_due_date || '');
+        });
+        nextDueEl.textContent = byDueStat.length ? fmtDate(byDueStat[0].next_due_date) : '—';
+      }
+
       var byDue = items.slice().sort(function(a, b) {
         var da = (a.next_due_date || '').slice(0, 10);
         var db = (b.next_due_date || '').slice(0, 10);
@@ -182,46 +157,52 @@
       });
       var upcoming = byDue.filter(function(i) { return !!i.is_active; }).slice(0, 5);
       if (upcoming.length === 0) {
-        upcomingEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">No upcoming bills.</p>';
+        upcomingEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">No upcoming bills.</p>';
       } else {
-        upcomingEl.innerHTML = upcoming.map(function(item) {
-          var name = (item.description || '').trim() || (item.category_name || 'Subscription');
-          var info = iconFor(name);
-          return '<a href="/recurring" class="flex items-center gap-4 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-50 dark:border-slate-800">' +
-            '<div class="size-12 rounded-lg ' + info.bg + ' flex items-center justify-center"><span class="material-symbols-outlined">' + info.icon + '</span></div>' +
-            '<div class="flex-1"><div class="flex justify-between items-start"><p class="font-bold">' + esc(name) + '</p><p class="font-bold">$' + fmtAmount(item.amount) + '</p></div>' +
-            '<p class="text-sm text-slate-500 dark:text-slate-400">Next bill: ' + fmtDate(item.next_due_date) + '</p></div></a>';
-        }).join('');
+        upcomingEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Next Bill</th><th style="text-align:right;">Amount</th></tr></thead><tbody>' +
+          upcoming.map(function(item) {
+            var name = (item.description || '').trim() || (item.category_name || 'Subscription');
+            return '<tr>' +
+              '<td style="width:32px;font-size:1.1rem;">' + iconFor(name) + '</td>' +
+              '<td style="font-weight:var(--fw-medium);">' + esc(name) + '</td>' +
+              '<td style="color:var(--text-secondary);font-size:var(--text-sm);">' + fmtDate(item.next_due_date) + '</td>' +
+              '<td style="text-align:right;font-weight:var(--fw-semi);">$' + fmtAmount(item.amount) + '</td>' +
+              '</tr>';
+          }).join('') +
+          '</tbody></table></div>';
       }
 
       if (items.length === 0) {
-        manageEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">No subscriptions. Add one to get started.</p>';
+        manageEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">No subscriptions. Add one to get started.</p>';
         return;
       }
-      manageEl.innerHTML = items.map(function(item) {
-        var name = (item.description || '').trim() || (item.category_name || 'Subscription');
-        var rule = item.recurrence_rule || 'monthly';
-        var label = recurrenceLabel(rule) + ' • $' + fmtAmount(item.amount);
-        var isActive = !!item.is_active;
-        var info = iconFor(name);
-        var id = esc(item.recurring_id);
-        var toggleClass = isActive ? 'bg-primary justify-end' : 'bg-slate-200 dark:bg-slate-700 justify-start';
-        var rowClass = isActive ? '' : 'opacity-60';
-        var statusText = isActive ? 'Active' : 'Canceled';
-        return '<div class="py-4 flex items-center justify-between subscriptions-row ' + rowClass + '" data-id="' + id + '">' +
-          '<div class="flex items-center gap-3"><div class="size-10 rounded-full ' + info.bg + ' flex items-center justify-center"><span class="material-symbols-outlined">' + info.icon + '</span></div>' +
-          '<div><p class="font-semibold text-sm">' + esc(name) + '</p><p class="text-xs text-slate-500">' + esc(label) + '</p></div></div>' +
-          '<div class="flex items-center gap-3"><span class="text-xs font-medium text-slate-400 uppercase">' + statusText + '</span>' +
-          '<button type="button" class="subscriptions-toggle w-10 h-6 rounded-full relative p-1 flex items-center ' + toggleClass + '" data-id="' + id + '" aria-label="Toggle ' + (isActive ? 'off' : 'on') + '">' +
-          '<div class="size-4 bg-white rounded-full shadow-sm"></div></button></div></div>';
-      }).join('');
+      manageEl.innerHTML = '<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Recurrence</th><th>Status</th><th style="text-align:right;">Amount</th><th></th></tr></thead><tbody>' +
+        items.map(function(item) {
+          var name = (item.description || '').trim() || (item.category_name || 'Subscription');
+          var rule = item.recurrence_rule || 'monthly';
+          var isActive = !!item.is_active;
+          var id = esc(item.recurring_id);
+          var statusBadge = isActive
+            ? '<span class="badge-emerald">Active</span>'
+            : '<span class="badge-slate">Paused</span>';
+          var toggleLabel = isActive ? 'Pause' : 'Resume';
+          return '<tr class="subscriptions-row" data-id="' + id + '" style="' + (isActive ? '' : 'opacity:0.6;') + '">' +
+            '<td style="width:32px;font-size:1.1rem;">' + iconFor(name) + '</td>' +
+            '<td style="font-weight:var(--fw-medium);">' + esc(name) + '</td>' +
+            '<td style="color:var(--text-secondary);font-size:var(--text-sm);">' + esc(recurrenceLabel(rule)) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td style="text-align:right;font-weight:var(--fw-semi);">$' + fmtAmount(item.amount) + '</td>' +
+            '<td style="text-align:right;"><button type="button" class="btn btn-ghost btn-sm subscriptions-toggle" data-id="' + id + '">' + toggleLabel + '</button></td>' +
+            '</tr>';
+        }).join('') +
+        '</tbody></table></div>';
 
       manageEl.querySelectorAll('.subscriptions-toggle').forEach(function(btn) {
         btn.addEventListener('click', function() {
           var id = this.getAttribute('data-id');
           if (!id) return;
           var row = manageEl.querySelector('.subscriptions-row[data-id="' + id + '"]');
-          var isCurrentlyActive = this.classList.contains('justify-end');
+          var isCurrentlyActive = row && row.querySelector('.badge-emerald') !== null;
           var nextActive = !isCurrentlyActive;
           btn.disabled = true;
           window.RecurringExpenses.update(id, { is_active: nextActive }).then(function() {
@@ -232,8 +213,8 @@
         });
       });
     }).catch(function() {
-      if (upcomingEl) upcomingEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">Could not load subscriptions.</p>';
-      if (manageEl) manageEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">Could not load subscriptions.</p>';
+      if (upcomingEl) upcomingEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Could not load subscriptions.</p>';
+      if (manageEl) manageEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Could not load subscriptions.</p>';
     });
   }
 
@@ -294,8 +275,8 @@
   if (window.RecurringExpenses) {
     loadCategories().then(load);
   } else {
-    if (upcomingEl) upcomingEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">Sign in to see subscriptions.</p>';
-    if (manageEl) manageEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm py-4">Sign in to see subscriptions.</p>';
+    if (upcomingEl) upcomingEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Sign in to see subscriptions.</p>';
+    if (manageEl) manageEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Sign in to see subscriptions.</p>';
   }
 })();
 </script>

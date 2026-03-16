@@ -2,41 +2,116 @@
 {% block body_class %}settings-page{% endblock %}
 {% block title %}Settings — FinTrack{% endblock %}
 {% block content %}
-<div class="card card-lg">
-    <h1 class="stat-value" style="font-size: 1.5rem; margin-bottom: 20px;">Settings</h1>
-    <form id="settings-form" style="display: grid; gap: 24px;">
-        <div class="form-group">
-            <label class="form-label" for="settings-currency">Default currency</label>
-            <select id="settings-currency" class="form-input" style="max-width: 120px;">
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-                <option value="KES">KES</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Active household</label>
-            <select id="settings-household" class="form-input" style="max-width: 280px;">
-                <option value="">Personal</option>
-            </select>
-            <p class="form-hint">Data scope for dashboard and reports.</p>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Integrations</label>
-            <a href="/settings/integrations" class="btn btn-ghost btn-sm">Manage integrations</a>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="settings-theme">Appearance</label>
-            <select id="settings-theme" class="form-input" style="max-width: 160px;">
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-                <option value="system">System</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary" style="width: fit-content;">Save settings</button>
-    </form>
-    <p id="settings-msg" class="form-hint" style="margin-top: 12px;"></p>
+<div class="page-header">
+    <h1 class="page-title">Settings</h1>
 </div>
+
+<form id="settings-form" style="display: grid; gap: 24px; max-width: 680px;">
+
+    <!-- Preferences -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Preferences</h2>
+        <div style="display: grid; gap: 16px;">
+            <div class="form-group">
+                <label class="form-label" for="settings-currency">Default currency</label>
+                <select id="settings-currency" class="form-select" style="max-width: 140px;">
+                    <option value="USD">USD — US Dollar</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="GBP">GBP — British Pound</option>
+                    <option value="KES">KES — Kenyan Shilling</option>
+                    <option value="JPY">JPY — Japanese Yen</option>
+                    <option value="CAD">CAD — Canadian Dollar</option>
+                    <option value="AUD">AUD — Australian Dollar</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-date-format">Date format</label>
+                <select id="settings-date-format" class="form-select" style="max-width: 200px;">
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-timezone">Timezone</label>
+                <select id="settings-timezone" class="form-select" style="max-width: 280px;">
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">America/New_York (EST/EDT)</option>
+                    <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                    <option value="America/Denver">America/Denver (MST/MDT)</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                    <option value="Europe/London">Europe/London (GMT/BST)</option>
+                    <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                    <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                    <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                    <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Household -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Household</h2>
+        <div style="display: grid; gap: 16px;">
+            <div class="form-group">
+                <label class="form-label" for="settings-household">Active household</label>
+                <select id="settings-household" class="form-select" style="max-width: 280px;">
+                    <option value="">Personal</option>
+                </select>
+                <p class="form-hint">Data scope used for the dashboard and reports.</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-household-name">Household name</label>
+                <input type="text" id="settings-household-name" class="form-input" style="max-width: 280px;"
+                    placeholder="e.g. Smith Family">
+                <p class="form-hint">Rename the currently active household.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Notifications</h2>
+        <div style="display: grid; gap: 16px;">
+            <div class="form-group">
+                <label class="form-label" for="settings-email-digest">Email digest</label>
+                <select id="settings-email-digest" class="form-select" style="max-width: 180px;">
+                    <option value="none">Off</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+                <p class="form-hint">Receive a summary of your spending by email.</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-budget-alert">Budget alert threshold (%)</label>
+                <input type="number" id="settings-budget-alert" class="form-input" min="1" max="100" value="80"
+                    style="max-width: 100px;">
+                <p class="form-hint">Get notified when spending reaches this percentage of any budget.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="card" style="border-color: #f43f5e33;">
+        <h2 class="stat-label" style="margin-bottom: 14px; color: #f43f5e;">Danger zone</h2>
+        <p class="form-hint" style="margin-bottom: 14px;">
+            Permanently delete your account and all associated data. This action cannot be undone.
+        </p>
+        <button type="button" id="settings-delete-account"
+            style="background: transparent; border: 1px solid #f43f5e; color: #f43f5e; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
+            Delete account
+        </button>
+    </div>
+
+    <!-- Save -->
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <button type="submit" class="btn btn-primary" id="settings-save-btn">Save settings</button>
+        <p id="settings-msg" class="form-hint"></p>
+    </div>
+
+</form>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
@@ -57,10 +132,6 @@
                 var cur = document.getElementById('settings-currency');
                 if (cur) cur.value = settings.default_currency;
             }
-            if (settings && settings.active_household_id) {
-                var h = document.getElementById('settings-household');
-                if (h) h.value = settings.active_household_id;
-            }
             var sel = document.getElementById('settings-household');
             if (sel) {
                 sel.innerHTML = '<option value="">Personal</option>';
@@ -69,10 +140,21 @@
                 });
                 if (settings && settings.active_household_id) sel.value = settings.active_household_id;
             }
-            var theme = document.getElementById('settings-theme');
-            if (theme && window.localStorage) {
-                var saved = localStorage.getItem('theme') || 'dark';
-                theme.value = saved;
+            if (settings && settings.date_format) {
+                var df = document.getElementById('settings-date-format');
+                if (df) df.value = settings.date_format;
+            }
+            if (settings && settings.timezone) {
+                var tz = document.getElementById('settings-timezone');
+                if (tz) tz.value = settings.timezone;
+            }
+            if (settings && settings.email_digest) {
+                var ed = document.getElementById('settings-email-digest');
+                if (ed) ed.value = settings.email_digest;
+            }
+            if (settings && settings.budget_alert_threshold != null) {
+                var ba = document.getElementById('settings-budget-alert');
+                if (ba) ba.value = settings.budget_alert_threshold;
             }
         }).catch(function() {});
     }
@@ -80,15 +162,23 @@
         e.preventDefault();
         var currency = document.getElementById('settings-currency').value;
         var householdId = document.getElementById('settings-household').value || null;
+        var dateFormat = document.getElementById('settings-date-format').value;
+        var timezone = document.getElementById('settings-timezone').value;
+        var emailDigest = document.getElementById('settings-email-digest').value;
+        var budgetAlert = parseInt(document.getElementById('settings-budget-alert').value, 10) || 80;
         var msg = document.getElementById('settings-msg');
-        var theme = document.getElementById('settings-theme').value;
-        if (window.localStorage) localStorage.setItem('theme', theme);
-        if (window.Theme && window.Theme.apply) window.Theme.apply(theme);
+        msg.textContent = 'Saving…';
         Promise.all([
             fetch(API + '/api/v1/settings', {
                 method: 'PATCH',
                 headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-                body: JSON.stringify({ default_currency: currency })
+                body: JSON.stringify({
+                    default_currency: currency,
+                    date_format: dateFormat,
+                    timezone: timezone,
+                    email_digest: emailDigest,
+                    budget_alert_threshold: budgetAlert
+                })
             }),
             fetch(API + '/api/v1/settings/active-household', {
                 method: 'PATCH',
@@ -98,6 +188,19 @@
         ]).then(function(r) {
             msg.textContent = r.every(function(x) { return x.ok; }) ? 'Settings saved.' : 'Some settings could not be saved.';
         }).catch(function() { msg.textContent = 'Failed to save.'; });
+    });
+    document.getElementById('settings-delete-account').addEventListener('click', function() {
+        if (!confirm('Permanently delete your account and all data? This cannot be undone.')) return;
+        fetch(API + '/user/me', { method: 'DELETE', headers: authHeaders() })
+            .then(function(r) {
+                if (r.ok || r.status === 204) {
+                    if (window.Auth && window.Auth.logout) window.Auth.logout();
+                    else window.location.href = '/login';
+                } else {
+                    alert('Failed to delete account.');
+                }
+            })
+            .catch(function() { alert('Request failed.'); });
     });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
     else load();

@@ -2,44 +2,75 @@
 {% block body_class %}household-page{% endblock %}
 {% block title %}Household — FinTrack{% endblock %}
 {% block content %}
-<div class="card card-lg">
-    <h1 class="stat-value" style="font-size: 1.5rem; margin-bottom: 20px;">Household</h1>
-    <div class="form-group" style="margin-bottom: 24px;">
-        <label class="form-label">Current view scope</label>
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <button type="button" id="scope-personal" class="btn btn-primary btn-sm">Personal</button>
-            <select id="scope-household" class="form-input" style="width: auto; max-width: 240px;">
-                <option value="">Select household</option>
-            </select>
+<div class="page-header">
+    <h1 class="page-title">Household</h1>
+</div>
+
+<div style="display: grid; gap: 24px; max-width: 800px;">
+
+    <!-- Members card -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Members</h2>
+        <div style="overflow-x: auto;">
+            <table id="household-members-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--s200, #334155);">
+                        <th style="text-align: left; padding: 8px 12px; color: var(--s400, #94a3b8); font-weight: 500;">Name</th>
+                        <th style="text-align: left; padding: 8px 12px; color: var(--s400, #94a3b8); font-weight: 500;">Email</th>
+                        <th style="text-align: left; padding: 8px 12px; color: var(--s400, #94a3b8); font-weight: 500;">Role</th>
+                        <th style="text-align: right; padding: 8px 12px; color: var(--s400, #94a3b8); font-weight: 500;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="household-members-tbody">
+                    <tr id="household-members-empty-row">
+                        <td colspan="4" style="padding: 20px 12px; color: var(--s400, #94a3b8); font-size: 0.875rem;">
+                            No household selected or you are not in a household.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-        <p class="form-hint">Switch between personal data and a household to view shared data.</p>
+
+        <!-- View scope controls -->
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--s200, #334155);">
+            <p class="form-hint" style="margin-bottom: 10px;">Switch view scope to load members.</p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <button type="button" id="scope-personal" class="btn btn-primary">Personal</button>
+                <select id="scope-household" class="form-select" style="max-width: 240px;">
+                    <option value="">Select household</option>
+                </select>
+            </div>
+        </div>
     </div>
-    <hr style="border-color: var(--s200); margin: 24px 0;" />
-    <h2 class="stat-label" style="margin-bottom: 12px;">Members</h2>
-    <div id="household-members-list"></div>
-    <p id="household-members-empty" class="form-hint" style="display: none;">No household selected or you are not in a household.</p>
-    <hr style="border-color: var(--s200); margin: 24px 0;" />
-    <h2 class="stat-label" style="margin-bottom: 12px;">Invite member</h2>
-    <form id="household-invite-form" style="display: grid; gap: 12px; max-width: 360px;">
-        <div class="form-group">
-            <label class="form-label" for="invite-email">Email</label>
-            <input type="email" id="invite-email" class="form-input" required placeholder="user@example.com">
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="invite-role">Role</label>
-            <select id="invite-role" class="form-input">
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <select id="invite-household" class="form-input" required>
-                <option value="">Select household to invite to</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary">Send invite</button>
-    </form>
-    <p id="household-invite-msg" class="form-hint" style="margin-top: 8px;"></p>
+
+    <!-- Invite member card -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Invite member</h2>
+        <form id="household-invite-form" style="display: grid; gap: 14px; max-width: 400px;">
+            <div class="form-group">
+                <label class="form-label" for="invite-email">Email address</label>
+                <input type="email" id="invite-email" class="form-input" required placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="invite-role">Role</label>
+                <select id="invite-role" class="form-select">
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="invite-household">Household</label>
+                <select id="invite-household" class="form-select" required>
+                    <option value="">Select household to invite to</option>
+                </select>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Send invite</button>
+                <p id="household-invite-msg" class="form-hint" style="margin-top: 8px;"></p>
+            </div>
+        </form>
+    </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
@@ -84,34 +115,49 @@
             .catch(function() { loadMembers(''); });
     }
     function loadMembers(householdId) {
-        var listEl = document.getElementById('household-members-list');
-        var emptyEl = document.getElementById('household-members-empty');
+        var tbody = document.getElementById('household-members-tbody');
+        var emptyRow = document.getElementById('household-members-empty-row');
         if (!householdId) {
-            if (listEl) listEl.innerHTML = '';
-            if (emptyEl) emptyEl.style.display = 'block';
+            if (tbody) tbody.innerHTML = '<tr id="household-members-empty-row"><td colspan="4" style="padding: 20px 12px; color: var(--s400, #94a3b8); font-size: 0.875rem;">No household selected or you are not in a household.</td></tr>';
             return;
         }
-        if (emptyEl) emptyEl.style.display = 'none';
         fetch(API + '/api/v1/households/' + householdId + '/members', { headers: authHeaders() })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 var members = Array.isArray(data) ? data : (data.items || []);
-                if (!listEl) return;
+                if (!tbody) return;
                 if (members.length === 0) {
-                    listEl.innerHTML = '<p class="form-hint">No members yet.</p>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px 12px; color: var(--s400, #94a3b8); font-size: 0.875rem;">No members yet.</td></tr>';
                     return;
                 }
-                listEl.innerHTML = members.map(function(m) {
+                tbody.innerHTML = members.map(function(m) {
                     var role = (m.role || 'member').toLowerCase();
-                    var badge = role === 'owner' ? 'badge-indigo' : (role === 'admin' ? 'badge-amber' : 'badge-slate');
-                    return '<div class="notif-item" style="align-items:center">' +
-                        '<div class="sb-avatar">' + (m.user_id || '?').toString().charAt(0) + '</div>' +
-                        '<div style="flex:1"><span class="notif-title">User #' + (m.user_id || '') + '</span><span class="badge ' + badge + '" style="margin-left:8px">' + (m.role || '') + '</span></div>' +
-                        '</div>';
+                    var badgeClass = role === 'owner' ? 'badge-emerald' : (role === 'admin' ? 'badge-slate' : 'badge-slate');
+                    var name = [m.first_name, m.last_name].filter(Boolean).join(' ') || ('User #' + (m.user_id || ''));
+                    var email = m.email || '—';
+                    var canRemove = role !== 'owner';
+                    return '<tr style="border-bottom: 1px solid var(--s200, #1e293b);">' +
+                        '<td style="padding: 10px 12px;">' + name + '</td>' +
+                        '<td style="padding: 10px 12px; color: var(--s400, #94a3b8);">' + email + '</td>' +
+                        '<td style="padding: 10px 12px;"><span class="badge ' + badgeClass + '">' + (m.role || 'member') + '</span></td>' +
+                        '<td style="padding: 10px 12px; text-align: right;">' +
+                        (canRemove ? '<button type="button" class="btn btn-ghost member-remove" data-household="' + householdId + '" data-user="' + (m.user_id || '') + '" style="font-size: 0.8rem; padding: 4px 10px;">Remove</button>' : '') +
+                        '</td>' +
+                        '</tr>';
                 }).join('');
+                tbody.querySelectorAll('.member-remove').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var hid = btn.getAttribute('data-household');
+                        var uid = btn.getAttribute('data-user');
+                        if (!confirm('Remove this member?')) return;
+                        fetch(API + '/api/v1/households/' + hid + '/members/' + uid, {
+                            method: 'DELETE', headers: authHeaders()
+                        }).then(function(r) { if (r.ok || r.status === 204) loadMembers(hid); });
+                    });
+                });
             })
             .catch(function() {
-                if (listEl) listEl.innerHTML = '<p class="form-hint">Could not load members.</p>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px 12px; color: var(--s400, #94a3b8); font-size: 0.875rem;">Could not load members.</td></tr>';
             });
     }
     document.getElementById('scope-personal').addEventListener('click', function() {

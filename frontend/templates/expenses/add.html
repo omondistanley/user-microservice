@@ -1,79 +1,131 @@
 {% extends "layout.html" %}
 {% block body_class %}expenses-page{% endblock %}
-{% block title %}Add expense — Expense Tracker{% endblock %}
+{% block title %}Add Expense — FinTrack{% endblock %}
 {% block content %}
-<div class="container">
-
-    <div class="page-header">
-        <div>
-            <a href="/expenses" class="page-back-link">← Expenses</a>
-            <h1 class="page-title">New expense</h1>
-        </div>
+<div class="page-header">
+    <div>
+        <a href="/expenses" class="page-back-link">← Expenses</a>
+        <h1 class="page-title">New Expense</h1>
     </div>
+</div>
 
-    <div class="form-page-card">
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;">
+    <!-- Left: main form -->
+    <div class="card">
         <form id="add-expense-form">
-
-            <!-- Amount — biggest field, top position -->
+            <!-- Amount -->
             <div class="form-group form-group--amount">
-                <label for="amount">Amount</label>
+                <label class="form-label" for="amount">Amount</label>
                 <div class="amount-input-wrap">
                     <span class="amount-currency-prefix">$</span>
-                    <input type="number" id="amount" name="amount" class="form-control amount-input"
+                    <input type="number" id="amount" name="amount" class="form-input amount-input"
                            step="0.01" min="0" required placeholder="0.00" autocomplete="off">
                 </div>
             </div>
 
             <div class="form-row-two">
                 <div class="form-group">
-                    <label for="date">Date</label>
-                    <input type="date" id="date" name="date" class="form-control" required>
+                    <label class="form-label" for="date">Date</label>
+                    <input type="date" id="date" name="date" class="form-input" required>
                 </div>
                 <div class="form-group">
-                    <label for="category">Category</label>
-                    <select id="category" name="category" class="form-control" required>
+                    <label class="form-label" for="category">Category</label>
+                    <select id="category" name="category" class="form-select" required>
                         <option value="">Loading…</option>
                     </select>
                 </div>
             </div>
 
             <!-- Inline new-category -->
-            <div id="new-category-area" style="margin-top:calc(-1 * var(--sp-3)); margin-bottom:var(--sp-5);">
+            <div id="new-category-area" style="margin-top:-8px;margin-bottom:20px;">
                 <button type="button" id="btn-add-category" class="btn btn-ghost btn-sm">+ New category</button>
                 <div id="new-category-inline" style="display:none;" class="inline-new-category">
-                    <input type="text" id="new-category-name" class="form-control" placeholder="Category name" maxlength="64">
+                    <input type="text" id="new-category-name" class="form-input" placeholder="Category name" maxlength="64">
                     <button type="button" id="btn-save-category" class="btn btn-primary btn-sm">Add</button>
-                    <button type="button" id="btn-cancel-category" class="btn btn-secondary btn-sm">Cancel</button>
+                    <button type="button" id="btn-cancel-category" class="btn btn-ghost btn-sm">Cancel</button>
                     <span id="new-category-msg" class="message-error" style="display:none;"></span>
                 </div>
             </div>
 
             <div class="form-group">
-                <label for="description">Description <span class="form-optional">optional</span></label>
-                <input type="text" id="description" name="description" class="form-control" placeholder="e.g. Weekly groceries">
+                <label class="form-label" for="description">Description <span class="form-optional">optional</span></label>
+                <input type="text" id="description" name="description" class="form-input" placeholder="e.g. Weekly groceries">
+            </div>
+
+            <div class="form-row-two">
+                <div class="form-group">
+                    <label class="form-label" for="payment_method">Payment Method <span class="form-optional">optional</span></label>
+                    <select id="payment_method" name="payment_method" class="form-select">
+                        <option value="">Select…</option>
+                        <option value="cash">Cash</option>
+                        <option value="credit_card">Credit Card</option>
+                        <option value="debit_card">Debit Card</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="tags">Tags <span class="form-optional">comma separated</span></label>
+                    <input type="text" id="tags" name="tags" class="form-input" list="tags-suggestions" placeholder="e.g. food, family">
+                    <datalist id="tags-suggestions"></datalist>
+                </div>
             </div>
 
             <div class="form-group">
-                <label for="tags">Tags <span class="form-optional">optional · comma separated</span></label>
-                <input type="text" id="tags" name="tags" class="form-control" list="tags-suggestions" placeholder="e.g. food, family">
-                <datalist id="tags-suggestions"></datalist>
-            </div>
-
-            <div class="form-group">
-                <label for="receipt-file">Receipt <span class="form-optional">optional</span></label>
-                <input type="file" id="receipt-file" name="file" class="form-control" accept="image/*,.pdf">
+                <label class="form-label" for="notes">Notes <span class="form-optional">optional</span></label>
+                <textarea id="notes" name="notes" class="form-input" rows="3" placeholder="Additional notes…" style="resize:vertical;"></textarea>
             </div>
 
             <div id="add-message" class="auth-alert" style="display:none;"></div>
 
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="save-btn">Save expense</button>
-                <a href="/expenses" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary" id="save-btn">Save Expense</button>
+                <a href="/expenses" class="btn btn-ghost">Cancel</a>
             </div>
-
         </form>
     </div>
 
+    <!-- Right: sidebar cards -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+        <!-- Receipt upload -->
+        <div class="card">
+            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:12px;">📎 Receipt</div>
+            <label for="receipt-file" style="display:block;border:2px dashed var(--s200);border-radius:10px;padding:24px 16px;text-align:center;cursor:pointer;transition:border-color .15s;" id="receipt-dropzone">
+                <div style="font-size:28px;margin-bottom:8px;">📄</div>
+                <div style="font-size:13px;font-weight:600;color:var(--s600);">Drag & drop or click</div>
+                <div style="font-size:11px;color:var(--s400);margin-top:4px;">JPG, PNG, PDF — max 10 MB</div>
+                <input type="file" id="receipt-file" name="file" accept="image/*,.pdf" style="display:none;">
+            </label>
+            <div id="receipt-filename" style="font-size:12px;color:var(--s500);margin-top:8px;display:none;"></div>
+        </div>
+
+        <!-- Recurring toggle -->
+        <div class="card">
+            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:12px;">🔄 Recurring</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <input type="checkbox" id="is-recurring" style="accent-color:var(--indigo);width:16px;height:16px;">
+                <label for="is-recurring" style="font-size:13px;color:var(--s600);cursor:pointer;">Make this a recurring expense</label>
+            </div>
+            <div id="recurring-options" style="display:none;">
+                <label class="form-label" for="recurring-frequency">Frequency</label>
+                <select id="recurring-frequency" class="form-select">
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly" selected>Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="card" style="background:var(--s50);border-color:var(--s100);">
+            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:10px;">💡 Tips</div>
+            <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;">
+                <li style="font-size:12px;color:var(--s500);">• Use tags to group related expenses across categories</li>
+                <li style="font-size:12px;color:var(--s500);">• Attach receipts for easy record-keeping</li>
+                <li style="font-size:12px;color:var(--s500);">• Link your bank to import transactions automatically</li>
+            </ul>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -86,10 +138,32 @@
     var dateInput = document.getElementById('date');
     var tagsInput = document.getElementById('tags');
     var tagsDatalist = document.getElementById('tags-suggestions');
+    var isRecurring = document.getElementById('is-recurring');
+    var recurringOptions = document.getElementById('recurring-options');
+    var receiptFile = document.getElementById('receipt-file');
+    var receiptFilename = document.getElementById('receipt-filename');
+    var receiptDropzone = document.getElementById('receipt-dropzone');
 
     if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
     if (window.Expenses && window.Expenses.fillTagSuggestions) {
         window.Expenses.fillTagSuggestions(tagsInput, tagsDatalist).catch(function(){});
+    }
+
+    if (isRecurring && recurringOptions) {
+        isRecurring.addEventListener('change', function() {
+            recurringOptions.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+
+    if (receiptFile && receiptFilename) {
+        receiptFile.addEventListener('change', function() {
+            var f = receiptFile.files && receiptFile.files[0];
+            if (f) {
+                receiptFilename.textContent = '📎 ' + f.name;
+                receiptFilename.style.display = 'block';
+                if (receiptDropzone) receiptDropzone.style.borderColor = 'var(--indigo)';
+            }
+        });
     }
 
     function showMsg(text, isError) {
@@ -98,7 +172,6 @@
         msg.style.display = 'block';
     }
 
-    // ── Category loading ─────────────────────────────────────
     function refreshCategories(selectedName) {
         var sel = document.getElementById('category');
         if (window.Expenses && window.Expenses.fillCategorySelect) {
@@ -118,17 +191,13 @@
 
     if (addCatBtn && newCatInline) {
         addCatBtn.addEventListener('click', function() {
-            newCatInline.style.display = 'flex';
-            addCatBtn.style.display = 'none';
-            newCatName.value = '';
-            newCatMsg.style.display = 'none';
-            newCatName.focus();
+            newCatInline.style.display = 'flex'; addCatBtn.style.display = 'none';
+            newCatName.value = ''; newCatMsg.style.display = 'none'; newCatName.focus();
         });
     }
     if (cancelCatBtn) {
         cancelCatBtn.addEventListener('click', function() {
-            newCatInline.style.display = 'none';
-            addCatBtn.style.display = '';
+            newCatInline.style.display = 'none'; addCatBtn.style.display = '';
         });
     }
     if (saveCatBtn && newCatName) {
@@ -145,13 +214,11 @@
                 var sel = document.getElementById('category');
                 if (sel) sel.value = finalName;
             }).catch(function(err) {
-                newCatMsg.textContent = err.message || 'Failed to create';
-                newCatMsg.style.display = 'inline';
+                newCatMsg.textContent = err.message || 'Failed to create'; newCatMsg.style.display = 'inline';
             });
         });
     }
 
-    // ── Submit ───────────────────────────────────────────────
     if (form && window.Expenses && typeof window.Expenses.add === 'function') {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -162,12 +229,15 @@
             var category = document.getElementById('category').value;
             var description = (document.getElementById('description').value || '').trim();
             var tags = window.Expenses.parseTagInput ? window.Expenses.parseTagInput(tagsInput ? tagsInput.value : '') : [];
-            var fileInput = document.getElementById('receipt-file');
-            var file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+            var file = receiptFile && receiptFile.files && receiptFile.files[0] ? receiptFile.files[0] : null;
             var payload = { amount: amount, date: dateVal };
             if (category) payload.category = category;
             if (description) payload.description = description;
             if (tags.length) payload.tags = tags;
+            var pm = document.getElementById('payment_method');
+            if (pm && pm.value) payload.payment_method = pm.value;
+            var notes = document.getElementById('notes');
+            if (notes && notes.value.trim()) payload.notes = notes.value.trim();
             var key = (typeof crypto !== 'undefined' && crypto.randomUUID)
                 ? crypto.randomUUID()
                 : ('key-' + Date.now() + '-' + Math.random().toString(36).slice(2));
@@ -181,7 +251,7 @@
                 window.location.href = '/expenses' + (id ? '?added=' + id : '');
             }).catch(function(err) {
                 showMsg(err.message || 'Failed to save expense', true);
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save expense'; }
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Expense'; }
             });
         });
     }

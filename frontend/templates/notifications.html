@@ -2,42 +2,56 @@
 {% block body_class %}notifications-page{% endblock %}
 {% block title %}Notifications — FinTrack{% endblock %}
 {% block content %}
-<div class="card card-lg">
-    <div class="stat-row" style="grid-template-columns: 1fr auto; margin-bottom: 0;">
-        <h1 class="stat-value" style="font-size: 1.5rem; margin: 0;">Notifications</h1>
-        <button type="button" id="notifications-mark-all-btn" class="btn btn-ghost btn-sm">Mark all read</button>
-    </div>
-    <div id="notifications-unread-section" style="margin-top: 20px;">
-        <h2 class="stat-label" style="margin-bottom: 12px;">Unread</h2>
+
+<div class="page-header">
+    <h1 class="page-title">Notifications</h1>
+    <button type="button" id="notifications-mark-all-btn" class="btn btn-ghost">Mark all read</button>
+</div>
+
+<!-- Filter row -->
+<div class="filter-row" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+    <button type="button" class="btn btn-ghost notif-filter-btn active" data-filter="all">All</button>
+    <button type="button" class="btn btn-ghost notif-filter-btn" data-filter="unread">Unread</button>
+    <button type="button" class="btn btn-ghost notif-filter-btn" data-filter="budget_alert">Budget alerts</button>
+    <button type="button" class="btn btn-ghost notif-filter-btn" data-filter="system">System</button>
+</div>
+
+<div class="card">
+    <!-- Unread section -->
+    <div id="notifications-unread-section">
+        <h2 class="stat-label" style="margin-bottom: 0.75rem;">Unread</h2>
         <div id="notifications-unread-list"></div>
     </div>
-    <div id="notifications-earlier-section" style="margin-top: 24px;">
-        <h2 class="stat-label" style="margin-bottom: 12px;">Earlier</h2>
+
+    <!-- Earlier section -->
+    <div id="notifications-earlier-section" style="margin-top: 1.5rem;">
+        <h2 class="stat-label" style="margin-bottom: 0.75rem;">Earlier</h2>
         <div id="notifications-earlier-list"></div>
     </div>
-    <p id="notifications-empty" class="form-hint" style="display: none;">No notifications yet.</p>
+
+    <p id="notifications-empty" class="muted" style="display: none; margin-top: 1rem;">No notifications yet.</p>
 </div>
+
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var API = window.API_BASE || '';
+    var currentFilter = 'all';
+
     function authHeaders() {
         var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
         return t ? { 'Authorization': 'Bearer ' + t } : {};
     }
+
+    var allItems = [];
+
     function load() {
         fetch(API + '/api/v1/notifications?page=1&page_size=50', { headers: authHeaders() })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                var items = (data && data.items) ? data.items : [];
-                var unread = [], earlier = [];
-                items.forEach(function(n) {
-                    if (n.is_read) earlier.push(n); else unread.push(n);
-                });
-                renderList('notifications-unread-list', unread, true);
-                renderList('notifications-earlier-list', earlier, false);
-                document.getElementById('notifications-empty').style.display = (items.length === 0) ? 'block' : 'none';
+                allItems = (data && data.items) ? data.items : [];
+                applyFilter();
             })
             .catch(function() {
                 document.getElementById('notifications-unread-list').innerHTML = '';
@@ -45,11 +59,44 @@
                 document.getElementById('notifications-empty').style.display = 'block';
             });
     }
+
+    function applyFilter() {
+        var filtered = allItems;
+        if (currentFilter === 'unread') {
+            filtered = allItems.filter(function(n) { return !n.is_read; });
+        } else if (currentFilter === 'budget_alert') {
+            filtered = allItems.filter(function(n) {
+                return (n.type || n.notification_type) === 'budget_alert';
+            });
+        } else if (currentFilter === 'system') {
+            filtered = allItems.filter(function(n) {
+                var t = (n.type || n.notification_type || '');
+                return t === 'system' || t === '';
+            });
+        }
+
+        var unread = [], earlier = [];
+        filtered.forEach(function(n) {
+            if (n.is_read) earlier.push(n); else unread.push(n);
+        });
+
+        renderList('notifications-unread-list', unread, true);
+        renderList('notifications-earlier-list', earlier, false);
+
+        var unreadSection = document.getElementById('notifications-unread-section');
+        var earlierSection = document.getElementById('notifications-earlier-section');
+        if (unreadSection) unreadSection.style.display = unread.length ? '' : 'none';
+        if (earlierSection) earlierSection.style.display = earlier.length ? '' : 'none';
+
+        document.getElementById('notifications-empty').style.display =
+            (unread.length === 0 && earlier.length === 0) ? 'block' : 'none';
+    }
+
     function renderList(id, items, unread) {
         var el = document.getElementById(id);
         if (!el) return;
         if (items.length === 0) {
-            el.innerHTML = '<p class="form-hint">None</p>';
+            el.innerHTML = '<p class="muted" style="font-size:0.875rem;">None</p>';
             return;
         }
         el.innerHTML = items.map(function(n) {
@@ -59,35 +106,58 @@
             if ((n.type || n.notification_type) === 'budget_alert') icon = '💰';
             if ((n.type || n.notification_type) === 'recommendation') icon = '🤖';
             var action = '';
-            if (payload.budget_id) action = '<a href="/budgets/' + payload.budget_id + '" class="btn btn-primary btn-sm" style="margin-top:8px">View Budget</a>';
-            if (payload.report_url) action = '<a href="' + payload.report_url + '" class="btn btn-primary btn-sm" style="margin-top:8px">View</a>';
+            if (payload.budget_id) {
+                action = '<a href="/budgets/' + payload.budget_id + '" class="btn btn-primary btn-sm" style="margin-top:8px">View Budget</a>';
+            }
+            if (payload.report_url) {
+                action = '<a href="' + payload.report_url + '" class="btn btn-primary btn-sm" style="margin-top:8px">View</a>';
+            }
             return '<div class="' + cls + '" data-id="' + (n.notification_id || n.id || '') + '">' +
                 '<div class="notif-icon">' + icon + '</div>' +
                 '<div style="flex:1">' +
-                '<div class="notif-title">' + (n.title || 'Notification') + '</div>' +
-                '<div class="notif-body">' + (n.body || '') + '</div>' +
-                '<div class="notif-time">' + (n.created_at || n.created_at_iso || '') + '</div>' +
-                action +
+                    '<div class="notif-title">' + (n.title || 'Notification') + '</div>' +
+                    '<div class="notif-body">' + (n.body || '') + '</div>' +
+                    '<div class="notif-time">' + (n.created_at || n.created_at_iso || '') + '</div>' +
+                    action +
                 '</div>' +
                 (unread ? '<button type="button" class="btn btn-ghost btn-sm notif-mark-read">Mark read</button>' : '') +
                 '</div>';
         }).join('');
+
         el.querySelectorAll('.notif-mark-read').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 var row = btn.closest('.notif-item');
-                var id = row && row.getAttribute('data-id');
-                if (!id) return;
-                fetch(API + '/api/v1/notifications/' + id + '/read', { method: 'PATCH', headers: authHeaders() })
+                var nid = row && row.getAttribute('data-id');
+                if (!nid) return;
+                fetch(API + '/api/v1/notifications/' + nid + '/read', { method: 'PATCH', headers: authHeaders() })
                     .then(function(r) { if (r.ok) load(); });
             });
         });
     }
+
+    // Mark all read
     document.getElementById('notifications-mark-all-btn').addEventListener('click', function() {
         fetch(API + '/api/v1/notifications/read-all', { method: 'PATCH', headers: authHeaders() })
             .then(function(r) { if (r.ok) load(); });
     });
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
-    else load();
+
+    // Filter tab buttons
+    document.querySelectorAll('.notif-filter-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.notif-filter-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            btn.classList.add('active');
+            currentFilter = btn.getAttribute('data-filter') || 'all';
+            applyFilter();
+        });
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', load);
+    } else {
+        load();
+    }
 })();
 </script>
 {% endblock %}

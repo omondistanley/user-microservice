@@ -1,35 +1,78 @@
 {% extends "layout.html" %}
 {% block body_class %}insights-page{% endblock %}
 {% block title %}Insights — Expense Tracker{% endblock %}
-{% block back_link %}
-<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
-{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="page-header">
-        <h1 class="page-title">Insights</h1>
+<div class="content-inner">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <h1 class="page-title">Insights</h1>
+  </div>
+
+  <!-- Two-card layout: side by side on wide, stacked on narrow -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.25rem;">
+
+    <!-- Spend Forecast Card -->
+    <div class="card">
+      <h2 style="font-size:1rem;font-weight:600;margin:0 0 0.35rem;">Spend Forecast</h2>
+      <p style="font-size:0.85rem;color:var(--color-muted,#6b7280);margin:0 0 1rem;">Projected next 3 months from recent history</p>
+
+      <!-- Skeleton loading state -->
+      <div id="forecast-skeleton" aria-busy="true" aria-label="Loading forecast">
+        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:70%;animation:skeleton-pulse 1.4s ease-in-out infinite;"></div>
+        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:55%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.2s;"></div>
+        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;width:62%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.4s;"></div>
+      </div>
+
+      <div id="forecast-content" style="display:none;"></div>
     </div>
-    <section class="card-section">
-        <h2 class="h4">Spend forecast</h2>
-        <p class="text-muted">Projected spend (next 3 months) from your recent history.</p>
-        <div id="forecast-content" class="text-muted">Loading…</div>
-    </section>
-    <section class="card-section">
-        <h2 class="h4">Anomalies</h2>
-        <p class="text-muted">Unusual expenses (amount or pattern).</p>
-        <div id="anomalies-content" class="text-muted">Loading…</div>
-    </section>
-</div>
+
+    <!-- Anomalies Card -->
+    <div class="card">
+      <h2 style="font-size:1rem;font-weight:600;margin:0 0 0.35rem;">Anomalies</h2>
+      <p style="font-size:0.85rem;color:var(--color-muted,#6b7280);margin:0 0 1rem;">Unusual expenses by amount or pattern</p>
+
+      <!-- Skeleton loading state -->
+      <div id="anomalies-skeleton" aria-busy="true" aria-label="Loading anomalies">
+        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:80%;animation:skeleton-pulse 1.4s ease-in-out infinite;"></div>
+        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:60%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.2s;"></div>
+        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;width:72%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.4s;"></div>
+      </div>
+
+      <div id="anomalies-content" style="display:none;"></div>
+    </div>
+
+  </div><!-- end grid -->
+</div><!-- end content-inner -->
+
+<style>
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.insights-page .table-wrap table td,
+.insights-page .table-wrap table th { font-size: 0.875rem; }
+</style>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
-    var API = window.API_BASE || '';
+    var API     = window.API_BASE || '';
     var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+
+    function showContent(skeletonId, contentId) {
+        var sk = document.getElementById(skeletonId);
+        var ct = document.getElementById(contentId);
+        if (sk) sk.style.display = 'none';
+        if (ct) ct.style.display = '';
+    }
+
+    /* ---- Forecast ---- */
     fetch(API + '/api/v1/insights/forecast/spend?months_back=6', { headers: headers })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             var el = document.getElementById('forecast-content');
+            showContent('forecast-skeleton', 'forecast-content');
             if (data.message) {
                 el.textContent = data.message;
                 return;
@@ -39,27 +82,51 @@
                 el.textContent = 'No projection data.';
                 return;
             }
-            el.innerHTML = '<ul class="list-unstyled">' + proj.map(function(p) {
-                return '<li>' + (p.month || '') + ': $' + (p.projected_amount != null ? p.projected_amount.toFixed(2) : '—') + '</li>';
-            }).join('') + '</ul>';
+            var rows = proj.map(function(p) {
+                return '<tr>'
+                    + '<td>' + (p.month || '') + '</td>'
+                    + '<td style="text-align:right;font-weight:600;">$' + (p.projected_amount != null ? p.projected_amount.toFixed(2) : '—') + '</td>'
+                    + '</tr>';
+            }).join('');
+            el.innerHTML = '<div class="table-wrap"><table>'
+                + '<thead><tr><th>Month</th><th style="text-align:right;">Projected Spend</th></tr></thead>'
+                + '<tbody>' + rows + '</tbody>'
+                + '</table></div>';
         })
         .catch(function() {
+            showContent('forecast-skeleton', 'forecast-content');
             document.getElementById('forecast-content').textContent = 'Failed to load forecast.';
         });
+
+    /* ---- Anomalies ---- */
     fetch(API + '/api/v1/insights/anomalies', { headers: headers })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             var el = document.getElementById('anomalies-content');
+            showContent('anomalies-skeleton', 'anomalies-content');
             var list = data.anomalies || [];
             if (!list.length) {
                 el.textContent = 'No anomalies detected.';
                 return;
             }
-            el.innerHTML = '<ul class="list-unstyled">' + list.slice(0, 10).map(function(a) {
-                return '<li>' + (a.date || '') + ' $' + (a.amount != null ? a.amount.toFixed(2) : '') + ' — ' + (a.reason || '') + ': ' + (a.detail || '') + '</li>';
-            }).join('') + '</ul>';
+            var rows = list.slice(0, 10).map(function(a) {
+                var badge = a.reason === 'high_amount'
+                    ? '<span class="badge-rose">' + (a.reason || '') + '</span>'
+                    : '<span class="badge-amber">' + (a.reason || '') + '</span>';
+                return '<tr>'
+                    + '<td>' + (a.date || '') + '</td>'
+                    + '<td style="text-align:right;font-weight:600;">$' + (a.amount != null ? a.amount.toFixed(2) : '') + '</td>'
+                    + '<td>' + badge + '</td>'
+                    + '<td style="color:var(--color-muted,#6b7280);font-size:0.8rem;">' + (a.detail || '') + '</td>'
+                    + '</tr>';
+            }).join('');
+            el.innerHTML = '<div class="table-wrap"><table>'
+                + '<thead><tr><th>Date</th><th style="text-align:right;">Amount</th><th>Reason</th><th>Detail</th></tr></thead>'
+                + '<tbody>' + rows + '</tbody>'
+                + '</table></div>';
         })
         .catch(function() {
+            showContent('anomalies-skeleton', 'anomalies-content');
             document.getElementById('anomalies-content').textContent = 'Failed to load anomalies.';
         });
 })();

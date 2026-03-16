@@ -1,68 +1,197 @@
 {% extends "layout.html" %}
 {% block body_class %}investments-page{% endblock %}
-{% block title %}Investments — Expense Tracker{% endblock %}
-{% block head_extra %}
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&amp;display=swap" rel="stylesheet"/>
-{% endblock %}
-{% block back_link %}
-<div class="container"><p class="page-back-wrap"><a href="/dashboard" class="page-back-link" aria-label="Back to dashboard">← Dashboard</a></p></div>
-{% endblock %}
+{% block title %}Investments — FinTrack{% endblock %}
+{% block head_extra %}{% endblock %}
 {% block content %}
-<main id="main-content" class="container main-content">
-    <div class="page-header">
-        <h1 class="page-title">Investments</h1>
-        <p class="page-subtitle">Track your stock and ETF holdings. Add positions manually; live prices can be added later via a broker API.</p>
-        <p class="page-subtitle disclaimer">Not financial advice. For informational purposes only.</p>
-        <div class="integrations-tip card-section" style="margin-top: 0.5rem;">
-            <h3 class="text-sm font-medium text-slate-600 dark:text-slate-400">Track portfolio & get recommendations</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400">Add symbols (e.g. AAPL, VOO) with quantity and average cost. Your portfolio is used for <a href="/recommendations">Recommendations</a> (risk metrics, scores, notes). For live prices and news, set optional env vars: <code>ALPACA_*</code>, <code>FINNHUB_*</code>, <code>TWELVEDATA_*</code>, <code>ALPHAVANTAGE_*</code> in the investments service.</p>
-        </div>
-    </div>
+<div class="page-header">
+    <h1 class="page-title">Investments</h1>
+    <button type="button" id="holdings-add-btn" class="btn btn-primary">+ Add holding</button>
+</div>
 
-    <section class="card-section">
-        <div class="card-header">
-            <h2>Your holdings</h2>
-            <button type="button" id="holdings-add-btn" class="btn btn-primary">Add holding</button>
-        </div>
-        <div id="holdings-list" class="holdings-list">
-            <p class="muted">Loading…</p>
-        </div>
-    </section>
-
-    <div id="add-holding-form-wrap" class="modal-wrap" style="display: none;" aria-hidden="true">
-        <div class="modal-backdrop" id="add-holding-backdrop"></div>
-        <div class="modal-card" role="dialog" aria-labelledby="add-holding-title" aria-modal="true">
-            <h3 id="add-holding-title" class="modal-title">Add holding</h3>
-            <form id="add-holding-form" class="form">
-                <div class="form-group">
-                    <label for="holding-symbol">Symbol <span class="required">*</span></label>
-                    <input type="text" id="holding-symbol" name="symbol" required maxlength="32" placeholder="e.g. AAPL" class="form-control"/>
-                </div>
-                <div class="form-group">
-                    <label for="holding-quantity">Quantity <span class="required">*</span></label>
-                    <input type="number" id="holding-quantity" name="quantity" required min="0.000001" step="any" placeholder="e.g. 10" class="form-control"/>
-                </div>
-                <div class="form-group">
-                    <label for="holding-avg-cost">Avg. cost <span class="required">*</span></label>
-                    <input type="number" id="holding-avg-cost" name="avg_cost" required min="0" step="0.01" placeholder="e.g. 150.00" class="form-control"/>
-                </div>
-                <div class="form-group">
-                    <label for="holding-currency">Currency</label>
-                    <input type="text" id="holding-currency" name="currency" value="USD" maxlength="3" class="form-control"/>
-                </div>
-                <div class="form-group">
-                    <label for="holding-notes">Notes</label>
-                    <input type="text" id="holding-notes" name="notes" maxlength="512" placeholder="Optional" class="form-control"/>
-                </div>
-                <div class="form-actions">
-                    <button type="button" id="add-holding-cancel" class="btn btn-secondary">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save</button>
-                </div>
-            </form>
-        </div>
+<div class="stat-row">
+    <div class="stat-card">
+        <div class="stat-label">Portfolio Value</div>
+        <div class="stat-value" id="inv-total">—</div>
     </div>
-</main>
+    <div class="stat-card">
+        <div class="stat-label">Day Change</div>
+        <div class="stat-value" id="inv-day-change">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Holdings</div>
+        <div class="stat-value" id="inv-count">—</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="page-header" style="margin-bottom: 1rem;">
+        <h2 class="page-title" style="font-size: 1.1rem;">Holdings</h2>
+    </div>
+    <p class="muted" style="margin-bottom: 0.75rem; font-size: 0.875rem;">
+        Add symbols (e.g. AAPL, VOO) with quantity and average cost. Your portfolio is used for
+        <a href="/recommendations">Recommendations</a> (risk metrics, scores, notes).
+        Not financial advice. For informational purposes only.
+    </p>
+    <div class="table-wrap">
+        <table id="inv-holdings-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Quantity</th>
+                    <th>Avg Price</th>
+                    <th>Value</th>
+                    <th>Change %</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="inv-holdings-table-body">
+                <!-- Populated by holdings-list div logic below; JS targets #holdings-list -->
+            </tbody>
+        </table>
+    </div>
+    <div id="holdings-list" style="display:none;"></div>
+</div>
+
+<div class="card">
+    <div class="page-header" style="margin-bottom: 1rem;">
+        <h2 class="page-title" style="font-size: 1.1rem;">Allocation</h2>
+    </div>
+    <p class="muted" style="font-size: 0.875rem; margin-bottom: 1rem;">
+        Breakdown of your portfolio by position weight. Run
+        <a href="/recommendations">Recommendations</a> to see sector-level analysis and risk notes.
+    </p>
+    <div id="inv-allocation-list" class="muted">Add holdings above to see allocation.</div>
+</div>
+
+<p style="margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-muted);">
+    View personalised stock and ETF suggestions on the
+    <a href="/recommendations" class="btn btn-ghost" style="display:inline-block; padding: 0.25rem 0.75rem; margin-left: 0.25rem;">Recommendations</a> page.
+</p>
+
+<!-- Add Holding Modal -->
+<div id="add-holding-form-wrap" class="modal-wrap" style="display: none;" aria-hidden="true">
+    <div class="modal-backdrop" id="add-holding-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-labelledby="add-holding-title" aria-modal="true">
+        <h3 id="add-holding-title" class="modal-title">Add holding</h3>
+        <form id="add-holding-form" class="form">
+            <div class="form-group">
+                <label for="holding-symbol">Symbol <span class="required">*</span></label>
+                <input type="text" id="holding-symbol" name="symbol" required maxlength="32"
+                    placeholder="e.g. AAPL" class="form-input" />
+            </div>
+            <div class="form-group">
+                <label for="holding-quantity">Quantity <span class="required">*</span></label>
+                <input type="number" id="holding-quantity" name="quantity" required
+                    min="0.000001" step="any" placeholder="e.g. 10" class="form-input" />
+            </div>
+            <div class="form-group">
+                <label for="holding-avg-cost">Avg. cost <span class="required">*</span></label>
+                <input type="number" id="holding-avg-cost" name="avg_cost" required
+                    min="0" step="0.01" placeholder="e.g. 150.00" class="form-input" />
+            </div>
+            <div class="form-group">
+                <label for="holding-currency">Currency</label>
+                <input type="text" id="holding-currency" name="currency" value="USD"
+                    maxlength="3" class="form-input" />
+            </div>
+            <div class="form-group">
+                <label for="holding-notes">Notes</label>
+                <input type="text" id="holding-notes" name="notes" maxlength="512"
+                    placeholder="Optional" class="form-input" />
+            </div>
+            <div class="form-actions">
+                <button type="button" id="add-holding-cancel" class="btn btn-ghost">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/investments.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function () {
+    // Mirror holdings-list content into the visible table and update stat cards
+    function syncTableFromList() {
+        var listEl = document.getElementById('holdings-list');
+        var tbody = document.getElementById('inv-holdings-table-body');
+        var totalEl = document.getElementById('inv-total');
+        var countEl = document.getElementById('inv-count');
+        var allocEl = document.getElementById('inv-allocation-list');
+        if (!listEl || !tbody) return;
+
+        var items = listEl.querySelectorAll('.holding-item');
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="muted">No holdings yet. Click "+ Add holding" to track a position.</td></tr>';
+            if (totalEl) totalEl.textContent = '$0.00';
+            if (countEl) countEl.textContent = '0';
+            if (allocEl) allocEl.innerHTML = '<span class="muted">Add holdings above to see allocation.</span>';
+            return;
+        }
+
+        var totalValue = 0;
+        var rows = '';
+        var alloc = [];
+
+        items.forEach(function (li) {
+            var sym = (li.querySelector('.holding-symbol') || {}).textContent || '';
+            var detailEl = li.querySelector('.holding-qty');
+            var detail = detailEl ? detailEl.textContent : '';
+            // parse "qty @ cost CURRENCY"
+            var match = detail.match(/([\d.]+)\s*@\s*([\d.,]+)/);
+            var qty = match ? parseFloat(match[1]) : 0;
+            var cost = match ? parseFloat(match[2].replace(/,/g, '')) : 0;
+            var value = qty * cost;
+            totalValue += value;
+            var holdingId = li.getAttribute('data-holding-id') || '';
+            alloc.push({ sym: sym, value: value });
+
+            rows += '<tr>';
+            rows += '<td><strong>' + sym + '</strong></td>';
+            rows += '<td>' + qty + '</td>';
+            rows += '<td>$' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>';
+            rows += '<td>$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>';
+            rows += '<td><span class="stat-change">—</span></td>';
+            rows += '<td><button type="button" class="btn btn-ghost" style="font-size:0.75rem; padding:0.15rem 0.5rem;"'
+                  + ' data-holding-id="' + holdingId + '" onclick="(function(b){'
+                  + 'var li=document.querySelector(\'[data-holding-id=\\\'' + holdingId + '\\\']\');'
+                  + 'var del=li&&li.querySelector(\'.holding-delete\');if(del)del.click();'
+                  + '})(this)">Remove</button></td>';
+            rows += '</tr>';
+        });
+
+        tbody.innerHTML = rows;
+        if (totalEl) totalEl.textContent = '$' + totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (countEl) countEl.textContent = String(items.length);
+
+        if (allocEl && alloc.length) {
+            var allocHtml = '<ul style="list-style:none; padding:0; margin:0;">';
+            alloc.forEach(function (a) {
+                var pct = totalValue > 0 ? ((a.value / totalValue) * 100).toFixed(1) : '0.0';
+                allocHtml += '<li style="display:flex; align-items:center; gap:0.75rem; padding:0.4rem 0; border-bottom: 1px solid var(--border);">';
+                allocHtml += '<span style="min-width:4rem; font-weight:600;">' + a.sym + '</span>';
+                allocHtml += '<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:' + pct + '%;"></div></div>';
+                allocHtml += '<span style="min-width:3.5rem; text-align:right; font-size:0.875rem;">' + pct + '%</span>';
+                allocHtml += '</li>';
+            });
+            allocHtml += '</ul>';
+            allocEl.innerHTML = allocHtml;
+        }
+    }
+
+    // Observe mutations to hidden list so the table stays in sync
+    var listEl = document.getElementById('holdings-list');
+    if (listEl && typeof MutationObserver !== 'undefined') {
+        var obs = new MutationObserver(function () { syncTableFromList(); });
+        obs.observe(listEl, { childList: true, subtree: true });
+    }
+
+    // Initial sync after investments.js runs
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(syncTableFromList, 400); });
+    } else {
+        setTimeout(syncTableFromList, 400);
+    }
+})();
+</script>
 {% endblock %}

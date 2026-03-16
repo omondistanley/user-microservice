@@ -154,6 +154,8 @@ services:
       TELLER_ENV: ${TELLER_ENV:-sandbox}
       USER_SERVICE_INTERNAL_URL: http://user:8000
       REDIS_URL: redis://redis:6379/0
+      APPLE_WALLET_WEBHOOK_SECRET: ${APPLE_WALLET_WEBHOOK_SECRET:-}
+      APPLE_WALLET_WEBHOOK_USER_ID: ${APPLE_WALLET_WEBHOOK_USER_ID:-}
     depends_on:
       expense-migrations:
         condition: service_completed_successfully
@@ -328,6 +330,7 @@ services:
       PROXY_TIMEOUT_SECONDS: 60
       GATEWAY_RATE_LIMIT_PER_USER: ${GATEWAY_RATE_LIMIT_PER_USER:-200}
       GATEWAY_RATE_LIMIT_PER_IP: ${GATEWAY_RATE_LIMIT_PER_IP:-300}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on:
       redis:
         condition: service_started
