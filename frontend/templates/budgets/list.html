@@ -30,6 +30,11 @@
     </div>
 </div>
 
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+    <button type="button" id="budget-alerts-evaluate-btn" class="btn btn-ghost btn-sm">Evaluate alerts</button>
+    <p id="budget-alerts-status" class="form-hint" style="margin:0;"></p>
+</div>
+
 <!-- Overall progress -->
 <div class="card" style="margin-bottom:24px;display:flex;align-items:center;gap:32px;">
     <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
@@ -188,6 +193,44 @@
         load();
     } else {
         if (listEl) listEl.innerHTML = '<p style="color:var(--s400);font-size:14px;">Sign in to see budgets.</p>';
+    }
+
+    var alertsBtn = document.getElementById('budget-alerts-evaluate-btn');
+    var alertsStatusEl = document.getElementById('budget-alerts-status');
+    function getAuthHeaders() {
+        return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+    }
+    if (alertsBtn) {
+        alertsBtn.addEventListener('click', function() {
+            if (!window.Auth || !window.Auth.getAuthHeaders) {
+                if (alertsStatusEl) alertsStatusEl.textContent = 'Sign in to evaluate alerts.';
+                return;
+            }
+            if (alertsStatusEl) alertsStatusEl.textContent = 'Evaluating alerts…';
+            var API = window.API_BASE || '';
+            var headers = getAuthHeaders();
+            headers['Content-Type'] = 'application/json';
+            fetch(API + '/api/v1/budgets/alerts/evaluate', { method: 'POST', headers: headers })
+                .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+                .then(function(res) {
+                    if (!alertsStatusEl) return;
+                    if (!res.ok) {
+                        alertsStatusEl.textContent = (res.data && (res.data.detail || res.data.message)) || 'Failed to evaluate alerts.';
+                        return;
+                    }
+                    var d = res.data || {};
+                    var processed = d.processed_count != null ? d.processed_count : 0;
+                    var sent = d.sent_count != null ? d.sent_count : 0;
+                    if (sent > 0) {
+                        alertsStatusEl.textContent = 'Alerts evaluated. ' + sent + ' alert(s) triggered.';
+                    } else {
+                        alertsStatusEl.textContent = 'Alerts evaluated. No new alerts triggered.';
+                    }
+                })
+                .catch(function() {
+                    if (alertsStatusEl) alertsStatusEl.textContent = 'Failed to evaluate alerts.';
+                });
+        });
     }
 })();
 </script>

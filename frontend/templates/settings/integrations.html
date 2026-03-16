@@ -64,6 +64,7 @@
             <div style="display:flex;gap:10px;margin-bottom:12px;">
                 <button id="calendar-generate-btn" class="btn btn-primary" type="button">Generate token</button>
                 <button id="calendar-revoke-btn" class="btn btn-ghost" type="button">Revoke</button>
+                <button id="calendar-copy-btn" class="btn btn-ghost" type="button">Copy URL</button>
             </div>
             <div style="background:var(--s50);border-radius:8px;padding:12px;font-size:13px;color:var(--s600);">
                 ICS URL: <code id="calendar-url" style="font-size:12px;word-break:break-all;color:var(--indigo);">Generate a token first</code>
@@ -91,6 +92,7 @@
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var API = window.API_BASE || '';
+    var calendarUrlValue = null;
     var cal = document.getElementById('calendar-url');
     var btn = document.getElementById('export-portable-btn');
     var bankStatus = document.getElementById('bank-status');
@@ -103,6 +105,7 @@
     var digestTestBtn = document.getElementById('digest-test-btn');
     var calendarGenerateBtn = document.getElementById('calendar-generate-btn');
     var calendarRevokeBtn = document.getElementById('calendar-revoke-btn');
+    var calendarCopyBtn = document.getElementById('calendar-copy-btn');
 
     function authHeaders() {
         return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
@@ -194,15 +197,42 @@
     if (calendarGenerateBtn) {
         calendarGenerateBtn.addEventListener('click', function() {
             fetchJson('/api/v1/integrations/calendar/token', { method: 'POST' })
-                .then(function(data) { cal.textContent = data.calendar_url || 'Token created.'; })
+                .then(function(data) {
+                    calendarUrlValue = data.calendar_url || null;
+                    cal.textContent = calendarUrlValue || 'Token created.';
+                })
                 .catch(function() { cal.textContent = 'Failed to generate token.'; });
+        });
+    }
+
+    if (calendarCopyBtn) {
+        calendarCopyBtn.addEventListener('click', function() {
+            var text = calendarUrlValue || (cal && cal.textContent) || '';
+            if (!text || (text.indexOf('http') !== 0 && text.indexOf('webcal') !== 0)) {
+                alert('No calendar URL to copy yet. Generate a token first.');
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() { alert('Calendar URL copied to clipboard.'); }).catch(function() { alert('Failed to copy.'); });
+            } else {
+                var tmp = document.createElement('textarea');
+                tmp.value = text;
+                document.body.appendChild(tmp);
+                tmp.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                document.body.removeChild(tmp);
+                alert('Calendar URL copied to clipboard.');
+            }
         });
     }
 
     if (calendarRevokeBtn) {
         calendarRevokeBtn.addEventListener('click', function() {
             fetchJson('/api/v1/integrations/calendar/token', { method: 'DELETE' })
-                .then(function() { cal.textContent = 'Token revoked. Generate a new one to subscribe again.'; })
+                .then(function() {
+                    calendarUrlValue = null;
+                    cal.textContent = 'Token revoked. Generate a new one to subscribe again.';
+                })
                 .catch(function() { cal.textContent = 'Failed to revoke token.'; });
         });
     }

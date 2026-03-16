@@ -20,6 +20,7 @@
         <option value="EUR">EUR</option>
         <option value="GBP">GBP</option>
       </select>
+      <button type="button" id="reports-save-view-btn" class="btn btn-primary btn-sm">Save current view</button>
     </div>
   </div>
 
@@ -148,6 +149,33 @@
          : 'Last Year';
   }
 
+  function getAuthHeaders() {
+    return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+  }
+
+  function applyQueryParams() {
+    if (typeof URLSearchParams === 'undefined') return;
+    var params = new URLSearchParams(window.location.search || '');
+    var qpPeriod = params.get('period');
+    var qpCurrency = params.get('currency');
+    var qpFrom = params.get('date_from');
+    var qpTo = params.get('date_to');
+    var pSel = document.getElementById('reports-period');
+    var cSel = document.getElementById('reports-currency');
+    if (qpPeriod && (qpPeriod === 'month' || qpPeriod === 'quarter' || qpPeriod === 'year')) {
+      currentRange = qpPeriod;
+      if (pSel) pSel.value = currentRange;
+    }
+    if (qpCurrency) {
+      currentCurrency = qpCurrency.toUpperCase();
+      if (cSel) cSel.value = currentCurrency;
+    }
+    if (qpFrom && qpTo) {
+      dateFrom = qpFrom;
+      dateTo = qpTo;
+    }
+  }
+
   /* ---- formatting ---- */
   function fmt(v) {
     if (v == null || v === '') return '0.00';
@@ -234,7 +262,8 @@
   function load() {
     if (!window.Auth || !window.Auth.getAuthHeaders) return;
 
-    var range     = getDateRange(currentRange);
+    applyQueryParams();
+    var range     = (dateFrom && dateTo) ? { dateFrom: dateFrom, dateTo: dateTo } : getDateRange(currentRange);
     var prevRange = getPrevDateRange(currentRange);
     dateFrom = range.dateFrom;
     dateTo   = range.dateTo;
@@ -285,6 +314,37 @@
     currencySel.addEventListener('change', function() {
       currentCurrency = this.value;
       load();
+    });
+  }
+
+  /* ---- Save current view ---- */
+  var saveBtn = document.getElementById('reports-save-view-btn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function() {
+      if (!window.Auth || !window.Auth.getAuthHeaders) {
+        alert('You need to be signed in to save views.');
+        return;
+      }
+      var name = window.prompt('Name this view:', '');
+      if (!name || !name.trim()) return;
+      var payload = { period: currentRange, currency: currentCurrency, date_from: dateFrom, date_to: dateTo };
+      var API = window.API_BASE || '';
+      var headers = getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+      fetch(API + '/api/v1/reports/saved-views', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ name: name.trim(), payload: payload })
+      })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+          if (!res.ok) {
+            alert((res.data && (res.data.detail || res.data.message)) || 'Failed to save view.');
+            return;
+          }
+          window.location.href = '/saved-views';
+        })
+        .catch(function() { alert('Failed to save view.'); });
     });
   }
 

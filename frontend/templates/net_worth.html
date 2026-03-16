@@ -178,6 +178,54 @@
   wireToggle('nw-toggle-add-asset',     'nw-add-asset-form',     'nw-cancel-add-asset');
   wireToggle('nw-toggle-add-liability', 'nw-add-liability-form', 'nw-cancel-add-liability');
 
+  function getAuthHeaders() {
+    return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+  }
+
+  function loadAssetsList() {
+    var API = window.API_BASE || '';
+    var headers = getAuthHeaders();
+    var tbody = document.getElementById('nw-assets-list-body');
+    if (!tbody) return;
+    fetch(API + '/api/v1/net-worth/assets', { headers: headers })
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function(items) {
+        if (!items || !items.length) {
+          tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No assets recorded.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(function(a) {
+          var val = a.value != null ? Number(a.value) : 0;
+          return '<tr><td>' + (a.name || '').replace(/</g, '&lt;') + '</td><td><span class="badge-emerald">' + (a.type || '').replace(/</g, '&lt;') + '</span></td><td style="text-align:right;font-weight:600;">$' + fmt(val) + '</td></tr>';
+        }).join('');
+      })
+      .catch(function() {
+        tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Failed to load assets.</td></tr>';
+      });
+  }
+
+  function loadLiabilitiesList() {
+    var API = window.API_BASE || '';
+    var headers = getAuthHeaders();
+    var tbody = document.getElementById('nw-liabilities-list-body');
+    if (!tbody) return;
+    fetch(API + '/api/v1/net-worth/liabilities', { headers: headers })
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function(items) {
+        if (!items || !items.length) {
+          tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No liabilities recorded.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(function(l) {
+          var val = l.value != null ? Number(l.value) : 0;
+          return '<tr><td>' + (l.name || '').replace(/</g, '&lt;') + '</td><td><span class="badge-rose">' + (l.type || '').replace(/</g, '&lt;') + '</span></td><td style="text-align:right;font-weight:600;color:var(--color-danger,#ef4444);">-$' + fmt(val) + '</td></tr>';
+        }).join('');
+      })
+      .catch(function() {
+        tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Failed to load liabilities.</td></tr>';
+      });
+  }
+
   /* ---- render helpers ---- */
   function renderAssetsTable(assets) {
     var tbody = document.getElementById('nw-assets-list-body');
@@ -270,6 +318,8 @@
 
         renderAssetsTable(assets);
         renderLiabilitiesTable(liabilities);
+        loadAssetsList();
+        loadLiabilitiesList();
       })
       .catch(function() {
         if (totalEl)       totalEl.textContent       = '$0.00';
@@ -278,11 +328,101 @@
         if (changeEl)      changeEl.textContent      = '—';
         renderAssetsTable({});
         renderLiabilitiesTable({});
+        loadAssetsList();
+        loadLiabilitiesList();
       });
+  }
+
+  var assetForm = document.getElementById('nw-add-asset-form');
+  var assetError = document.getElementById('nw-asset-form-error');
+  if (assetForm) {
+    assetForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (assetError) { assetError.style.display = 'none'; assetError.textContent = ''; }
+      if (!window.Auth || !window.Auth.getAuthHeaders) {
+        if (assetError) { assetError.textContent = 'Sign in to add assets.'; assetError.style.display = 'block'; }
+        return;
+      }
+      var name = (document.getElementById('nw-asset-name').value || '').trim();
+      var type = (document.getElementById('nw-asset-type').value || 'other').trim();
+      var value = parseFloat(document.getElementById('nw-asset-value').value) || 0;
+      if (!name || value <= 0) {
+        if (assetError) { assetError.textContent = 'Please enter a name and positive value.'; assetError.style.display = 'block'; }
+        return;
+      }
+      var API = window.API_BASE || '';
+      var headers = getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+      fetch(API + '/api/v1/net-worth/assets', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ name: name, type: type, value: value, currency: 'USD' })
+      })
+        .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw d; }); return r.json(); })
+        .then(function() {
+          if (assetForm.reset) assetForm.reset();
+          assetForm.style.display = 'none';
+          var toggleBtn = document.getElementById('nw-toggle-add-asset');
+          if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+          loadBalance();
+          loadAssetsList();
+        })
+        .catch(function(err) {
+          if (assetError) {
+            assetError.textContent = (err && (err.detail || err.message)) || 'Failed to save asset.';
+            assetError.style.display = 'block';
+          }
+        });
+    });
+  }
+
+  var liabilityForm = document.getElementById('nw-add-liability-form');
+  var liabilityError = document.getElementById('nw-liability-form-error');
+  if (liabilityForm) {
+    liabilityForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (liabilityError) { liabilityError.style.display = 'none'; liabilityError.textContent = ''; }
+      if (!window.Auth || !window.Auth.getAuthHeaders) {
+        if (liabilityError) { liabilityError.textContent = 'Sign in to add liabilities.'; liabilityError.style.display = 'block'; }
+        return;
+      }
+      var name = (document.getElementById('nw-liability-name').value || '').trim();
+      var type = (document.getElementById('nw-liability-type').value || 'other').trim();
+      var value = parseFloat(document.getElementById('nw-liability-value').value) || 0;
+      if (!name || value <= 0) {
+        if (liabilityError) { liabilityError.textContent = 'Please enter a name and positive amount.'; liabilityError.style.display = 'block'; }
+        return;
+      }
+      var API = window.API_BASE || '';
+      var headers = getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+      fetch(API + '/api/v1/net-worth/liabilities', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ name: name, type: type, value: value, currency: 'USD' })
+      })
+        .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw d; }); return r.json(); })
+        .then(function() {
+          if (liabilityForm.reset) liabilityForm.reset();
+          liabilityForm.style.display = 'none';
+          var toggleBtn = document.getElementById('nw-toggle-add-liability');
+          if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+          loadBalance();
+          loadLiabilitiesList();
+        })
+        .catch(function(err) {
+          if (liabilityError) {
+            liabilityError.textContent = (err && (err.detail || err.message)) || 'Failed to save liability.';
+            liabilityError.style.display = 'block';
+          }
+        });
+    });
   }
 
   if (window.Auth && window.Auth.getAuthHeaders) {
     loadBalance();
+    loadAssetsList();
+    loadLiabilitiesList();
   }
 })();
 </script>
