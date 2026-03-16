@@ -27,7 +27,13 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/reminders", EXPENSE_SERVICE_URL),
     ("/api/v1/export", EXPENSE_SERVICE_URL),
     ("/api/v1/apple-wallet", EXPENSE_SERVICE_URL),
+    # Net worth
+    ("/api/v1/net-worth/summary", USER_SERVICE_URL),
+    ("/api/v1/net-worth/assets", USER_SERVICE_URL),
+    ("/api/v1/net-worth/liabilities", USER_SERVICE_URL),
     ("/api/v1/net-worth", EXPENSE_SERVICE_URL),
+    # Import / portable
+    ("/api/v1/import", EXPENSE_SERVICE_URL),
     # Budget
     ("/api/v1/budgets", BUDGET_SERVICE_URL),
     # Investment

@@ -162,17 +162,63 @@
   if (contribForm) {
     contribForm.addEventListener('submit', function(e) {
       e.preventDefault();
+      if (!contribMsg) return;
       contribMsg.style.display = 'none';
-      var amount = parseFloat(document.getElementById('contribution-amount').value) || 0;
+      contribMsg.className = 'message-error';
+
+      var amountInput = document.getElementById('contribution-amount');
+      var dateInput = document.getElementById('contribution-date');
+      var amount = parseFloat(amountInput && amountInput.value) || 0;
       if (amount <= 0) {
         contribMsg.textContent = 'Please enter a valid amount.';
         contribMsg.style.display = 'block';
         return;
       }
-      // Placeholder: wire to API when backend endpoint is available
-      contribMsg.textContent = 'Contribution recorded (backend integration pending).';
-      contribMsg.style.display = 'block';
-      contribMsg.className = 'message-success';
+
+      var today = new Date();
+      var isoToday = today.toISOString().slice(0, 10);
+      var contributionDate = (dateInput && dateInput.value) ? dateInput.value : isoToday;
+
+      var API = window.API_BASE || '';
+      var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+      headers['Content-Type'] = 'application/json';
+
+      var payload = {
+        amount: amount,
+        contribution_date: contributionDate,
+        source: 'manual'
+      };
+
+      fetch(API + '/api/v1/goals/' + encodeURIComponent(goalId) + '/contributions', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
+      })
+        .then(function(r) {
+          return r.json().then(function(data) {
+            return { ok: r.ok, status: r.status, data: data };
+          });
+        })
+        .then(function(result) {
+          if (!result.ok) {
+            var msg = (result.data && (result.data.detail || result.data.message)) || 'Failed to record contribution.';
+            contribMsg.textContent = msg;
+            contribMsg.style.display = 'block';
+            contribMsg.className = 'message-error';
+            return;
+          }
+          contribMsg.textContent = 'Contribution recorded.';
+          contribMsg.style.display = 'block';
+          contribMsg.className = 'message-success';
+          if (contribForm.reset) contribForm.reset();
+          // Reload page to refresh progress and milestones.
+          window.location.reload();
+        })
+        .catch(function() {
+          contribMsg.textContent = 'Request failed. Please try again.';
+          contribMsg.style.display = 'block';
+          contribMsg.className = 'message-error';
+        });
     });
   }
 })();

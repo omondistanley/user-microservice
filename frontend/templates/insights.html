@@ -98,36 +98,75 @@
             document.getElementById('forecast-content').textContent = 'Failed to load forecast.';
         });
 
+    function renderAnomalies(list) {
+        var el = document.getElementById('anomalies-content');
+        if (!el) return;
+        if (!list.length) {
+            el.textContent = 'No anomalies detected.';
+            return;
+        }
+        var rows = list.slice(0, 10).map(function(a) {
+            var badge = a.reason === 'high_amount'
+                ? '<span class="badge-rose">' + (a.reason || '') + '</span>'
+                : '<span class="badge-amber">' + (a.reason || '') + '</span>';
+            var expenseId = a.expense_id || a.expenseId || a.id || '';
+            var actions = expenseId
+                ? '<button type="button" class="btn btn-ghost btn-xs anomaly-action" data-expense-id="' + expenseId + '" data-feedback="valid">Mark valid</button>' +
+                  '<button type="button" class="btn btn-ghost btn-xs anomaly-action" data-expense-id="' + expenseId + '" data-feedback="ignore" style="margin-left:0.25rem;">Ignore</button>'
+                : '';
+            return '<tr>'
+                + '<td>' + (a.date || '') + '</td>'
+                + '<td style="text-align:right;font-weight:600;">$' + (a.amount != null ? a.amount.toFixed(2) : '') + '</td>'
+                + '<td>' + badge + '</td>'
+                + '<td style="color:var(--color-muted,#6b7280);font-size:0.8rem;">' + (a.detail || '') + '</td>'
+                + '<td style="text-align:right;white-space:nowrap;">' + actions + '</td>'
+                + '</tr>';
+        }).join('');
+        el.innerHTML = '<div class="table-wrap"><table>'
+            + '<thead><tr><th>Date</th><th style="text-align:right;">Amount</th><th>Reason</th><th>Detail</th><th></th></tr></thead>'
+            + '<tbody>' + rows + '</tbody>'
+            + '</table></div>';
+
+        // Wire up action buttons
+        var buttons = el.querySelectorAll('.anomaly-action');
+        buttons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var expenseId = btn.getAttribute('data-expense-id');
+                var feedback = btn.getAttribute('data-feedback');
+                if (!expenseId || !feedback) return;
+                var url = API + '/api/v1/insights/anomalies/' + encodeURIComponent(expenseId) + '/feedback?feedback=' + encodeURIComponent(feedback);
+                fetch(url, { method: 'POST', headers: headers })
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        // Optimistically remove row from table
+                        var row = btn.closest('tr');
+                        if (row && row.parentNode) {
+                            row.parentNode.removeChild(row);
+                        }
+                        // If no rows left, show empty state
+                        if (!el.querySelector('tbody tr')) {
+                            el.textContent = 'No anomalies detected.';
+                        }
+                    })
+                    .catch(function() {
+                        alert('Failed to submit feedback. Please try again.');
+                    });
+            });
+        });
+    }
+
     /* ---- Anomalies ---- */
     fetch(API + '/api/v1/insights/anomalies', { headers: headers })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            var el = document.getElementById('anomalies-content');
             showContent('anomalies-skeleton', 'anomalies-content');
             var list = data.anomalies || [];
-            if (!list.length) {
-                el.textContent = 'No anomalies detected.';
-                return;
-            }
-            var rows = list.slice(0, 10).map(function(a) {
-                var badge = a.reason === 'high_amount'
-                    ? '<span class="badge-rose">' + (a.reason || '') + '</span>'
-                    : '<span class="badge-amber">' + (a.reason || '') + '</span>';
-                return '<tr>'
-                    + '<td>' + (a.date || '') + '</td>'
-                    + '<td style="text-align:right;font-weight:600;">$' + (a.amount != null ? a.amount.toFixed(2) : '') + '</td>'
-                    + '<td>' + badge + '</td>'
-                    + '<td style="color:var(--color-muted,#6b7280);font-size:0.8rem;">' + (a.detail || '') + '</td>'
-                    + '</tr>';
-            }).join('');
-            el.innerHTML = '<div class="table-wrap"><table>'
-                + '<thead><tr><th>Date</th><th style="text-align:right;">Amount</th><th>Reason</th><th>Detail</th></tr></thead>'
-                + '<tbody>' + rows + '</tbody>'
-                + '</table></div>';
+            renderAnomalies(list);
         })
         .catch(function() {
             showContent('anomalies-skeleton', 'anomalies-content');
-            document.getElementById('anomalies-content').textContent = 'Failed to load anomalies.';
+            var el = document.getElementById('anomalies-content');
+            if (el) el.textContent = 'Failed to load anomalies.';
         });
 })();
 </script>
