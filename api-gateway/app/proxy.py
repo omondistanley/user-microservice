@@ -13,7 +13,8 @@ from app.config import PROXY_TIMEOUT_SECONDS
 logger = logging.getLogger(__name__)
 
 # Forward from client (except Authorization - we use X-User-Id instead)
-FORWARD_HEADERS = {"content-type", "idempotency-key", "x-request-id"}
+# x-webhook-secret: for Apple Wallet webhook; expense service validates it
+FORWARD_HEADERS = {"content-type", "idempotency-key", "x-request-id", "x-webhook-secret"}
 
 DROP_RESPONSE_HEADERS = {
     "transfer-encoding", "connection", "keep-alive",

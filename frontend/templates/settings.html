@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+{% block body_class %}settings-page{% endblock %}
+{% block title %}Settings — FinTrack{% endblock %}
+{% block content %}
+<div class="card card-lg">
+    <h1 class="stat-value" style="font-size: 1.5rem; margin-bottom: 20px;">Settings</h1>
+    <form id="settings-form" style="display: grid; gap: 24px;">
+        <div class="form-group">
+            <label class="form-label" for="settings-currency">Default currency</label>
+            <select id="settings-currency" class="form-input" style="max-width: 120px;">
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="KES">KES</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Active household</label>
+            <select id="settings-household" class="form-input" style="max-width: 280px;">
+                <option value="">Personal</option>
+            </select>
+            <p class="form-hint">Data scope for dashboard and reports.</p>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Integrations</label>
+            <a href="/settings/integrations" class="btn btn-ghost btn-sm">Manage integrations</a>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="settings-theme">Appearance</label>
+            <select id="settings-theme" class="form-input" style="max-width: 160px;">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="system">System</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: fit-content;">Save settings</button>
+    </form>
+    <p id="settings-msg" class="form-hint" style="margin-top: 12px;"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
+    }
+    function load() {
+        Promise.all([
+            fetch(API + '/api/v1/settings', { headers: authHeaders() }).then(function(r) { return r.json(); }),
+            fetch(API + '/api/v1/households', { headers: authHeaders() }).then(function(r) { return r.json(); })
+        ]).then(function(results) {
+            var settings = results[0];
+            var households = Array.isArray(results[1]) ? results[1] : (results[1].items || []);
+            if (settings && settings.default_currency) {
+                var cur = document.getElementById('settings-currency');
+                if (cur) cur.value = settings.default_currency;
+            }
+            if (settings && settings.active_household_id) {
+                var h = document.getElementById('settings-household');
+                if (h) h.value = settings.active_household_id;
+            }
+            var sel = document.getElementById('settings-household');
+            if (sel) {
+                sel.innerHTML = '<option value="">Personal</option>';
+                households.forEach(function(h) {
+                    sel.appendChild(new Option(h.name || 'Household', h.household_id || h.id || ''));
+                });
+                if (settings && settings.active_household_id) sel.value = settings.active_household_id;
+            }
+            var theme = document.getElementById('settings-theme');
+            if (theme && window.localStorage) {
+                var saved = localStorage.getItem('theme') || 'dark';
+                theme.value = saved;
+            }
+        }).catch(function() {});
+    }
+    document.getElementById('settings-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var currency = document.getElementById('settings-currency').value;
+        var householdId = document.getElementById('settings-household').value || null;
+        var msg = document.getElementById('settings-msg');
+        var theme = document.getElementById('settings-theme').value;
+        if (window.localStorage) localStorage.setItem('theme', theme);
+        if (window.Theme && window.Theme.apply) window.Theme.apply(theme);
+        Promise.all([
+            fetch(API + '/api/v1/settings', {
+                method: 'PATCH',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                body: JSON.stringify({ default_currency: currency })
+            }),
+            fetch(API + '/api/v1/settings/active-household', {
+                method: 'PATCH',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                body: JSON.stringify({ household_id: householdId })
+            })
+        ]).then(function(r) {
+            msg.textContent = r.every(function(x) { return x.ok; }) ? 'Settings saved.' : 'Some settings could not be saved.';
+        }).catch(function() { msg.textContent = 'Failed to save.'; });
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
+    else load();
+})();
+</script>
+{% endblock %}

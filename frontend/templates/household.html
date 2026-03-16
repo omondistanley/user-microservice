@@ -1,0 +1,160 @@
+{% extends "layout.html" %}
+{% block body_class %}household-page{% endblock %}
+{% block title %}Household — FinTrack{% endblock %}
+{% block content %}
+<div class="card card-lg">
+    <h1 class="stat-value" style="font-size: 1.5rem; margin-bottom: 20px;">Household</h1>
+    <div class="form-group" style="margin-bottom: 24px;">
+        <label class="form-label">Current view scope</label>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button type="button" id="scope-personal" class="btn btn-primary btn-sm">Personal</button>
+            <select id="scope-household" class="form-input" style="width: auto; max-width: 240px;">
+                <option value="">Select household</option>
+            </select>
+        </div>
+        <p class="form-hint">Switch between personal data and a household to view shared data.</p>
+    </div>
+    <hr style="border-color: var(--s200); margin: 24px 0;" />
+    <h2 class="stat-label" style="margin-bottom: 12px;">Members</h2>
+    <div id="household-members-list"></div>
+    <p id="household-members-empty" class="form-hint" style="display: none;">No household selected or you are not in a household.</p>
+    <hr style="border-color: var(--s200); margin: 24px 0;" />
+    <h2 class="stat-label" style="margin-bottom: 12px;">Invite member</h2>
+    <form id="household-invite-form" style="display: grid; gap: 12px; max-width: 360px;">
+        <div class="form-group">
+            <label class="form-label" for="invite-email">Email</label>
+            <input type="email" id="invite-email" class="form-input" required placeholder="user@example.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="invite-role">Role</label>
+            <select id="invite-role" class="form-input">
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <select id="invite-household" class="form-input" required>
+                <option value="">Select household to invite to</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Send invite</button>
+    </form>
+    <p id="household-invite-msg" class="form-hint" style="margin-top: 8px;"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
+    }
+    function loadHouseholds() {
+        fetch(API + '/api/v1/households', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var list = Array.isArray(data) ? data : (data.items || []);
+                var sel = document.getElementById('scope-household');
+                var inv = document.getElementById('invite-household');
+                if (!sel || !inv) return;
+                sel.innerHTML = '<option value="">Select household</option>';
+                inv.innerHTML = '<option value="">Select household to invite to</option>';
+                list.forEach(function(h) {
+                    var id = h.household_id || h.id || '';
+                    var name = h.name || 'Household';
+                    sel.appendChild(new Option(name, id));
+                    inv.appendChild(new Option(name, id));
+                });
+                loadSettings();
+            })
+            .catch(function() {});
+    }
+    function loadSettings() {
+        fetch(API + '/api/v1/settings', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(s) {
+                var id = (s && s.active_household_id) ? s.active_household_id : '';
+                var scopePersonal = document.getElementById('scope-personal');
+                var scopeHousehold = document.getElementById('scope-household');
+                if (scopeHousehold) scopeHousehold.value = id || '';
+                if (scopePersonal) scopePersonal.classList.toggle('btn-primary', !id);
+                loadMembers(id);
+            })
+            .catch(function() { loadMembers(''); });
+    }
+    function loadMembers(householdId) {
+        var listEl = document.getElementById('household-members-list');
+        var emptyEl = document.getElementById('household-members-empty');
+        if (!householdId) {
+            if (listEl) listEl.innerHTML = '';
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
+        fetch(API + '/api/v1/households/' + householdId + '/members', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var members = Array.isArray(data) ? data : (data.items || []);
+                if (!listEl) return;
+                if (members.length === 0) {
+                    listEl.innerHTML = '<p class="form-hint">No members yet.</p>';
+                    return;
+                }
+                listEl.innerHTML = members.map(function(m) {
+                    var role = (m.role || 'member').toLowerCase();
+                    var badge = role === 'owner' ? 'badge-indigo' : (role === 'admin' ? 'badge-amber' : 'badge-slate');
+                    return '<div class="notif-item" style="align-items:center">' +
+                        '<div class="sb-avatar">' + (m.user_id || '?').toString().charAt(0) + '</div>' +
+                        '<div style="flex:1"><span class="notif-title">User #' + (m.user_id || '') + '</span><span class="badge ' + badge + '" style="margin-left:8px">' + (m.role || '') + '</span></div>' +
+                        '</div>';
+                }).join('');
+            })
+            .catch(function() {
+                if (listEl) listEl.innerHTML = '<p class="form-hint">Could not load members.</p>';
+            });
+    }
+    document.getElementById('scope-personal').addEventListener('click', function() {
+        fetch(API + '/api/v1/settings/active-household', {
+            method: 'PATCH',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ household_id: null })
+        }).then(function(r) { if (r.ok) loadSettings(); });
+    });
+    var scopeHousehold = document.getElementById('scope-household');
+    if (scopeHousehold) scopeHousehold.addEventListener('change', function() {
+        var id = scopeHousehold.value || null;
+        fetch(API + '/api/v1/settings/active-household', {
+            method: 'PATCH',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ household_id: id })
+        }).then(function(r) { if (r.ok) loadSettings(); });
+    });
+    document.getElementById('household-invite-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var householdId = document.getElementById('invite-household').value;
+        var email = document.getElementById('invite-email').value;
+        var role = document.getElementById('invite-role').value;
+        var msg = document.getElementById('household-invite-msg');
+        if (!householdId) { if (msg) msg.textContent = 'Select a household.'; return; }
+        fetch(API + '/api/v1/households/' + householdId + '/members', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ email: email, role: role })
+        })
+            .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+            .then(function(x) {
+                if (x.ok) {
+                    if (msg) msg.textContent = 'Invite sent.';
+                    loadMembers(householdId);
+                } else {
+                    if (msg) msg.textContent = (x.data && x.data.detail) ? (typeof x.data.detail === 'string' ? x.data.detail : JSON.stringify(x.data.detail)) : 'Failed to invite.';
+                }
+            })
+            .catch(function() { if (msg) msg.textContent = 'Request failed.'; });
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadHouseholds);
+    else loadHouseholds();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+{% block body_class %}saved-views-page{% endblock %}
+{% block title %}Saved Views — FinTrack{% endblock %}
+{% block content %}
+<div class="card card-lg">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+        <h1 class="stat-value" style="font-size: 1.5rem; margin: 0;">Saved report views</h1>
+        <a href="/reports" class="btn btn-primary btn-sm">Save current view</a>
+    </div>
+    <p class="form-hint" style="margin-bottom: 16px;">Apply a saved view to load a report with the same filters and options.</p>
+    <div id="saved-views-list"></div>
+    <p id="saved-views-empty" class="form-hint" style="display: none;">No saved views. Create one from the Reports page.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
+    }
+    function load() {
+        fetch(API + '/api/v1/reports/saved-views', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var items = (data && data.items) ? data.items : [];
+                var list = document.getElementById('saved-views-list');
+                var empty = document.getElementById('saved-views-empty');
+                if (!list) return;
+                if (items.length === 0) {
+                    list.innerHTML = '';
+                    if (empty) empty.style.display = 'block';
+                    return;
+                }
+                if (empty) empty.style.display = 'none';
+                list.innerHTML = items.map(function(v) {
+                    var id = v.view_id || v.id || '';
+                    var name = v.name || 'Unnamed view';
+                    var payload = v.payload || {};
+                    var qs = Object.keys(payload).length ? '?' + new URLSearchParams(payload).toString() : '';
+                    return '<div class="notif-item">' +
+                        '<div style="flex:1">' +
+                        '<div class="notif-title">' + name + '</div>' +
+                        '<div class="notif-time">' + (v.created_at || '') + '</div>' +
+                        '</div>' +
+                        '<a href="/reports' + qs + '" class="btn btn-primary btn-sm" style="margin-right:8px">Apply</a>' +
+                        '<button type="button" class="btn btn-ghost btn-sm saved-view-delete" data-id="' + id + '">Delete</button>' +
+                        '</div>';
+                }).join('');
+                list.querySelectorAll('.saved-view-delete').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var id = btn.getAttribute('data-id');
+                        if (!id || !confirm('Delete this saved view?')) return;
+                        fetch(API + '/api/v1/reports/saved-views/' + id, {
+                            method: 'DELETE',
+                            headers: authHeaders()
+                        }).then(function(r) { if (r.ok || r.status === 204) load(); });
+                    });
+                });
+            })
+            .catch(function() {
+                var list = document.getElementById('saved-views-list');
+                if (list) list.innerHTML = '<p class="form-hint">Could not load saved views.</p>';
+            });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
+    else load();
+})();
+</script>
+{% endblock %}

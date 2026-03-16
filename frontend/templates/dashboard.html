@@ -231,27 +231,8 @@
     }
 
     function loadAll() {
-        loadBalance();
         loadBudgetAndCashflow();
         loadRecentTransactions();
-    }
-
-    function loadBalance() {
-        if (!totalBalanceEl) return;
-        var api = window.EXPENSE_API_BASE || '';
-        var h = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
-        var fn = (window.Auth && window.Auth.requestWithRefresh)
-            ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses/balance', { headers: h }); }
-            : function() { return fetch(api + '/api/v1/expenses/balance', { headers: h }); };
-        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
-            .then(function(d) {
-                var bal = d && d.balance_after != null ? d.balance_after : null;
-                totalBalanceEl.textContent = fmtMoney(bal);
-                if (balanceTrendEl) balanceTrendEl.style.display = 'none';
-            })
-            .catch(function() {
-                totalBalanceEl.textContent = '—';
-            });
     }
 
     function loadBudgetAndCashflow() {
@@ -287,9 +268,14 @@
             var expenseTotal = (cashflow && cashflow.expense_total != null) ? Number(cashflow.expense_total) : null;
             if (incomeEl) incomeEl.textContent = incomeTotal != null ? '$' + fmt(incomeTotal) : '—';
             if (expensesEl) expensesEl.textContent = expenseTotal != null ? '$' + fmt(expenseTotal) : '—';
+            // Running balance = income − expenses (same period as Cashflow card) so it updates when income or expenses change
+            var net = (incomeTotal != null && expenseTotal != null) ? (incomeTotal - expenseTotal) : (cashflow && cashflow.savings != null ? Number(cashflow.savings) : null);
+            if (totalBalanceEl) totalBalanceEl.textContent = net != null ? fmtMoney(net) : '—';
+            if (balanceTrendEl) balanceTrendEl.style.display = 'none';
         }).catch(function() {
             if (incomeEl) incomeEl.textContent = '—';
             if (expensesEl) expensesEl.textContent = '—';
+            if (totalBalanceEl) totalBalanceEl.textContent = '—';
         });
     }
 

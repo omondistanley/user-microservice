@@ -45,15 +45,29 @@
     }
 
     function renderUnreadCount(unread) {
-        var countEl = document.getElementById('notifications-unread-count');
-        if (!countEl) return;
         var n = Number(unread || 0);
-        if (n > 0) {
-            countEl.textContent = String(n);
-            countEl.style.display = 'inline-block';
-        } else {
-            countEl.textContent = '0';
-            countEl.style.display = 'none';
+        var countEl = document.getElementById('notifications-unread-count');
+        if (countEl) {
+            if (n > 0) {
+                countEl.textContent = String(n);
+                countEl.style.display = 'inline-block';
+            } else {
+                countEl.textContent = '0';
+                countEl.style.display = 'none';
+            }
+        }
+        var sidebarBadge = document.getElementById('sidebar-notif-badge');
+        if (sidebarBadge) {
+            if (n > 0) {
+                sidebarBadge.textContent = n > 99 ? '99+' : String(n);
+                sidebarBadge.style.display = 'inline';
+            } else {
+                sidebarBadge.style.display = 'none';
+            }
+        }
+        var topbarBadge = document.getElementById('topbar-notif-badge');
+        if (topbarBadge) {
+            topbarBadge.style.display = n > 0 ? 'block' : 'none';
         }
     }
 

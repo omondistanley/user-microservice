@@ -26,6 +26,8 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/insights", EXPENSE_SERVICE_URL),
     ("/api/v1/reminders", EXPENSE_SERVICE_URL),
     ("/api/v1/export", EXPENSE_SERVICE_URL),
+    ("/api/v1/apple-wallet", EXPENSE_SERVICE_URL),
+    ("/api/v1/net-worth", EXPENSE_SERVICE_URL),
     # Budget
     ("/api/v1/budgets", BUDGET_SERVICE_URL),
     # Investment
@@ -34,6 +36,9 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/portfolio", INVESTMENT_SERVICE_URL),
     ("/api/v1/market", INVESTMENT_SERVICE_URL),
     ("/api/v1/risk-profile", INVESTMENT_SERVICE_URL),
+    ("/api/v1/tax", INVESTMENT_SERVICE_URL),
+    ("/api/v1/sentiment", INVESTMENT_SERVICE_URL),
+    ("/api/v1/news", INVESTMENT_SERVICE_URL),
 ]
 
 DEFAULT_UPSTREAM = USER_SERVICE_URL

@@ -3,6 +3,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
+from typing import Optional
 
 import psycopg2
 import uvicorn
@@ -55,6 +56,23 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
 )
+
+
+@app.middleware("http")
+async def redirect_to_gateway_if_configured(request: Request, call_next):
+    """When GATEWAY_PUBLIC_URL is set, redirect direct hits to user service (port 8000) to the gateway so auth and API bases are consistent."""
+    if GATEWAY_PUBLIC_URL:
+        host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").strip().lower()
+        if request.method == "GET" and host in ("localhost:8000", "127.0.0.1:8000"):
+            base = GATEWAY_PUBLIC_URL.rstrip("/")
+            path = request.url.path or "/"
+            if not path.startswith("/"):
+                path = "/" + path
+            query = request.url.query
+            redirect_url = f"{base}{path}" + (f"?{query}" if query else "")
+            return RedirectResponse(redirect_url, status_code=307)
+    return await call_next(request)
+
 
 # Frontend: expense_tracker/frontend (sibling of user-microservice)
 # __file__ = .../user-microservice/app/main.py -> parent.parent = user-microservice -> parent.parent.parent = expense_tracker
@@ -255,12 +273,16 @@ def _render(page: str, request: Request, **context):
     if templates is None:
         raise HTTPException(status_code=503, detail="Frontend not found")
     csp_nonce = str(getattr(request.state, "csp_nonce", "") or "")
-    expense_api_base = GATEWAY_PUBLIC_URL if GATEWAY_PUBLIC_URL else EXPENSE_API_BASE_FRONTEND
-    budget_api_base = GATEWAY_PUBLIC_URL if GATEWAY_PUBLIC_URL else BUDGET_API_BASE_FRONTEND
+    # When using the gateway, pass empty string so the frontend uses same-origin (relative) for all
+    # API calls. That way the app works whether the user opened localhost:8080 or 127.0.0.1:8080,
+    # and tokens in localStorage apply to the same origin they're actually using.
+    expense_api_base = "" if GATEWAY_PUBLIC_URL else EXPENSE_API_BASE_FRONTEND
+    budget_api_base = "" if GATEWAY_PUBLIC_URL else BUDGET_API_BASE_FRONTEND
     base_context = {
         "request": request,
         "expense_api_base": expense_api_base,
         "budget_api_base": budget_api_base,
+        "gateway_public_url": "",  # always use relative paths; gateway is same-origin when accessed via port 8080
         "csp_nonce": csp_nonce,
     }
     base_context.update(context)
@@ -609,6 +631,41 @@ async def link_bank_select_page(request: Request):
 @app.get("/net-worth", include_in_schema=False)
 async def net_worth_page(request: Request):
     return _render("net_worth.html", request)
+
+
+@app.get("/notifications", include_in_schema=False)
+async def notifications_page(request: Request):
+    return _render("notifications.html", request)
+
+
+@app.get("/household", include_in_schema=False)
+async def household_page(request: Request):
+    return _render("household.html", request)
+
+
+@app.get("/sessions", include_in_schema=False)
+async def sessions_page(request: Request):
+    return _render("sessions.html", request)
+
+
+@app.get("/profile", include_in_schema=False)
+async def profile_page(request: Request):
+    return _render("profile.html", request)
+
+
+@app.get("/settings", include_in_schema=False)
+async def settings_page(request: Request):
+    return _render("settings.html", request)
+
+
+@app.get("/saved-views", include_in_schema=False)
+async def saved_views_page(request: Request):
+    return _render("saved_views.html", request)
+
+
+@app.get("/verify-email/pending", include_in_schema=False)
+async def verify_email_pending_page(request: Request, email: Optional[str] = None):
+    return _render("verify_email_pending.html", request, email=email or "")
 
 
 app.middleware("http")(security_headers_middleware)

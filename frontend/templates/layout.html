@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#6c63ff">
     <meta name="expense-api-base" content="{{ expense_api_base | default('') }}">
     <meta name="budget-api-base" content="{{ budget_api_base | default('') }}">
+    <meta name="gateway-public-url" content="{{ gateway_public_url | default('') }}">
     <title>{% block title %}Expense Tracker{% endblock %}</title>
     <link rel="manifest" href="/static/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,9 +15,73 @@
     <link rel="stylesheet" href="/static/css/main.css">
     {% block head_extra %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" id="app-body">
+{% set _public_paths = ['/', '/landing', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/verify-email/pending', '/welcome'] %}
+{% set _use_app_shell = request.url.path not in _public_paths %}
+<body class="{% if _use_app_shell %}app-shell-page {% endif %}{% block body_class %}{% endblock %}" id="app-body">
     <a href="#main-content" class="skip-to-content">Skip to main content</a>
-    <nav class="navbar" aria-label="Main navigation">
+
+    <!-- App shell: sidebar + main (visible when app-shell-page) -->
+    <div class="app-shell" id="app-shell" aria-hidden="{{ 'false' if _use_app_shell else 'true' }}" style="{% if not _use_app_shell %}display: none;{% endif %}">
+        <aside class="sidebar" aria-label="App navigation">
+            <div class="sb-logo">
+                <a href="/dashboard" class="sb-logo-text" style="text-decoration: none; color: inherit;">FinTrack</a>
+                <div class="sb-logo-sub">Personal · March 2026</div>
+            </div>
+            <nav class="sb-nav">
+                <div class="sb-section">Overview</div>
+                <a href="/dashboard" class="sb-link {% if request.url.path == '/dashboard' %}active{% endif %}"><span class="icon">📊</span> Dashboard</a>
+                <a href="/net-worth" class="sb-link {% if request.url.path == '/net-worth' %}active{% endif %}"><span class="icon">💎</span> Net Worth</a>
+                <div class="sb-section">Money</div>
+                <a href="/expenses" class="sb-link {% if request.url.path.startswith('/expenses') %}active{% endif %}"><span class="icon">💸</span> Expenses</a>
+                <a href="/income" class="sb-link {% if request.url.path.startswith('/income') %}active{% endif %}"><span class="icon">📈</span> Income</a>
+                <a href="/recurring" class="sb-link {% if request.url.path.startswith('/recurring') %}active{% endif %}"><span class="icon">🔄</span> Recurring</a>
+                <a href="/budgets" class="sb-link {% if request.url.path.startswith('/budgets') %}active{% endif %}"><span class="icon">💰</span> Budgets <span id="sidebar-budgets-badge" class="sb-badge" style="display: none;">!</span></a>
+                <a href="/goals" class="sb-link {% if request.url.path.startswith('/goals') %}active{% endif %}"><span class="icon">🎯</span> Goals</a>
+                <div class="sb-section">Analytics</div>
+                <a href="/reports" class="sb-link {% if request.url.path == '/reports' or request.url.path.startswith('/reports/') %}active{% endif %}"><span class="icon">📋</span> Reports</a>
+                <a href="/investments" class="sb-link {% if request.url.path.startswith('/investments') %}active{% endif %}"><span class="icon">📈</span> Investments</a>
+                <a href="/recommendations" class="sb-link {% if request.url.path.startswith('/recommendations') %}active{% endif %}"><span class="icon">🤖</span> AI Insights</a>
+                <div class="sb-section">Account</div>
+                <a href="/notifications" class="sb-link {% if request.url.path == '/notifications' %}active{% endif %}"><span class="icon">🔔</span> Notifications <span id="sidebar-notif-badge" class="sb-badge" style="display: none;">0</span></a>
+                <a href="/household" class="sb-link {% if request.url.path == '/household' %}active{% endif %}"><span class="icon">👥</span> Household</a>
+                <a href="/sessions" class="sb-link {% if request.url.path == '/sessions' %}active{% endif %}"><span class="icon">🔐</span> Sessions</a>
+                <a href="/profile" class="sb-link {% if request.url.path == '/profile' %}active{% endif %}"><span class="icon">👤</span> Profile</a>
+                <a href="/settings" class="sb-link {% if request.url.path == '/settings' or request.url.path.startswith('/settings/') %}active{% endif %}"><span class="icon">⚙️</span> Settings</a>
+                <div class="sb-section">Integrations</div>
+                <a href="/saved-views" class="sb-link {% if request.url.path == '/saved-views' %}active{% endif %}"><span class="icon">📌</span> Saved Views</a>
+                <a href="/settings/integrations" class="sb-link {% if request.url.path == '/settings/integrations' %}active{% endif %}"><span class="icon">🔌</span> Integrations</a>
+                <a href="/link-bank" class="sb-link {% if request.url.path.startswith('/link-bank') %}active{% endif %}"><span class="icon">🏦</span> Link Bank</a>
+            </nav>
+            <div class="sb-user" id="sidebar-user-block">
+                <div class="sb-avatar" id="sidebar-avatar">?</div>
+                <div>
+                    <div class="sb-user-name" id="sidebar-user-name">User</div>
+                    <div class="sb-user-email" id="sidebar-user-email">—</div>
+                </div>
+                <a href="/profile" class="sb-user-icon" aria-label="Profile">⋯</a>
+            </div>
+        </aside>
+        <main class="app-main">
+            <header class="topbar">
+                <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
+                <span class="topbar-date" id="topbar-date"></span>
+                <a href="/notifications" class="topbar-bell" aria-label="Notifications" style="text-decoration: none; color: inherit;">
+                    <span aria-hidden="true">🔔</span>
+                    <span id="topbar-notif-badge" class="topbar-badge" style="display: none;"></span>
+                </a>
+                <a href="/expenses/add" class="btn btn-primary btn-sm" style="margin-left: 8px;">+ Add Expense</a>
+            </header>
+            <div class="content-area" id="main-content" tabindex="-1">
+                {% if _use_app_shell %}
+                {% block back_link %}{% endblock %}
+                {% block content %}{% endblock %}
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Public / auth: top navbar (visible when not app-shell-page) -->
+    <nav class="navbar navbar-public" id="navbar-public" aria-label="Main navigation" style="{% if _use_app_shell %}display: none;{% endif %}">
         <div class="container navbar-inner">
             <div class="navbar-left">
                 <a href="/dashboard" class="navbar-brand" id="navbar-brand">Expense<span class="brand-dot">.</span></a>
@@ -42,12 +107,15 @@
                 <li id="nav-logout" class="nav-auth" style="display: none;"><a href="#" class="nav-link" id="nav-logout-link">Log out</a></li>
             </ul>
         </div>
-        <div id="navbar-filters-panel" class="navbar-filters-panel" style="display: none;">
+    </nav>
+    <!-- More menu panel (outside nav so it can show when app-shell is active) -->
+    <div id="navbar-filters-panel" class="navbar-filters-panel" style="display: none;">
             <div class="container">
                 <div class="navbar-panel-section navbar-panel-nav">
                     <ul class="navbar-panel-links">
                         <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
                         <li><a href="/expenses" class="nav-link">Expenses</a></li>
+                        <li><a href="/expenses/add" class="nav-link">Add expense</a></li>
                         <li><a href="/expenses/import" class="nav-link">Import CSV</a></li>
                         <li><a href="/income" class="nav-link">Income</a></li>
                         <li><a href="/recurring" class="nav-link">Recurring</a></li>
@@ -58,6 +126,12 @@
                         <li><a href="/budgets" class="nav-link">Budgets</a></li>
                         <li><a href="/investments" class="nav-link">Investments</a></li>
                         <li><a href="/recommendations" class="nav-link">Recommendations</a></li>
+                        <li><a href="/notifications" class="nav-link">Notifications</a></li>
+                        <li><a href="/household" class="nav-link">Household</a></li>
+                        <li><a href="/sessions" class="nav-link">Sessions</a></li>
+                        <li><a href="/profile" class="nav-link">Profile</a></li>
+                        <li><a href="/settings" class="nav-link">Settings</a></li>
+                        <li><a href="/saved-views" class="nav-link">Saved Views</a></li>
                         <li><a href="/settings/integrations" class="nav-link">Integrations</a></li>
                     </ul>
                     <div class="navbar-panel-section navbar-panel-household" id="household-switcher-wrap" style="display: none;">
@@ -128,21 +202,20 @@
                         </select>
                     </div>
             </div>
-        </div>
-    </nav>
+    </div>
 
     <div id="onboarding-banner" class="onboarding-banner" role="region" aria-label="Onboarding" style="display: none;">
         <p>Welcome! Add your first expense or link a bank to get started.</p>
         <button type="button" id="onboarding-dismiss" class="btn btn-secondary btn-sm" aria-label="Dismiss">Dismiss</button>
     </div>
 
-    <main class="main-content" id="main-content" tabindex="-1">
-        {% block back_link %}{% endblock %}
-        {% block content %}{% endblock %}
+    <main class="main-content main-content-public" id="main-content" tabindex="-1" style="{% if _use_app_shell %}display: none;{% endif %}">
+        {{ self.back_link() }}
+        {{ self.content() }}
     </main>
 
-    <!-- Mobile bottom navigation (hidden on desktop via CSS) -->
-    <nav class="bottom-nav" id="bottom-nav" aria-label="Mobile navigation">
+    <!-- Mobile bottom navigation: Home, Expenses, FAB (+), Budgets, More -->
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Mobile navigation" style="{% if not _use_app_shell %}display: none;{% endif %}">
         <ul class="bottom-nav-items">
             <li class="bottom-nav-item">
                 <a href="/dashboard" class="bottom-nav-link {% if request.url.path == '/dashboard' %}active{% endif %}">
@@ -156,16 +229,13 @@
                     <span>Expenses</span>
                 </a>
             </li>
+            <li class="bottom-nav-item bottom-nav-item-fab">
+                <a href="/expenses/add" class="bottom-nav-fab m-fab" aria-label="Add expense">+</a>
+            </li>
             <li class="bottom-nav-item">
                 <a href="/budgets" class="bottom-nav-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
                     <span class="bottom-nav-icon">💰</span>
                     <span>Budgets</span>
-                </a>
-            </li>
-            <li class="bottom-nav-item">
-                <a href="/reports" class="bottom-nav-link {% if request.url.path == '/reports' %}active{% endif %}">
-                    <span class="bottom-nav-icon">📊</span>
-                    <span>Reports</span>
                 </a>
             </li>
             <li class="bottom-nav-item">
@@ -196,13 +266,13 @@
         }
     })();
     </script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/app.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/theme.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/offline_queue.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/onboarding.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/settings.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/notifications.js"></script>
-    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/app.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/layout.js"></script>
     <script nonce="{{ csp_nonce | default('') }}">
     if ('serviceWorker' in navigator) {

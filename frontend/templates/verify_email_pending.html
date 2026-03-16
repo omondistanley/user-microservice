@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+{% block body_class %}auth-page verify-email-pending-page{% endblock %}
+{% block title %}Verify your email — FinTrack{% endblock %}
+{% block content %}
+<div class="container" style="max-width: 420px; margin: 2rem auto; padding: 2rem;">
+    <div class="card card-lg">
+        <h1 class="stat-value" style="font-size: 1.35rem; margin-bottom: 12px;">Check your inbox</h1>
+        <p class="form-hint" style="margin-bottom: 16px;">We sent a verification link to your email. Click the link to verify your account.</p>
+        {% if email %}
+        <p class="notif-body" style="margin-bottom: 20px;"><strong>{{ email }}</strong></p>
+        {% endif %}
+        <button type="button" id="resend-verification" class="btn btn-primary" style="margin-bottom: 12px;">Resend verification email</button>
+        <p id="resend-msg" class="form-hint" style="margin-top: 8px;"></p>
+        <hr style="border-color: var(--s200); margin: 20px 0;" />
+        <p class="form-hint" style="margin-bottom: 8px;">
+            <a href="/register">Wrong email? Change email</a>
+        </p>
+        <p class="form-hint">
+            <a href="/login">Sign in</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    document.getElementById('resend-verification').addEventListener('click', function() {
+        var btn = this;
+        var msg = document.getElementById('resend-msg');
+        btn.disabled = true;
+        msg.textContent = 'Sending…';
+        var email = {{ email | tojson if email else 'null' }};
+        fetch(API + '/api/v1/users/resend-verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: email ? JSON.stringify({ email: email }) : '{}'
+        }).then(function(r) {
+            if (r.ok || r.status === 204) {
+                msg.textContent = 'Verification email sent. Check your inbox.';
+            } else {
+                return r.json().then(function(d) {
+                    msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to send.';
+                });
+            }
+        }).catch(function() {
+            msg.textContent = 'Request failed. You can try again or sign in if already verified.';
+        }).finally(function() { btn.disabled = false; });
+    });
+})();
+</script>
+{% endblock %}

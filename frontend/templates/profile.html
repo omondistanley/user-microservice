@@ -1,0 +1,154 @@
+{% extends "layout.html" %}
+{% block body_class %}profile-page{% endblock %}
+{% block title %}Profile — FinTrack{% endblock %}
+{% block content %}
+<div class="card card-lg">
+    <h1 class="stat-value" style="font-size: 1.5rem; margin-bottom: 20px;">Profile</h1>
+    <div class="notif-item" style="margin-bottom: 24px;">
+        <div class="sb-avatar" id="profile-avatar">?</div>
+        <div style="flex:1">
+            <div class="notif-title" id="profile-name">User</div>
+            <div class="notif-body" id="profile-email">—</div>
+            <span class="badge badge-slate" id="profile-badge">Member</span>
+        </div>
+    </div>
+    <hr style="border-color: var(--s200); margin: 24px 0;" />
+    <h2 class="stat-label" style="margin-bottom: 12px;">Personal information</h2>
+    <p class="form-hint">Name and email are read from your account. Contact support to change email.</p>
+    <hr style="border-color: var(--s200); margin: 24px 0;" />
+    <h2 class="stat-label" style="margin-bottom: 12px;">Change password</h2>
+    <form id="profile-change-password" style="max-width: 360px; display: grid; gap: 12px;">
+        <div class="form-group">
+            <label class="form-label" for="current-password">Current password</label>
+            <input type="password" id="current-password" class="form-input" autocomplete="current-password">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="new-password">New password</label>
+            <input type="password" id="new-password" class="form-input" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="confirm-password">Confirm new password</label>
+            <input type="password" id="confirm-password" class="form-input" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Update password</button>
+    </form>
+    <p id="profile-password-msg" class="form-hint" style="margin-top: 8px;"></p>
+    <hr style="border-color: var(--s200); margin: 24px 0;" />
+    <h2 class="stat-label" style="margin-bottom: 12px;">Data &amp; account</h2>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" id="profile-export" class="btn btn-ghost btn-sm">Export all data</button>
+        <button type="button" id="profile-delete" class="btn btn-danger btn-sm">Delete account</button>
+    </div>
+    <p id="profile-export-msg" class="form-hint" style="margin-top: 8px;"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
+    }
+    function setProfileFromToken() {
+        try {
+            var token = window.Auth && window.Auth.getToken && window.Auth.getToken();
+            if (token) {
+                var payload = JSON.parse(atob(token.split('.')[1] || '{}'));
+                var name = document.getElementById('profile-name');
+                var email = document.getElementById('profile-email');
+                var avatar = document.getElementById('profile-avatar');
+                if (payload.email && email) email.textContent = payload.email;
+                if (payload.name && name) name.textContent = payload.name;
+                else if (payload.email && name) name.textContent = payload.email.split('@')[0] || 'User';
+                if (avatar && (payload.name || payload.email)) avatar.textContent = (payload.name || payload.email).charAt(0).toUpperCase();
+            }
+        } catch (e) {}
+    }
+    function loadProfile() {
+        fetch(API + '/user/me', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(me) {
+                if (me) {
+                    var name = document.getElementById('profile-name');
+                    var email = document.getElementById('profile-email');
+                    var avatar = document.getElementById('profile-avatar');
+                    if (email) email.textContent = me.email || '—';
+                    var fullName = [me.first_name, me.last_name].filter(Boolean).join(' ') || me.email || 'User';
+                    if (name) name.textContent = fullName;
+                    if (avatar) avatar.textContent = (me.first_name || me.email || '?').charAt(0).toUpperCase();
+                } else {
+                    setProfileFromToken();
+                }
+            })
+            .catch(function() { setProfileFromToken(); });
+    }
+    loadProfile();
+    document.getElementById('profile-change-password').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var cur = document.getElementById('current-password').value;
+        var newP = document.getElementById('new-password').value;
+        var conf = document.getElementById('confirm-password').value;
+        var msg = document.getElementById('profile-password-msg');
+        if (newP !== conf) {
+            msg.textContent = 'New password and confirm do not match.';
+            return;
+        }
+        if (newP.length < 8) {
+            msg.textContent = 'New password must be at least 8 characters.';
+            return;
+        }
+        msg.textContent = 'Updating…';
+        fetch(API + '/user/me/change-password', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ current_password: cur, new_password: newP })
+        })
+            .then(function(r) {
+                if (r.ok || r.status === 204) {
+                    msg.textContent = 'Password updated. You may need to sign in again.';
+                    document.getElementById('current-password').value = '';
+                    document.getElementById('new-password').value = '';
+                    document.getElementById('confirm-password').value = '';
+                } else {
+                    return r.json().then(function(d) {
+                        msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to update password.';
+                    });
+                }
+            })
+            .catch(function() { msg.textContent = 'Request failed.'; });
+    });
+    document.getElementById('profile-export').addEventListener('click', function() {
+        var msg = document.getElementById('profile-export-msg');
+        msg.textContent = 'Preparing export…';
+        fetch(API + '/user/me/export', { headers: authHeaders() })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Export failed');
+                return r.blob();
+            })
+            .then(function(blob) {
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'my_data_export.zip';
+                a.click();
+                URL.revokeObjectURL(a.href);
+                msg.textContent = 'Export downloaded.';
+            })
+            .catch(function() { msg.textContent = 'Export failed. Try again later.'; });
+    });
+    document.getElementById('profile-delete').addEventListener('click', function() {
+        if (!confirm('Permanently delete your account and all data? This cannot be undone.')) return;
+        fetch(API + '/user/me', { method: 'DELETE', headers: authHeaders() })
+            .then(function(r) {
+                if (r.ok || r.status === 204) {
+                    if (window.Auth && window.Auth.logout) window.Auth.logout();
+                    else window.location.href = '/login';
+                } else {
+                    alert('Failed to delete account.');
+                }
+            })
+            .catch(function() { alert('Request failed.'); });
+    });
+})();
+</script>
+{% endblock %}

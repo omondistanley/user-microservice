@@ -14,7 +14,7 @@
             <a href="/auth/apple" class="btn btn-secondary">Sign up with Apple</a>
         </p>
         <p style="font-size: 0.9rem; margin: 0.5rem 0;">or</p>
-        <form id="register-form" class="form-section" style="max-width: 400px; margin: 0 auto; text-align: left;">
+        <form id="register-form" class="form-section" method="post" action="javascript:void(0)" style="max-width: 400px; margin: 0 auto; text-align: left;">
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email" class="form-control" required placeholder="you@example.com">
@@ -45,7 +45,6 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var form = document.getElementById('register-form');
@@ -58,18 +57,28 @@
             var first_name = document.getElementById('first_name').value.trim();
             var last_name = document.getElementById('last_name').value.trim();
             var password = document.getElementById('password').value;
-            window.Auth.register(email, first_name, last_name, password).then(function() {
-                msg.textContent = 'Account created. Check your email to verify your account, then sign in.';
+            window.Auth.register(email, first_name, last_name, password).then(function(data) {
+                msg.textContent = 'Account created. Redirecting to verify your email…';
                 msg.classList.remove('message-error');
                 msg.classList.add('message-success');
                 msg.style.display = 'block';
-                setTimeout(function() { window.location.href = '/login'; }, 1500);
+                var redirectUrl = '/verify-email/pending' + (email ? '?email=' + encodeURIComponent(email) : '');
+                setTimeout(function() { window.location.href = redirectUrl; }, 1200);
             }).catch(function(err) {
                 msg.textContent = err.message || 'Registration failed';
                 msg.classList.remove('message-success');
                 msg.classList.add('message-error');
                 msg.style.display = 'block';
             });
+        });
+    } else if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (msg) {
+                msg.textContent = 'Page failed to load correctly. Please refresh and try again.';
+                msg.classList.add('message-error');
+                msg.style.display = 'block';
+            }
         });
     }
     var toggle = document.getElementById('register-password-toggle');

@@ -59,3 +59,29 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+def get_current_user_optional(
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+    token: str | None = Depends(oauth2_scheme),
+):
+    """Same as get_current_user but returns None when not authenticated (for optional-auth endpoints)."""
+    if x_user_id is not None and x_user_id.strip():
+        try:
+            user_id = int(x_user_id.strip())
+            user = _load_user_by_id(user_id)
+            if user is not None:
+                return user
+        except ValueError:
+            pass
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+        sub: str = payload.get("sub")
+        if sub is None:
+            return None
+        user_id = int(sub)
+        return _load_user_by_id(user_id)
+    except (JWTError, ValueError, TypeError):
+        return None

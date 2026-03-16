@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+{% block body_class %}sessions-page{% endblock %}
+{% block title %}Sessions — FinTrack{% endblock %}
+{% block content %}
+<div class="card card-lg">
+    <h1 class="stat-value" style="font-size: 1.5rem; margin-bottom: 20px;">Active sessions</h1>
+    <p class="form-hint" style="margin-bottom: 20px;">Devices where you are signed in. Revoke sessions you don't recognize.</p>
+    <div id="sessions-list"></div>
+    <div style="margin-top: 24px;">
+        <button type="button" id="sessions-revoke-all" class="btn btn-danger btn-sm">Revoke all other sessions</button>
+    </div>
+    <p id="sessions-msg" class="form-hint" style="margin-top: 12px;"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
+    }
+    function load() {
+        fetch(API + '/api/v1/sessions', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var items = (data && data.items) ? data.items : [];
+                var el = document.getElementById('sessions-list');
+                if (!el) return;
+                if (items.length === 0) {
+                    el.innerHTML = '<p class="form-hint">No sessions found.</p>';
+                    return;
+                }
+                var meta = function(m) {
+                    if (!m) return 'Unknown device';
+                    if (typeof m === 'string') return m;
+                    return (m.browser || m.user_agent || m.os || 'Device') + (m.os ? ' · ' + m.os : '');
+                };
+                el.innerHTML = items.map(function(s, i) {
+                    var isFirst = i === 0;
+                    var dev = meta(s.device_meta);
+                    return '<div class="notif-item">' +
+                        '<div class="notif-icon">💻</div>' +
+                        '<div style="flex:1">' +
+                        '<div class="notif-title">' + dev + (isFirst ? ' <span class="badge badge-emerald">Current</span>' : '') + '</div>' +
+                        '<div class="notif-time">' + (s.issued_at || s.last_seen_at || '') + '</div>' +
+                        '</div>' +
+                        (!isFirst ? '<button type="button" class="btn btn-ghost btn-sm session-revoke" data-id="' + (s.session_id || '') + '">Revoke</button>' : '') +
+                        '</div>';
+                }).join('');
+            })
+            .catch(function() {
+                var el = document.getElementById('sessions-list');
+                if (el) el.innerHTML = '<p class="form-hint">Could not load sessions.</p>';
+            });
+    }
+    document.getElementById('sessions-revoke-all').addEventListener('click', function() {
+        var ref = window.Auth && window.Auth.getRefreshToken && window.Auth.getRefreshToken();
+        var msg = document.getElementById('sessions-msg');
+        if (!ref) {
+            if (msg) msg.textContent = 'No refresh token. Sign in again to revoke other sessions.';
+            return;
+        }
+        if (!confirm('Revoke all other sessions? You will stay signed in on this device.')) return;
+        fetch(API + '/api/v1/sessions/revoke-all-except-current', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ refresh_token: ref })
+        })
+            .then(function(r) {
+                if (r.ok) { load(); if (msg) msg.textContent = 'Other sessions revoked.'; }
+                else if (msg) msg.textContent = 'Failed to revoke.';
+            })
+            .catch(function() { if (msg) msg.textContent = 'Request failed.'; });
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
+    else load();
+})();
+</script>
+{% endblock %}

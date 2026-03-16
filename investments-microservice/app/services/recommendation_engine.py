@@ -1,7 +1,8 @@
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import asyncio
+import concurrent.futures
 import logging
 
 from app.core.config import MAX_RECOMMENDATIONS, RISK_FREE_RATE_ANNUAL
@@ -19,6 +20,16 @@ from app.services.risk_profile_service import RiskProfileDataService
 from app.services.service_factory import ServiceFactory
 from app.services.ai_explainer import generate_narrative, is_enabled as ai_explainer_enabled
 from app.services.analyst_universe import get_analyst_universe, get_security_info
+
+
+def _run_narrative_sync(explanation: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """Run async generate_narrative from sync code in a thread to avoid blocking/corrupting the main event loop."""
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(asyncio.run, generate_narrative(explanation))
+            return future.result(timeout=30)
+    except Exception:
+        return None, None
 
 
 def _get_holdings_service() -> HoldingsDataService:
@@ -209,8 +220,7 @@ class RecommendationEngine:
 
             if ai_explainer_enabled():
                 try:
-                    loop = asyncio.get_event_loop()
-                    narrative, narrative_provider = loop.run_until_complete(generate_narrative(explanation))
+                    narrative, narrative_provider = _run_narrative_sync(explanation)
                     if narrative:
                         explanation["narrative"] = narrative
                         if narrative_provider:
@@ -415,8 +425,7 @@ class RecommendationEngine:
 
             if ai_explainer_enabled():
                 try:
-                    loop = asyncio.get_event_loop()
-                    narrative, narrative_provider = loop.run_until_complete(generate_narrative(explanation))
+                    narrative, narrative_provider = _run_narrative_sync(explanation)
                     if narrative:
                         explanation["narrative"] = narrative
                         if narrative_provider:

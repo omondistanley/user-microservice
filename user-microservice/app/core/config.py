@@ -32,7 +32,7 @@ SMTP_PASSWORD: Optional[str] = os.environ.get("SMTP_PASSWORD")
 SMTP_FROM: Optional[str] = os.environ.get("SMTP_FROM")
 
 # Require email verification before login (set to false for local dev to allow unverified logins)
-REQUIRE_EMAIL_VERIFICATION: bool = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "true").lower() in ("1", "true", "yes")
+REQUIRE_EMAIL_VERIFICATION: bool = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "false").lower() in ("1", "true", "yes")
 
 # Rate limiting (requests per minute per IP)
 RATE_LIMIT_LOGIN_PER_MINUTE: int = int(os.environ.get("RATE_LIMIT_LOGIN_PER_MINUTE", "10"))

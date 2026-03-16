@@ -33,13 +33,13 @@
 
         <div class="auth-divider"><span>or</span></div>
 
-        <!-- Email/password form -->
-        <form id="login-form">
+        <!-- Email/password form: action prevents full-page POST; handler in login.js does fetch + redirect -->
+        <form id="login-form" method="post" action="javascript:void(0)">
             <div id="login-message" class="auth-alert" style="display:none;"></div>
 
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" class="form-control" required placeholder="you@example.com" autocomplete="email">
+                <input type="email" id="email" name="username" class="form-control" required placeholder="you@example.com" autocomplete="email">
             </div>
 
             <div class="form-group">
@@ -53,7 +53,7 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary auth-submit-btn">Sign in</button>
+            <button type="button" id="login-submit-btn" class="btn btn-primary auth-submit-btn">Sign in</button>
         </form>
 
         <p class="auth-footer-text">
@@ -63,78 +63,5 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>
-<script nonce="{{ csp_nonce | default('') }}">
-(function() {
-    var form = document.getElementById('login-form');
-    var msg  = document.getElementById('login-message');
-    var params = new URLSearchParams(window.location.search);
-
-    // Status messages from URL params
-    var statusMap = {
-        session_expired: 'Your session expired. Please sign in again.',
-        access_denied:   'Sign-in cancelled.',
-        invalid_state:   'Invalid state — please try again.',
-        token_exchange_failed: 'Sign-in failed. Please try again.',
-        no_email: 'No email returned from provider.',
-        no_apple_email: 'Apple did not share your email.',
-        server: 'Server error — please try again.',
-        google_not_configured: 'Google sign-in is not set up. Use email & password.',
-        apple_not_configured:  'Apple sign-in is not set up. Use email & password.'
-    };
-    function showAlert(text, isSuccess) {
-        msg.textContent = text;
-        msg.className = 'auth-alert ' + (isSuccess ? 'auth-alert--success' : 'auth-alert--error');
-        msg.style.display = 'block';
-    }
-    if (params.get('session') === 'expired') {
-        showAlert(statusMap.session_expired, false);
-    } else if (params.get('error')) {
-        showAlert(statusMap[params.get('error')] || 'Sign-in failed. Try again.', false);
-    } else if (params.get('verified') === '1') {
-        showAlert('Email verified — you can sign in now.', true);
-    } else if (params.get('verified') === '0') {
-        showAlert('Verification link is invalid or expired.', false);
-    }
-
-    // Login form
-    if (form && window.Auth) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            msg.style.display = 'none';
-            var submitBtn = form.querySelector('[type="submit"]');
-            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Signing in…'; }
-            window.Auth.login(
-                document.getElementById('email').value,
-                document.getElementById('password').value
-            ).then(function(data) {
-                if (data && data.access_token) {
-                    try {
-                        localStorage.setItem('access_token', data.access_token);
-                        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-                    } catch(e) {}
-                    var next = params.get('next');
-                    var target = '/dashboard';
-                    if (next && next.startsWith('/') && next.indexOf('//') === -1) target = next;
-                    window.location.href = target;
-                }
-            }).catch(function(err) {
-                showAlert(err.message || 'Login failed', false);
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Sign in'; }
-            });
-        });
-    }
-
-    // Password toggle
-    var toggle = document.getElementById('login-password-toggle');
-    var pw     = document.getElementById('password');
-    if (toggle && pw) {
-        toggle.addEventListener('click', function() {
-            var hidden = pw.type === 'password';
-            pw.type = hidden ? 'text' : 'password';
-            toggle.textContent = hidden ? 'Hide' : 'Show';
-        });
-    }
-})();
-</script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/login.js"></script>
 {% endblock %}

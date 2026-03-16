@@ -26,6 +26,8 @@ from app.routing import get_upstream
 logger = logging.getLogger("gateway")
 
 # Paths that do not require Bearer token (route to user service for HTML/auth)
+# /auth: OAuth (Google, Apple) redirect and callback
+# /api/v1/apple-wallet: webhook uses X-Webhook-Secret; expense service validates it
 NO_JWT_PREFIXES = (
     "/health",
     "/ready",
@@ -35,7 +37,10 @@ NO_JWT_PREFIXES = (
     "/forgot-password",
     "/reset-password",
     "/verify-email",
+    "/verify-email/",
+    "/auth",
     "/static",
+    "/api/v1/apple-wallet",
 )
 NO_JWT_EXACT = {"/", "/health", "/ready"}
 
@@ -180,7 +185,15 @@ async def gateway_proxy(request: Request, path: str):
             )
 
     if request.method == "OPTIONS":
-        return JSONResponse(status_code=200, headers={"Access-Control-Allow-Origin": "*"})
+        return JSONResponse(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, Idempotency-Key, X-Request-ID, X-Webhook-Secret",
+                "Access-Control-Max-Age": "86400",
+            },
+        )
 
     return await proxy_request(
         request,

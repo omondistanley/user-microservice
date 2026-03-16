@@ -6,13 +6,17 @@ from datetime import datetime
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.models.users import (
     NewUser,
     UserInfo,
+    UserMeResponse,
+    UserMeUpdate,
+    ChangePasswordRequest,
     TokenResponse,
     RefreshRequest,
     ForgotPasswordRequest,
@@ -37,10 +41,11 @@ from app.services.password_reset_service import (
     set_password,
 )
 from app.services.email_verification_service import create_verification_token
+from app.services.password_reset_service import set_password
 from app.services.audit_log_service import write_audit_log
 from app.services.account_service import delete_user_account
 from app.core.security import verify_password, create_access_token
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_user_optional
 from app.core.rate_limit import rate_limit_dep
 from app.core.config import (
     RATE_LIMIT_LOGIN_PER_MINUTE,
@@ -289,6 +294,114 @@ async def newuser(
         return new_user
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+
+@router.get("/user/me", tags=["users"], response_model=UserMeResponse)
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Return current user profile (id, email, first_name, last_name, email_verified_at)."""
+    data_service = ServiceFactory.get_service("UserResourceDataService")
+    if data_service is None:
+        raise HTTPException(status_code=503, detail="Service unavailable")
+    row = data_service.get_data_object(
+        "users_db", "user", key_field="id", key_value=int(current_user["id"])
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserMeResponse(
+        id=row["id"],
+        email=row["email"],
+        first_name=row.get("first_name"),
+        last_name=row.get("last_name"),
+        email_verified_at=row.get("email_verified_at"),
+    )
+
+
+@router.patch("/user/me", tags=["users"], response_model=UserMeResponse)
+async def patch_me(
+    payload: UserMeUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update current user first_name and/or last_name."""
+    data_service = ServiceFactory.get_service("UserResourceDataService")
+    if data_service is None:
+        raise HTTPException(status_code=503, detail="Service unavailable")
+    user_id = int(current_user["id"])
+    row = data_service.get_data_object("users_db", "user", key_field="id", key_value=user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    updates = {}
+    if payload.first_name is not None:
+        updates["first_name"] = payload.first_name.strip()
+    if payload.last_name is not None:
+        updates["last_name"] = payload.last_name.strip()
+    if updates:
+        from datetime import datetime, timezone
+        updates["modified_at"] = datetime.now(timezone.utc)
+        data_service.update_data_object("users_db", "user", user_id, updates)
+    row = data_service.get_data_object("users_db", "user", key_field="id", key_value=user_id)
+    return UserMeResponse(
+        id=row["id"],
+        email=row["email"],
+        first_name=row.get("first_name"),
+        last_name=row.get("last_name"),
+        email_verified_at=row.get("email_verified_at"),
+    )
+
+
+@router.post("/user/me/change-password", tags=["users"], status_code=204)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Change password for current user. Requires current_password and new_password."""
+    data_service = ServiceFactory.get_service("UserResourceDataService")
+    if data_service is None:
+        raise HTTPException(status_code=503, detail="Service unavailable")
+    user_id = int(current_user["id"])
+    row = data_service.get_data_object("users_db", "user", key_field="id", key_value=user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    password_hash = row.get("password_hash")
+    if not password_hash or not verify_password(body.current_password, password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    set_password(user_id, body.new_password)
+    revoke_all_refresh_tokens(user_id)
+    return None
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str | None = None
+
+
+@router.post("/api/v1/users/resend-verification", tags=["users"], status_code=204)
+async def resend_verification(
+    current_user: dict | None = Depends(get_current_user_optional),
+    body: ResendVerificationRequest | None = Body(None),
+) -> None:
+    """Send a new verification email. Authenticated: current user. Unauthenticated: body with email required."""
+    email = None
+    user_id = None
+    if current_user:
+        user_id = int(current_user["id"])
+        email = current_user.get("email")
+    if not email and body and body.email:
+        res = ServiceFactory.get_service("UserResource")
+        if res is None:
+            raise HTTPException(status_code=503, detail="Service unavailable")
+        raw = res.get_raw_by_email(body.email.strip())
+        if raw and not raw.get("email_verified_at"):
+            user_id = raw["id"]
+            email = raw["email"]
+        else:
+            # Don't reveal whether user exists; just succeed to avoid enumeration
+            return None
+    if not email or user_id is None:
+        raise HTTPException(status_code=400, detail="Email required when not signed in")
+    try:
+        create_verification_token(user_id, email)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to send verification email")
+    return None
 
 
 @router.delete("/user/me", tags=["users"], status_code=204)
