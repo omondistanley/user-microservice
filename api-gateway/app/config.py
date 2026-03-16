@@ -15,7 +15,8 @@ ALGORITHM: str = os.environ.get("ALGORITHM", "HS256")
 JWT_ISSUER: str = os.environ.get("JWT_ISSUER", "user-microservice")
 JWT_AUDIENCE: str = os.environ.get("JWT_AUDIENCE", "expense-tracker")
 
-REDIS_URL: str = os.environ.get("REDIS_URL", "redis://redis:6379/0").rstrip("/")
+# Empty when unset so gateway runs without Redis (e.g. Fly single-app); set for shared rate limiting.
+REDIS_URL: str = (os.environ.get("REDIS_URL") or "").strip()
 
 USER_SERVICE_URL: str = os.environ.get("USER_SERVICE_URL", "http://user:8000").rstrip("/")
 EXPENSE_SERVICE_URL: str = os.environ.get("EXPENSE_SERVICE_URL", "http://expense:3001").rstrip("/")

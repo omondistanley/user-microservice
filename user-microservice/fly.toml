@@ -1,0 +1,21 @@
+# Deploy user service as pocketii-user (gateway expects this name).
+# Build must run from repo root so Dockerfile can copy frontend/.
+# From repo root:  fly deploy --app pocketii-user --config user-microservice/fly.toml
+
+app = "pocketii-user"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "user-microservice/Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory = "1gb"
+  cpus = 1

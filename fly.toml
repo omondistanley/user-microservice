@@ -1,0 +1,38 @@
+# Single-app Fly.io deployment for pocketii (gateway + user + expense + budget + investment).
+# Deploy from repo root: fly deploy --app pocketii
+# Build uses Dockerfile.fly and deploy/start.sh; only port 8080 is exposed (gateway).
+
+app = "pocketii"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "Dockerfile.fly"
+
+[deploy]
+  release_command = "/opt/release.sh"
+
+[env]
+  # Gateway proxies to localhost; backends run in same container
+  USER_SERVICE_URL = "http://127.0.0.1:8000"
+  EXPENSE_SERVICE_URL = "http://127.0.0.1:3001"
+  BUDGET_SERVICE_URL = "http://127.0.0.1:3002"
+  INVESTMENT_SERVICE_URL = "http://127.0.0.1:3003"
+  # Budget/expense call user service internally
+  USER_SERVICE_INTERNAL_URL = "http://127.0.0.1:8000"
+  # Budget reads expenses_db (same Postgres); set DB_HOST/DB_PASSWORD via secrets
+  EXPENSE_DB_HOST = "pocketii-db.internal"
+  EXPENSE_DB_PORT = "5432"
+  EXPENSE_DB_USER = "postgres"
+  EXPENSE_DB_NAME = "expenses_db"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory = "1gb"
+  cpus = 1

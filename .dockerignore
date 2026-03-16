@@ -6,9 +6,7 @@ venv
 **/*.pyc
 **/.pytest_cache
 
-# Not needed in user image build context
-expense-microservice
-budget-microservice
+# (expense-microservice, budget-microservice, investments-microservice are needed for Fly single-app build; do not exclude)
 
 # Large local artifacts
 user-microservice/venv

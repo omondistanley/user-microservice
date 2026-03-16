@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS investments_db.sector_cache (
 CREATE INDEX IF NOT EXISTS idx_sector_cache_updated_at
     ON investments_db.sector_cache (updated_at);
 
-COMMENT ON TABLE investments_db.sector_cache IS 'Cached sector per symbol (e.g. from yfinance); TTL enforced in app (e.g. 24h)';
+COMMENT ON TABLE investments_db.sector_cache IS 'Cached sector per symbol (e.g. from yfinance), TTL enforced in app (e.g. 24h)';

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS investments_db.security_universe (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE investments_db.security_universe IS 'Cached security metadata from Finnhub/Alpha Vantage; used by get_analyst_universe and get_security_info';
+COMMENT ON TABLE investments_db.security_universe IS 'Cached security metadata from Finnhub/Alpha Vantage, used by get_analyst_universe and get_security_info';
 COMMENT ON COLUMN investments_db.security_universe.sector IS 'Normalized sector: technology, healthcare, financials, etc.';
 COMMENT ON COLUMN investments_db.security_universe.risk_band IS 'conservative | balanced | aggressive';
 COMMENT ON COLUMN investments_db.security_universe.source_provider IS 'finnhub | alphavantage | bootstrap | on_demand';

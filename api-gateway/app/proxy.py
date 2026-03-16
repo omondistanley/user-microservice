@@ -31,6 +31,14 @@ def _build_headers(request: Request, request_id: str, user_id: int | None) -> di
     out["x-request-id"] = request_id
     if user_id is not None:
         out["x-user-id"] = str(user_id)
+    # Forward public host/scheme so backends (e.g. user service) see the real origin
+    # and do not redirect back to the gateway (avoids ERR_TOO_MANY_REDIRECTS)
+    forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    forwarded_proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    if forwarded_host:
+        out["x-forwarded-host"] = forwarded_host
+    if forwarded_proto:
+        out["x-forwarded-proto"] = forwarded_proto
     return out
 
 

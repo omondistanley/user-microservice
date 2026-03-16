@@ -1,4 +1,4 @@
--- Sentiment snapshots per symbol/day (FinBERT on news); for 7d rolling average and alerts.
+-- Sentiment snapshots per symbol/day (FinBERT on news), for 7d rolling average and alerts.
 -- Run: python run_migration.py migrations/011_sentiment_snapshot.sql
 
 CREATE TABLE IF NOT EXISTS investments_db.sentiment_snapshot (
@@ -13,4 +13,4 @@ CREATE TABLE IF NOT EXISTS investments_db.sentiment_snapshot (
 CREATE INDEX IF NOT EXISTS idx_sentiment_snapshot_symbol ON investments_db.sentiment_snapshot (symbol);
 CREATE INDEX IF NOT EXISTS idx_sentiment_snapshot_date ON investments_db.sentiment_snapshot (snapshot_date);
 
-COMMENT ON TABLE investments_db.sentiment_snapshot IS 'Daily sentiment score from FinBERT on news; score in [-1, 1]';
+COMMENT ON TABLE investments_db.sentiment_snapshot IS 'Daily sentiment score from FinBERT on news, score in [-1, 1]';

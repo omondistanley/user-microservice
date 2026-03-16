@@ -1,4 +1,4 @@
--- Scenario library for stress testing (optional; can also seed in code).
+-- Scenario library for stress testing (optional, can also seed in code).
 -- Run: python run_migration.py migrations/009_scenarios.sql
 
 CREATE TABLE IF NOT EXISTS investments_db.scenario (
