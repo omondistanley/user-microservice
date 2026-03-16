@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+{% block body_class %}household-page{% endblock %}
+{% block title %}Household — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="/dashboard" class="page-back-link">← Dashboard</a>
+        <h1 class="page-title">Household</h1>
+        <div class="page-header-actions">
+            <button type="button" id="invite-btn" class="btn btn-primary btn-sm">+ Invite Member</button>
+        </div>
+    </div>
+
+    <!-- Current household -->
+    <div class="card-section" id="household-info">
+        <h2 class="h4">Your Household</h2>
+        <div id="household-name-row" class="text-muted">Loading…</div>
+    </div>
+
+    <!-- Members list -->
+    <div class="card-section">
+        <h2 class="h4">Members</h2>
+        <div id="members-list" class="text-muted">Loading…</div>
+    </div>
+
+    <!-- Invite form (hidden by default) -->
+    <div class="card-section" id="invite-form-section" style="display:none;">
+        <h2 class="h4">Invite by Email</h2>
+        <form id="invite-form">
+            <div class="form-group">
+                <label class="form-label" for="invite-email">Email address</label>
+                <input type="email" id="invite-email" name="email" class="form-input" placeholder="colleague@example.com" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="invite-role">Role</label>
+                <select id="invite-role" name="role" class="form-input">
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="toolbar-actions">
+                <button type="submit" class="btn btn-primary">Send Invite</button>
+                <button type="button" id="invite-cancel-btn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </form>
+        <p id="invite-result" class="text-muted small" style="margin-top:.5rem;"></p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    var infoEl = document.getElementById('household-name-row');
+    var membersEl = document.getElementById('members-list');
+    var inviteBtn = document.getElementById('invite-btn');
+    var inviteSection = document.getElementById('invite-form-section');
+    var inviteCancelBtn = document.getElementById('invite-cancel-btn');
+    var inviteForm = document.getElementById('invite-form');
+    var inviteResult = document.getElementById('invite-result');
+
+    function headers(extra) {
+        return Object.assign({}, window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {}, extra || {});
+    }
+
+    function loadHousehold() {
+        var fn = window.Auth && window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/households/me', { headers: headers() }); }
+            : function() { return fetch(API + '/api/v1/households/me', { headers: headers() }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function(d) {
+                if (infoEl) infoEl.innerHTML = '<strong>' + (d.name || 'Personal').replace(/</g,'&lt;') + '</strong>' +
+                    ' <span class="badge badge-secondary">' + (d.scope || 'personal') + '</span>';
+                var members = d.members || [];
+                if (!members.length) {
+                    membersEl.innerHTML = '<p class="text-muted">No other members yet.</p>';
+                    return;
+                }
+                membersEl.innerHTML = '<ul class="summary-list">' + members.map(function(m) {
+                    return '<li class="summary-list-item"><span>' + (m.email || m.user_id || '').replace(/</g,'&lt;') + '</span>' +
+                        '<span class="badge badge-secondary">' + (m.role || 'member') + '</span></li>';
+                }).join('') + '</ul>';
+            })
+            .catch(function() {
+                if (infoEl) infoEl.textContent = 'Personal household';
+                if (membersEl) membersEl.innerHTML = '<p class="text-muted">Could not load members.</p>';
+            });
+    }
+
+    if (inviteBtn) {
+        inviteBtn.addEventListener('click', function() {
+            inviteSection.style.display = 'block';
+            inviteBtn.style.display = 'none';
+        });
+    }
+    if (inviteCancelBtn) {
+        inviteCancelBtn.addEventListener('click', function() {
+            inviteSection.style.display = 'none';
+            inviteBtn.style.display = '';
+            inviteResult.textContent = '';
+        });
+    }
+    if (inviteForm) {
+        inviteForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var email = document.getElementById('invite-email').value;
+            var role = document.getElementById('invite-role').value;
+            var h = headers({'Content-Type': 'application/json'});
+            var fn = window.Auth && window.Auth.requestWithRefresh
+                ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/households/invite', { method:'POST', headers:h, body: JSON.stringify({email:email,role:role}) }); }
+                : function() { return fetch(API + '/api/v1/households/invite', { method:'POST', headers:h, body: JSON.stringify({email:email,role:role}) }); };
+            fn().then(function(r) {
+                if (r.ok) {
+                    inviteResult.textContent = 'Invite sent to ' + email;
+                    inviteForm.reset();
+                    loadHousehold();
+                } else {
+                    return r.json().then(function(e2) { inviteResult.textContent = e2.detail || 'Error sending invite.'; });
+                }
+            }).catch(function() { inviteResult.textContent = 'Error sending invite.'; });
+        });
+    }
+
+    if (window.Auth && window.Auth.getAuthHeaders) {
+        loadHousehold();
+    } else {
+        if (infoEl) infoEl.textContent = 'Sign in to view household.';
+        if (membersEl) membersEl.textContent = '';
+    }
+})();
+</script>
+{% endblock %}

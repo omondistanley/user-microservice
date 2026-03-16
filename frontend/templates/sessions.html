@@ -1,0 +1,122 @@
+{% extends "layout.html" %}
+{% block body_class %}sessions-page{% endblock %}
+{% block title %}Sessions — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="/dashboard" class="page-back-link">← Dashboard</a>
+        <h1 class="page-title">Active Sessions</h1>
+        <div class="page-header-actions">
+            <button type="button" id="revoke-others-btn" class="btn btn-danger btn-sm">Revoke All Other Sessions</button>
+        </div>
+    </div>
+
+    <div class="card-section">
+        <p class="text-muted small">These are all devices currently logged into your account. If you don't recognise a session, revoke it immediately and change your password.</p>
+        <div id="sessions-list" style="margin-top:1rem;">
+            <p class="text-muted">Loading sessions…</p>
+        </div>
+    </div>
+
+    <div id="revoke-result" class="alert" style="display:none;margin-top:1rem;"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    var listEl = document.getElementById('sessions-list');
+    var revokeBtn = document.getElementById('revoke-others-btn');
+    var resultEl = document.getElementById('revoke-result');
+
+    function headers(extra) {
+        return Object.assign({}, window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {}, extra || {});
+    }
+
+    function fmtDate(ts) {
+        if (!ts) return '—';
+        var d = new Date(ts);
+        return d.toLocaleString();
+    }
+
+    function fmtDevice(meta) {
+        if (!meta) return 'Unknown device';
+        if (typeof meta === 'string') {
+            try { meta = JSON.parse(meta); } catch(e) { return meta; }
+        }
+        var parts = [];
+        if (meta.browser) parts.push(meta.browser);
+        if (meta.os) parts.push(meta.os);
+        if (meta.ip) parts.push(meta.ip);
+        return parts.join(' · ') || 'Unknown device';
+    }
+
+    function loadSessions() {
+        var fn = window.Auth && window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/sessions', { headers: headers() }); }
+            : function() { return fetch(API + '/api/v1/sessions', { headers: headers() }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function(data) {
+                var items = (data && data.items) || [];
+                if (!items.length) {
+                    listEl.innerHTML = '<p class="text-muted">No active sessions found.</p>';
+                    return;
+                }
+                listEl.innerHTML = '<ul class="summary-list">' + items.map(function(s, i) {
+                    var isCurrent = i === 0;
+                    return '<li class="summary-list-item" style="flex-direction:column;align-items:flex-start;gap:.25rem;">' +
+                        '<div style="display:flex;align-items:center;gap:.5rem;width:100%;">' +
+                        '<span style="flex:1;font-weight:600;">' + fmtDevice(s.device_meta).replace(/</g,'&lt;') + '</span>' +
+                        (isCurrent ? '<span class="badge badge-success">Current</span>' : '') +
+                        '</div>' +
+                        '<span class="text-muted small">Last seen: ' + fmtDate(s.last_seen_at) + '</span>' +
+                        '<span class="text-muted small">Issued: ' + fmtDate(s.issued_at) + '</span>' +
+                        '</li>';
+                }).join('') + '</ul>';
+            })
+            .catch(function() {
+                listEl.innerHTML = '<p class="text-muted">Could not load sessions.</p>';
+            });
+    }
+
+    if (revokeBtn) {
+        revokeBtn.addEventListener('click', function() {
+            if (!confirm('Revoke all other sessions? You will remain logged in on this device only.')) return;
+            var refreshToken = '';
+            try { refreshToken = localStorage.getItem('refresh_token') || ''; } catch(e) {}
+            if (!refreshToken) {
+                resultEl.textContent = 'No refresh token found. Please re-login first.';
+                resultEl.style.display = 'block';
+                return;
+            }
+            var h = headers({'Content-Type':'application/json'});
+            var fn = window.Auth && window.Auth.requestWithRefresh
+                ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/sessions/revoke-all-except-current', { method:'POST', headers:h, body:JSON.stringify({refresh_token:refreshToken}) }); }
+                : function() { return fetch(API + '/api/v1/sessions/revoke-all-except-current', { method:'POST', headers:h, body:JSON.stringify({refresh_token:refreshToken}) }); };
+            fn().then(function(r) {
+                if (r.ok) {
+                    resultEl.textContent = 'All other sessions have been revoked.';
+                    resultEl.className = 'alert alert-success';
+                    resultEl.style.display = 'block';
+                    loadSessions();
+                } else {
+                    resultEl.textContent = 'Failed to revoke sessions.';
+                    resultEl.className = 'alert alert-error';
+                    resultEl.style.display = 'block';
+                }
+            }).catch(function() {
+                resultEl.textContent = 'Error revoking sessions.';
+                resultEl.className = 'alert alert-error';
+                resultEl.style.display = 'block';
+            });
+        });
+    }
+
+    if (window.Auth && window.Auth.getAuthHeaders) {
+        loadSessions();
+    } else {
+        listEl.innerHTML = '<p class="text-muted">Sign in to view sessions.</p>';
+    }
+})();
+</script>
+{% endblock %}

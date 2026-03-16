@@ -609,6 +609,36 @@ async def net_worth_page(request: Request):
     return _render("net_worth.html", request)
 
 
+@app.get("/notifications", include_in_schema=False)
+async def notifications_page(request: Request):
+    return _render("notifications.html", request)
+
+
+@app.get("/household", include_in_schema=False)
+async def household_page(request: Request):
+    return _render("household.html", request)
+
+
+@app.get("/sessions", include_in_schema=False)
+async def sessions_page(request: Request):
+    return _render("sessions.html", request)
+
+
+@app.get("/profile", include_in_schema=False)
+async def profile_page(request: Request):
+    return _render("profile.html", request)
+
+
+@app.get("/settings", include_in_schema=False)
+async def settings_page(request: Request):
+    return _render("settings.html", request)
+
+
+@app.get("/saved-views", include_in_schema=False)
+async def saved_views_page(request: Request):
+    return _render("saved_views.html", request)
+
+
 app.middleware("http")(security_headers_middleware)
 app.middleware("http")(api_rate_limit_middleware)
 app.middleware("http")(structured_logging_middleware)

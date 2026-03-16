@@ -1,0 +1,165 @@
+{% extends "layout.html" %}
+{% block body_class %}settings-page{% endblock %}
+{% block title %}Settings — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="/dashboard" class="page-back-link">← Dashboard</a>
+        <h1 class="page-title">Settings</h1>
+    </div>
+
+    <!-- Currency -->
+    <div class="card-section">
+        <h2 class="h4">Currency</h2>
+        <p class="text-muted">Choose the default currency for displaying amounts.</p>
+        <form id="currency-form" style="margin-top:.75rem;">
+            <div class="form-group">
+                <label class="form-label" for="currency-select">Default Currency</label>
+                <select id="currency-select" name="default_currency" class="form-input" style="max-width:220px;">
+                    <option value="USD">USD — US Dollar</option>
+                    <option value="EUR">EUR — Euro</option>
+                    <option value="GBP">GBP — British Pound</option>
+                    <option value="JPY">JPY — Japanese Yen</option>
+                    <option value="CAD">CAD — Canadian Dollar</option>
+                    <option value="AUD">AUD — Australian Dollar</option>
+                    <option value="CHF">CHF — Swiss Franc</option>
+                    <option value="CNY">CNY — Chinese Yuan</option>
+                    <option value="INR">INR — Indian Rupee</option>
+                    <option value="KES">KES — Kenyan Shilling</option>
+                    <option value="NGN">NGN — Nigerian Naira</option>
+                    <option value="ZAR">ZAR — South African Rand</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Currency</button>
+            <p id="currency-result" class="text-muted small" style="margin-top:.5rem;"></p>
+        </form>
+    </div>
+
+    <!-- Theme -->
+    <div class="card-section">
+        <h2 class="h4">Appearance</h2>
+        <div class="form-group">
+            <label class="form-label" for="settings-theme-select">Theme</label>
+            <select id="settings-theme-select" class="form-input" style="max-width:220px;">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="system">System</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="card-section">
+        <h2 class="h4">Notifications</h2>
+        <p class="text-muted">Manage notification preferences.</p>
+        <div id="notif-prefs" class="text-muted">Loading…</div>
+    </div>
+
+    <!-- Household scope -->
+    <div class="card-section" id="household-scope-section" style="display:none;">
+        <h2 class="h4">Household Scope</h2>
+        <p class="text-muted">Switch between personal and household view.</p>
+        <div class="form-group" style="margin-top:.75rem;">
+            <label class="form-label" for="scope-select">Active Scope</label>
+            <select id="scope-select" class="form-input" style="max-width:280px;">
+                <option value="">Personal</option>
+            </select>
+        </div>
+        <button type="button" id="scope-save-btn" class="btn btn-primary">Apply Scope</button>
+        <p id="scope-result" class="text-muted small" style="margin-top:.5rem;"></p>
+    </div>
+
+    <!-- Quick links -->
+    <div class="card-section">
+        <h2 class="h4">More Settings</h2>
+        <ul class="summary-list">
+            <li class="summary-list-item"><a href="/settings/integrations" class="nav-link">Integrations (banks, webhooks, digest)</a></li>
+            <li class="summary-list-item"><a href="/profile" class="nav-link">Profile &amp; password</a></li>
+            <li class="summary-list-item"><a href="/sessions" class="nav-link">Active sessions</a></li>
+            <li class="summary-list-item"><a href="/household" class="nav-link">Household members</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/settings.js"></script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+
+    function headers(extra) {
+        return Object.assign({}, window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {}, extra || {});
+    }
+
+    // Load and pre-fill current settings
+    function loadSettings() {
+        var fn = window.Auth && window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/settings', { headers: headers() }); }
+            : function() { return fetch(API + '/api/v1/settings', { headers: headers() }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d) {
+                var sel = document.getElementById('currency-select');
+                if (sel && d.default_currency) {
+                    for (var i = 0; i < sel.options.length; i++) {
+                        if (sel.options[i].value === d.default_currency.toUpperCase()) {
+                            sel.selectedIndex = i; break;
+                        }
+                    }
+                }
+                var notifEl = document.getElementById('notif-prefs');
+                if (notifEl) {
+                    notifEl.innerHTML = '<p>Email digest: <strong>' + (d.digest_frequency || 'off') + '</strong></p>';
+                }
+                // Household scope
+                if (d.active_household_id) {
+                    var scopeSec = document.getElementById('household-scope-section');
+                    if (scopeSec) scopeSec.style.display = 'block';
+                }
+            })
+            .catch(function() {});
+    }
+
+    // Currency save
+    var currencyForm = document.getElementById('currency-form');
+    if (currencyForm) {
+        currencyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var val = document.getElementById('currency-select').value;
+            var h = headers({'Content-Type':'application/json'});
+            var fn = window.Auth && window.Auth.requestWithRefresh
+                ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/settings', { method:'PATCH', headers:h, body:JSON.stringify({default_currency:val}) }); }
+                : function() { return fetch(API + '/api/v1/settings', { method:'PATCH', headers:h, body:JSON.stringify({default_currency:val}) }); };
+            fn().then(function(r) {
+                var el = document.getElementById('currency-result');
+                if (r.ok) {
+                    try { localStorage.setItem('default_currency', val); } catch(ex) {}
+                    el.textContent = 'Currency updated to ' + val + '.';
+                } else { el.textContent = 'Error saving currency.'; }
+            }).catch(function() { document.getElementById('currency-result').textContent = 'Error.'; });
+        });
+    }
+
+    // Theme selector wired to existing theme.js
+    var themeSelect = document.getElementById('settings-theme-select');
+    if (themeSelect) {
+        try {
+            var stored = localStorage.getItem('theme') || 'dark';
+            for (var i = 0; i < themeSelect.options.length; i++) {
+                if (themeSelect.options[i].value === stored) { themeSelect.selectedIndex = i; break; }
+            }
+        } catch(e) {}
+        themeSelect.addEventListener('change', function() {
+            var v = themeSelect.value;
+            try { localStorage.setItem('theme', v); } catch(e) {}
+            // Mirror to the top-level theme selector used by theme.js
+            var topSel = document.getElementById('theme-select');
+            if (topSel) { topSel.value = v; topSel.dispatchEvent(new Event('change')); }
+        });
+    }
+
+    if (window.Auth && window.Auth.getAuthHeaders) {
+        loadSettings();
+    }
+})();
+</script>
+{% endblock %}

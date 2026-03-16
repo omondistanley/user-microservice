@@ -151,30 +151,157 @@
             </li>
             <li class="bottom-nav-item">
                 <a href="/expenses" class="bottom-nav-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
-                    <span class="bottom-nav-icon">💸</span>
+                    <span class="bottom-nav-icon">💳</span>
                     <span>Expenses</span>
                 </a>
             </li>
+            <!-- FAB placeholder (keeps items balanced) -->
+            <li class="bottom-nav-item bottom-nav-fab-slot" aria-hidden="true"></li>
             <li class="bottom-nav-item">
                 <a href="/budgets" class="bottom-nav-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
-                    <span class="bottom-nav-icon">💰</span>
+                    <span class="bottom-nav-icon">🎯</span>
                     <span>Budgets</span>
                 </a>
             </li>
             <li class="bottom-nav-item">
-                <a href="/reports" class="bottom-nav-link {% if request.url.path == '/reports' %}active{% endif %}">
-                    <span class="bottom-nav-icon">📊</span>
-                    <span>Reports</span>
-                </a>
-            </li>
-            <li class="bottom-nav-item">
-                <a href="#" class="bottom-nav-link" id="bottom-nav-menu-toggle">
-                    <span class="bottom-nav-icon">☰</span>
+                <button type="button" class="bottom-nav-link" id="bottom-nav-more-btn" aria-label="More navigation">
+                    <span class="bottom-nav-icon">⋯</span>
                     <span>More</span>
-                </a>
+                </button>
             </li>
         </ul>
+        <!-- Centered FAB -->
+        <button type="button" class="bottom-nav-fab" id="bottom-nav-fab" aria-label="Add new item">
+            <span class="bottom-nav-fab-icon">+</span>
+        </button>
     </nav>
+
+    <!-- FAB Action Sheet -->
+    <div class="action-sheet-overlay" id="fab-overlay" aria-hidden="true"></div>
+    <div class="action-sheet" id="fab-sheet" role="dialog" aria-modal="true" aria-label="Add new item">
+        <div class="action-sheet-handle"></div>
+        <div class="action-sheet-title">Add New</div>
+        <div class="action-sheet-items">
+            <a href="/expenses/add" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;">💳</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Add Expense</span>
+                    <span class="action-sheet-item-desc">Record a new expense</span>
+                </div>
+            </a>
+            <a href="/budgets/add" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">🎯</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Add Budget</span>
+                    <span class="action-sheet-item-desc">Set a spending limit</span>
+                </div>
+            </a>
+            <a href="/goals/add" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">⭐</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Add Goal</span>
+                    <span class="action-sheet-item-desc">Start saving for something</span>
+                </div>
+            </a>
+            <a href="/link-bank" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">🏦</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Link Bank Account</span>
+                    <span class="action-sheet-item-desc">Connect via Plaid or Teller</span>
+                </div>
+            </a>
+        </div>
+        <button type="button" class="action-sheet-cancel" id="fab-sheet-cancel">Cancel</button>
+    </div>
+
+    <!-- More Drawer -->
+    <div class="action-sheet-overlay" id="more-overlay" aria-hidden="true"></div>
+    <div class="action-sheet action-sheet-more" id="more-sheet" role="dialog" aria-modal="true" aria-label="More options">
+        <div class="action-sheet-handle"></div>
+        <div class="action-sheet-title">More</div>
+        <div class="action-sheet-items">
+            <a href="/profile" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">👤</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Profile</span>
+                    <span class="action-sheet-item-desc">Edit info &amp; change password</span>
+                </div>
+            </a>
+            <a href="/settings" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(100,116,139,0.12);color:#64748B;">⚙️</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Settings</span>
+                    <span class="action-sheet-item-desc">Currency, notifications, theme</span>
+                </div>
+            </a>
+            <div class="action-sheet-section-label">Analytics</div>
+            <a href="/net-worth" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">💰</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Net Worth</span>
+                    <span class="action-sheet-item-desc">Assets &amp; liabilities</span>
+                </div>
+            </a>
+            <a href="/investments" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">📈</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Investments</span>
+                    <span class="action-sheet-item-desc">Portfolio &amp; performance</span>
+                </div>
+            </a>
+            <a href="/recommendations" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(139,92,246,0.12);color:#8B5CF6;">🤖</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Recommendations</span>
+                    <span class="action-sheet-item-desc">AI-powered advice</span>
+                </div>
+            </a>
+            <a href="/insights" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(56,189,248,0.12);color:#38BDF8;">💡</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Insights</span>
+                    <span class="action-sheet-item-desc">Spending patterns &amp; trends</span>
+                </div>
+            </a>
+            <a href="/reports" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">📊</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Reports</span>
+                    <span class="action-sheet-item-desc">Full analytics &amp; export</span>
+                </div>
+            </a>
+            <div class="action-sheet-section-label">Account</div>
+            <a href="/household" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">🏠</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Household</span>
+                    <span class="action-sheet-item-desc">Members &amp; shared scope</span>
+                </div>
+            </a>
+            <a href="/sessions" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;">🔒</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Sessions</span>
+                    <span class="action-sheet-item-desc">Active devices &amp; logins</span>
+                </div>
+            </a>
+            <a href="/settings/integrations" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">🔗</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Integrations</span>
+                    <span class="action-sheet-item-desc">Banks, webhooks &amp; more</span>
+                </div>
+            </a>
+            <a href="/notifications" class="action-sheet-item">
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">🔔</span>
+                <div class="action-sheet-item-text">
+                    <span class="action-sheet-item-label">Notifications</span>
+                    <span class="action-sheet-item-desc">Alerts &amp; messages</span>
+                </div>
+            </a>
+        </div>
+        <button type="button" class="action-sheet-cancel" id="more-sheet-cancel">Cancel</button>
+    </div>
 
     <script nonce="{{ csp_nonce | default('') }}">
     (function() {
@@ -183,16 +310,74 @@
         if (bodyClass.indexOf('auth-page') !== -1 || bodyClass.indexOf('welcome-page') !== -1) {
             var bn = document.getElementById('bottom-nav');
             if (bn) bn.style.display = 'none';
+            var fabSheet = document.getElementById('fab-sheet');
+            var moreSheet = document.getElementById('more-sheet');
+            if (fabSheet) fabSheet.setAttribute('aria-hidden', 'true');
+            if (moreSheet) moreSheet.setAttribute('aria-hidden', 'true');
         }
-        // Wire "More" button to the existing hamburger panel
-        var moreBtn = document.getElementById('bottom-nav-menu-toggle');
-        if (moreBtn) {
-            moreBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                var toggle = document.getElementById('navbar-filters-toggle');
-                if (toggle) toggle.click();
+
+        function openSheet(sheetId, overlayId) {
+            var sheet = document.getElementById(sheetId);
+            var overlay = document.getElementById(overlayId);
+            if (!sheet || !overlay) return;
+            overlay.classList.add('active');
+            sheet.classList.add('active');
+            sheet.setAttribute('aria-hidden', 'false');
+            overlay.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSheet(sheetId, overlayId) {
+            var sheet = document.getElementById(sheetId);
+            var overlay = document.getElementById(overlayId);
+            if (!sheet || !overlay) return;
+            overlay.classList.remove('active');
+            sheet.classList.remove('active');
+            sheet.setAttribute('aria-hidden', 'true');
+            overlay.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+
+        function closeAllSheets() {
+            closeSheet('fab-sheet', 'fab-overlay');
+            closeSheet('more-sheet', 'more-overlay');
+        }
+
+        // FAB button
+        var fab = document.getElementById('bottom-nav-fab');
+        if (fab) {
+            fab.addEventListener('click', function() {
+                var isOpen = document.getElementById('fab-sheet').classList.contains('active');
+                closeAllSheets();
+                if (!isOpen) openSheet('fab-sheet', 'fab-overlay');
             });
         }
+
+        // More button
+        var moreBtn = document.getElementById('bottom-nav-more-btn');
+        if (moreBtn) {
+            moreBtn.addEventListener('click', function() {
+                var isOpen = document.getElementById('more-sheet').classList.contains('active');
+                closeAllSheets();
+                if (!isOpen) openSheet('more-sheet', 'more-overlay');
+            });
+        }
+
+        // Cancel / overlay close
+        ['fab-sheet-cancel', 'more-sheet-cancel'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('click', closeAllSheets);
+        });
+
+        var fabOverlay = document.getElementById('fab-overlay');
+        var moreOverlay = document.getElementById('more-overlay');
+        if (fabOverlay) fabOverlay.addEventListener('click', closeAllSheets);
+        if (moreOverlay) moreOverlay.addEventListener('click', closeAllSheets);
+
+        // Keyboard: Escape closes sheets
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeAllSheets();
+        });
     })();
     </script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>

@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+{% block body_class %}saved-views-page{% endblock %}
+{% block title %}Saved Views — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="/reports" class="page-back-link">← Reports</a>
+        <h1 class="page-title">Saved Views</h1>
+    </div>
+    <div class="card-section">
+        <p class="text-muted">Saved report configurations you can quickly apply on the Reports page.</p>
+        <div id="saved-views-list" style="margin-top:1rem;">
+            <p class="text-muted">Loading…</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    var listEl = document.getElementById('saved-views-list');
+
+    function headers(extra) {
+        return Object.assign({}, window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {}, extra || {});
+    }
+
+    function loadViews() {
+        var fn = window.Auth && window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/reports/saved-views', { headers: headers() }); }
+            : function() { return fetch(API + '/api/v1/reports/saved-views', { headers: headers() }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(data) {
+                var items = (data && data.items) || (Array.isArray(data) ? data : []);
+                if (!items.length) {
+                    listEl.innerHTML = '<p class="text-muted">No saved views yet. Save a view from the Reports page.</p>';
+                    return;
+                }
+                listEl.innerHTML = '<ul class="summary-list">' + items.map(function(v) {
+                    var id = v.saved_view_id || v.id || '';
+                    return '<li class="summary-list-item">' +
+                        '<span style="flex:1;font-weight:600;">' + (v.name || 'Unnamed').replace(/</g,'&lt;') + '</span>' +
+                        '<a href="/reports" class="btn btn-sm btn-secondary" style="margin-right:.5rem;">Apply</a>' +
+                        '<button type="button" class="btn btn-sm btn-danger delete-view-btn" data-id="' + id + '">Delete</button>' +
+                        '</li>';
+                }).join('') + '</ul>';
+                listEl.querySelectorAll('.delete-view-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var vid = btn.getAttribute('data-id');
+                        if (!confirm('Delete this saved view?')) return;
+                        var h = headers();
+                        var fn2 = window.Auth && window.Auth.requestWithRefresh
+                            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/reports/saved-views/' + vid, { method:'DELETE', headers:h }); }
+                            : function() { return fetch(API + '/api/v1/reports/saved-views/' + vid, { method:'DELETE', headers:h }); };
+                        fn2().then(function() { loadViews(); }).catch(function() {});
+                    });
+                });
+            })
+            .catch(function() {
+                listEl.innerHTML = '<p class="text-muted">Could not load saved views.</p>';
+            });
+    }
+
+    if (window.Auth && window.Auth.getAuthHeaders) {
+        loadViews();
+    } else {
+        listEl.innerHTML = '<p class="text-muted">Sign in to see saved views.</p>';
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+{% block body_class %}notifications-page{% endblock %}
+{% block title %}Notifications — Expense Tracker{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="/dashboard" class="page-back-link">← Dashboard</a>
+        <h1 class="page-title">Notifications</h1>
+        <div class="page-header-actions">
+            <button type="button" id="mark-all-read-btn" class="btn btn-secondary btn-sm">Mark all read</button>
+        </div>
+    </div>
+
+    <div class="card-section" id="notifications-page-list">
+        <p class="text-muted">Loading notifications…</p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var API = window.API_BASE || '';
+    var listEl = document.getElementById('notifications-page-list');
+    var markAllBtn = document.getElementById('mark-all-read-btn');
+
+    function fmtTime(ts) {
+        if (!ts) return '';
+        var d = new Date(ts);
+        var now = new Date();
+        var diff = (now - d) / 1000;
+        if (diff < 60) return 'Just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        return d.toLocaleDateString();
+    }
+
+    function loadNotifications() {
+        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        var fn = window.Auth && window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/notifications?page_size=50', { headers: headers }); }
+            : function() { return fetch(API + '/api/v1/notifications?page_size=50', { headers: headers }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function(data) {
+                var items = (data && data.items) || [];
+                if (!items.length) {
+                    listEl.innerHTML = '<p class="text-muted">No notifications yet.</p>';
+                    return;
+                }
+                listEl.innerHTML = items.map(function(n) {
+                    var unread = !n.read_at;
+                    return '<div class="notif-item' + (unread ? ' notif-item--unread' : '') + '" data-id="' + (n.notification_id || '') + '">' +
+                        '<div class="notif-item-body">' +
+                        '<p class="notif-item-title">' + (n.title || 'Notification').replace(/</g,'&lt;') + '</p>' +
+                        '<p class="notif-item-message">' + (n.message || '').replace(/</g,'&lt;') + '</p>' +
+                        '<p class="notif-item-time">' + fmtTime(n.created_at) + '</p>' +
+                        '</div>' +
+                        (unread ? '<button type="button" class="btn btn-sm btn-secondary notif-read-btn" data-id="' + (n.notification_id || '') + '">Mark read</button>' : '') +
+                        '</div>';
+                }).join('');
+                listEl.querySelectorAll('.notif-read-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var id = btn.getAttribute('data-id');
+                        markRead(id);
+                    });
+                });
+            })
+            .catch(function() {
+                listEl.innerHTML = '<p class="text-muted">Could not load notifications.</p>';
+            });
+    }
+
+    function markRead(id) {
+        var headers = Object.assign({ 'Content-Type': 'application/json' },
+            window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {});
+        fetch(API + '/api/v1/notifications/' + id + '/read', { method: 'POST', headers: headers })
+            .then(function() { loadNotifications(); })
+            .catch(function() {});
+    }
+
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', function() {
+            var headers = Object.assign({ 'Content-Type': 'application/json' },
+                window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {});
+            fetch(API + '/api/v1/notifications/read-all', { method: 'POST', headers: headers })
+                .then(function() { loadNotifications(); })
+                .catch(function() {});
+        });
+    }
+
+    if (window.Auth && window.Auth.getAuthHeaders) {
+        loadNotifications();
+    } else {
+        listEl.innerHTML = '<p class="text-muted">Sign in to see notifications.</p>';
+    }
+})();
+</script>
+{% endblock %}
