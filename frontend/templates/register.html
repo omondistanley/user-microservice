@@ -2,7 +2,68 @@
 {% block body_class %}auth-page{% endblock %}
 {% block title %}Register — pocketii{% endblock %}
 {% block content %}
-<div style="display:grid;grid-template-columns:1fr 1fr;min-height:100vh;">
+
+<!-- ── MOBILE layout: dark header + white form (stacked) ── -->
+<div class="auth-register-mobile">
+    <div class="auth-mobile-header">
+        <div class="auth-mobile-logo">pocketii</div>
+        <h2 class="auth-mobile-title">Create account</h2>
+        <p class="auth-mobile-sub">Free forever · No credit card needed</p>
+    </div>
+    <div class="auth-mobile-body">
+        <div style="display:flex;gap:10px;margin-bottom:20px;">
+            <a href="/auth/google" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border:1.5px solid var(--s200);border-radius:12px;background:#fff;font-size:13px;font-weight:600;color:var(--s700);text-decoration:none;">
+                <span style="font-weight:900;color:#4285F4;">G</span> Google
+            </a>
+            <a href="/auth/apple" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border:none;border-radius:12px;background:#000;font-size:13px;font-weight:600;color:#fff;text-decoration:none;">
+                 Apple
+            </a>
+        </div>
+        <div class="auth-mobile-divider"><span>or email</span></div>
+        <div id="register-message" class="auth-alert" style="display:none;"></div>
+        <form id="register-form" method="post" action="javascript:void(0)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label class="form-label" for="first_name">First name</label>
+                    <input type="text" id="first_name" name="first_name" class="form-input" required placeholder="Alex" style="font-size:16px;padding:13px 14px;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="last_name">Last name</label>
+                    <input type="text" id="last_name" name="last_name" class="form-input" required placeholder="Johnson" style="font-size:16px;padding:13px 14px;">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="email">Email address</label>
+                <input type="email" id="email" name="email" class="form-input" required placeholder="alex@example.com" style="font-size:16px;padding:13px 14px;">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <div class="password-toggle-wrapper">
+                    <input type="password" id="password" name="password" class="form-input" required minlength="8" placeholder="At least 8 characters" style="font-size:16px;padding:13px 14px;">
+                    <button type="button" class="btn-password-toggle" id="register-password-toggle" aria-label="Show password">Show</button>
+                </div>
+                <div class="form-hint">8+ characters with letters, numbers &amp; symbols</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="confirm-password">Confirm password</label>
+                <input type="password" id="confirm-password" name="confirm_password" class="form-input" required placeholder="Repeat your password" style="font-size:16px;padding:13px 14px;">
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:20px;">
+                <input type="checkbox" id="terms" required style="margin-top:3px;accent-color:var(--indigo);flex-shrink:0;">
+                <label for="terms" style="font-size:12px;color:var(--s600);line-height:1.5;">
+                    I agree to the <a href="#" style="color:var(--indigo);">Terms of Service</a> and <a href="#" style="color:var(--indigo);">Privacy Policy</a>
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:15px;">Create account →</button>
+            <p style="text-align:center;font-size:13px;color:var(--s500);margin-top:20px;">
+                Already have an account? <a href="/login" style="color:var(--indigo);font-weight:600;text-decoration:none;">Sign in</a>
+            </p>
+        </form>
+    </div>
+</div>
+
+<!-- ── DESKTOP layout: 2-column split ── -->
+<div class="auth-register-desktop">
     <!-- Left dark panel -->
     <div style="background:linear-gradient(160deg,#0A0F1E,#1a1f3e);padding:48px;display:flex;flex-direction:column;">
         <div style="font-size:24px;font-weight:800;background:linear-gradient(135deg,#6366F1,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:48px;">pocketii</div>
@@ -22,16 +83,13 @@
         </div>
         <div style="font-size:11px;color:rgba(255,255,255,0.25);">© 2026 pocketii Inc.</div>
     </div>
-
     <!-- Right white form panel -->
     <div style="padding:48px;display:flex;align-items:center;justify-content:center;background:#fff;overflow-y:auto;">
         <div style="width:100%;max-width:380px;">
             <h2 style="font-size:24px;font-weight:800;color:var(--s900);margin-bottom:6px;">Create your account</h2>
             <p style="font-size:13px;color:var(--s500);margin-bottom:24px;">
-                Already have an account? <a href="/login" style="color:var(--indigo);font-weight:600;">Sign in</a>
+                Already have an account? <a href="/login" style="color:var(--indigo);font-weight:600;text-decoration:none;">Sign in</a>
             </p>
-
-            <!-- OAuth buttons -->
             <div style="display:flex;gap:10px;margin-bottom:20px;">
                 <a href="/auth/google" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1.5px solid var(--s200);border-radius:10px;background:#fff;font-size:12px;font-weight:600;color:var(--s700);text-decoration:none;">
                     <span style="font-weight:900;color:#4285F4;">G</span> Google
@@ -40,62 +98,56 @@
                      Apple
                 </a>
             </div>
-
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
                 <div style="flex:1;height:1px;background:var(--s200);"></div>
                 <span style="font-size:12px;color:var(--s400);">or</span>
                 <div style="flex:1;height:1px;background:var(--s200);"></div>
             </div>
-
-            <form id="register-form" method="post" action="javascript:void(0)">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div class="form-group">
-                        <label class="form-label" for="first_name">First name</label>
-                        <input type="text" id="first_name" name="first_name" class="form-input" required placeholder="Alex">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="last_name">Last name</label>
-                        <input type="text" id="last_name" name="last_name" class="form-input" required placeholder="Johnson">
-                    </div>
-                </div>
-
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="form-group">
-                    <label class="form-label" for="email">Email address</label>
-                    <input type="email" id="email" name="email" class="form-input" required placeholder="alex@example.com">
+                    <label class="form-label">First name</label>
+                    <input type="text" name="first_name_d" class="form-input" required placeholder="Alex">
                 </div>
-
                 <div class="form-group">
-                    <label class="form-label" for="password">Password</label>
-                    <div class="password-toggle-wrapper">
-                        <input type="password" id="password" name="password" class="form-input" required minlength="8" placeholder="At least 8 characters">
-                        <button type="button" class="btn-password-toggle" id="register-password-toggle" aria-label="Show password">Show</button>
-                    </div>
-                    <div class="form-hint">8+ characters with letters, numbers &amp; symbols</div>
+                    <label class="form-label">Last name</label>
+                    <input type="text" name="last_name_d" class="form-input" required placeholder="Johnson">
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="confirm-password">Confirm password</label>
-                    <input type="password" id="confirm-password" name="confirm_password" class="form-input" required placeholder="Repeat your password">
-                </div>
-
-                <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:20px;">
-                    <input type="checkbox" id="terms" required style="margin-top:2px;accent-color:var(--indigo);">
-                    <label for="terms" style="font-size:12px;color:var(--s600);line-height:1.5;">
-                        I agree to the <a href="#" style="color:var(--indigo);">Terms of Service</a> and <a href="#" style="color:var(--indigo);">Privacy Policy</a>
-                    </label>
-                </div>
-
-                <div id="register-message" class="auth-alert" style="display:none;"></div>
-
-                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;">Create account →</button>
-            </form>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email address</label>
+                <input type="email" name="email_d" class="form-input" required placeholder="alex@example.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password_d" class="form-input" required minlength="8" placeholder="At least 8 characters">
+                <div class="form-hint">8+ characters with letters, numbers &amp; symbols</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm password</label>
+                <input type="password" name="confirm_password_d" class="form-input" required placeholder="Repeat your password">
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:20px;">
+                <input type="checkbox" id="terms-d" required style="margin-top:2px;accent-color:var(--indigo);">
+                <label for="terms-d" style="font-size:12px;color:var(--s600);line-height:1.5;">
+                    I agree to the <a href="#" style="color:var(--indigo);">Terms of Service</a> and <a href="#" style="color:var(--indigo);">Privacy Policy</a>
+                </label>
+            </div>
+            <button type="button" id="register-submit-desktop" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;">Create account →</button>
         </div>
     </div>
 </div>
+
 <style>
-@media (max-width: 768px) {
-    .auth-page > div { grid-template-columns: 1fr !important; }
-    .auth-page > div > div:first-child { display: none; }
+.auth-register-desktop { display: none; }
+.auth-register-mobile  { display: block; min-height: 100vh; background: #fff; }
+
+@media (min-width: 769px) {
+    .auth-register-mobile  { display: none; }
+    .auth-register-desktop {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 100vh;
+    }
 }
 </style>
 {% endblock %}

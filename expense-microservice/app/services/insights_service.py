@@ -211,3 +211,15 @@ class InsightsService:
             )
         finally:
             conn.close()
+
+    def has_anomaly_feedback(self, user_id: int, expense_id: str) -> bool:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT 1 FROM "{SCHEMA}"."{FEEDBACK_TABLE}" WHERE expense_id = %s::uuid AND user_id = %s LIMIT 1',
+                (expense_id, user_id),
+            )
+            return cur.fetchone() is not None
+        finally:
+            conn.close()

@@ -17,7 +17,6 @@
     }
 
     runWhenReady(function init() {
-        var form = document.getElementById('login-form');
         var msg = document.getElementById('login-message');
 
         // Security: strip email/password from URL if present
@@ -64,66 +63,51 @@
             }
         }
 
-        function doLogin() {
+        function doLogin(btnId, emailId, passwordId, msgId) {
             if (!window.Auth) {
                 showAlert('Sign-in is loading. Please try again.', false);
                 return;
             }
-            var emailEl = document.getElementById('email');
-            var passwordEl = document.getElementById('password');
+            var emailEl    = document.getElementById(emailId);
+            var passwordEl = document.getElementById(passwordId);
             if (!emailEl || !passwordEl) return;
-            var email = (emailEl.value || '').trim();
+            var email    = (emailEl.value || '').trim();
             var password = passwordEl.value || '';
-            if (!email) {
-                showAlert('Please enter your email.', false);
-                return;
-            }
-            if (!password) {
-                showAlert('Please enter your password.', false);
-                return;
-            }
-            var m = document.getElementById('login-message');
+            if (!email)    { showAlert('Please enter your email.',    false); return; }
+            if (!password) { showAlert('Please enter your password.', false); return; }
+            var m = document.getElementById(msgId);
             if (m) m.style.display = 'none';
-            var submitBtn = document.getElementById('login-submit-btn');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Signing in…';
-            }
+            var submitBtn = document.getElementById(btnId);
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Signing in…'; }
             window.Auth.login(email, password).then(function(data) {
                 if (data && data.access_token) {
                     try {
                         localStorage.setItem('access_token', data.access_token);
-                        if (data.refresh_token) {
-                            localStorage.setItem('refresh_token', data.refresh_token);
-                        }
+                        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
                     } catch (err) {}
                     var next = params.get('next');
                     var target = '/dashboard';
-                    if (next && next.startsWith('/') && next.indexOf('//') === -1) {
-                        target = next;
-                    }
+                    if (next && next.startsWith('/') && next.indexOf('//') === -1) target = next;
                     window.location.href = target;
                 } else {
                     showAlert('Invalid response from server. Please try again.', false);
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Sign in';
-                    }
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Sign in'; }
                 }
             }).catch(function(err) {
                 showAlert(err.message || 'Login failed', false);
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Sign in';
-                }
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Sign in'; }
             });
         }
 
-        // Event delegation: catch click on Sign in button and form submit (Enter key) even if script ran before button existed
+        // Event delegation: desktop button + mobile button
         document.body.addEventListener('click', function(e) {
             if (e.target && e.target.id === 'login-submit-btn') {
                 e.preventDefault();
-                doLogin();
+                doLogin('login-submit-btn', 'email', 'password', 'login-message');
+            }
+            if (e.target && e.target.id === 'login-submit-btn-mobile') {
+                e.preventDefault();
+                doLogin('login-submit-btn-mobile', 'email-m', 'password-m', 'login-message-mobile');
             }
         });
         document.body.addEventListener('submit', function(e) {

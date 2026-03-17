@@ -62,7 +62,10 @@
     </select>
 </div>
 
-<!-- Expense list -->
+<!-- Mobile transaction list (shown ≤1023px) -->
+<ul class="m-list" id="expenses-list-mobile" style="display:none;margin-bottom:12px;"></ul>
+
+<!-- Expense list (desktop) -->
 <div id="expenses-list" class="expenses-list-wrap">
     <div class="page-skeleton">
         <div class="skel-row"></div><div class="skel-row"></div>
@@ -345,6 +348,107 @@
             if (summaryByMonth)    summaryByMonth.style.display    = g === 'month'    ? 'block' : 'none';
         });
     });
+})();
+</script>
+<script nonce="{{ csp_nonce | default('') }}">
+/* Mobile expenses list rendering */
+(function() {
+    var isMobile = window.innerWidth <= 1023;
+    var mListEl  = document.getElementById('expenses-list-mobile');
+    var dListEl  = document.getElementById('expenses-list');
+    var paginEl  = document.getElementById('expenses-pagination');
+
+    function setMobileMode(mobile) {
+        if (!mListEl || !dListEl) return;
+        mListEl.style.display = mobile ? '' : 'none';
+        dListEl.style.display = mobile ? 'none' : '';
+    }
+    setMobileMode(isMobile);
+
+    if (!isMobile || !mListEl) return;
+
+    var CAT_EMOJI = {'food':'🍕','grocery':'🍕','restaurant':'🍕','transport':'🚗','car':'🚗','travel':'✈️','entertainment':'🎭','health':'💊','medical':'💊','shopping':'🛍️','housing':'🏠','rent':'🏠','utilities':'💡','salary':'💼','income':'💼'};
+    function getCatEmoji(name) {
+        var n = (name || '').toLowerCase();
+        for (var k in CAT_EMOJI) { if (n.indexOf(k) !== -1) return CAT_EMOJI[k]; }
+        return '📋';
+    }
+    function esc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function fmtDateShort(val) {
+        if (!val) return '';
+        var s = String(val).slice(0,10);
+        var p = s.split('-');
+        if (p.length !== 3) return s;
+        var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var today = new Date().toISOString().slice(0,10);
+        var yest = new Date(); yest.setDate(yest.getDate()-1);
+        if (s === today) return 'Today';
+        if (s === yest.toISOString().slice(0,10)) return 'Yesterday';
+        return (mon[parseInt(p[1],10)-1]||p[1]) + ' ' + parseInt(p[2],10);
+    }
+
+    function loadMobileExpenses(opts) {
+        if (!window.Expenses || !window.Expenses.buildListQuery) return;
+        mListEl.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Loading…</li>';
+        var q = window.Expenses.buildListQuery(opts || { page:1, page_size:20 });
+        var api = window.EXPENSE_API_BASE || '';
+        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        var fn = window.Auth && window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses' + q, { headers: headers }); }
+            : function() { return fetch(api + '/api/v1/expenses' + q, { headers: headers }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d) {
+                var list = (d && d.items) || [];
+                if (!list.length) {
+                    mListEl.innerHTML = '<li style="padding:28px;text-align:center;color:var(--s400);font-size:13px;">No expenses found.</li>';
+                    return;
+                }
+                mListEl.innerHTML = list.map(function(item) {
+                    var amt   = item.amount != null ? item.amount : (item.value || 0);
+                    var label = (item.description || '').trim() || item.category_name || 'Expense';
+                    var cat   = item.category_name || '';
+                    var href  = item.expense_id ? '/expenses/' + item.expense_id : '#';
+                    var emoji = getCatEmoji(cat || label);
+                    return '<li><a href="'+href+'" class="m-txn-item">' +
+                        '<span class="m-txn-icon expense">'+emoji+'</span>' +
+                        '<div class="m-txn-body"><div class="m-txn-name">'+esc(label)+'</div>' +
+                        (cat ? '<div class="m-txn-meta">'+esc(cat)+'</div>' : '') +
+                        '</div>' +
+                        '<div class="m-txn-right">' +
+                        '<div class="m-txn-amount negative">-$'+Math.abs(parseFloat(amt)||0).toFixed(2)+'</div>' +
+                        '<div class="m-txn-date">'+fmtDateShort(item.date)+'</div>' +
+                        '</div></a></li>';
+                }).join('');
+            }).catch(function() {
+                mListEl.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Could not load expenses.</li>';
+            });
+    }
+
+    // Hook into existing filter/pagination events
+    document.addEventListener('expenses:loaded', function(e) {
+        if (e.detail && e.detail.opts) loadMobileExpenses(e.detail.opts);
+    });
+
+    // Initial load
+    if (window.Expenses) {
+        setTimeout(function() { loadMobileExpenses({ page:1, page_size:20 }); }, 100);
+    }
+
+    // Hook apply/clear buttons to also reload mobile list
+    var applyBtn = document.getElementById('filter-apply-btn');
+    var clearBtn = document.getElementById('filter-clear-btn');
+    function getMobileOpts() {
+        function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+        return {
+            date_from: val('filter-date-from') || undefined,
+            date_to:   val('filter-date-to')   || undefined,
+            category:  val('filter-category')  || undefined,
+            tag:       (val('filter-tag')||'').trim() || undefined,
+            page: 1, page_size: parseInt(val('filter-page-size')||'20',10)
+        };
+    }
+    if (applyBtn) applyBtn.addEventListener('click', function() { loadMobileExpenses(getMobileOpts()); });
+    if (clearBtn) clearBtn.addEventListener('click', function() { loadMobileExpenses({ page:1, page_size:20 }); });
 })();
 </script>
 {% endblock %}

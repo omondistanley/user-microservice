@@ -146,6 +146,21 @@ class ExpenseResource(BaseResource):
         finally:
             conn.close()
         data["tags"] = created_tags
+        # Apply user categorization rules (may override category/tags)
+        try:
+            from app.services.rule_engine_service import evaluate_rules
+            evaluate_rules(
+                self.data_service,
+                user_id,
+                str(data["expense_id"]),
+                data.get("description"),
+                data.get("amount"),
+                data.get("category_code"),
+                data.get("date"),
+                data.get("source"),
+            )
+        except Exception:
+            pass
         return _row_to_response(data)
 
     def list(
@@ -170,6 +185,7 @@ class ExpenseResource(BaseResource):
             min_amount=params.min_amount,
             max_amount=params.max_amount,
             household_id=household_id,
+            exclude_matched_duplicates=params.exclude_matched_duplicates,
             limit=params.page_size,
             offset=offset,
         )

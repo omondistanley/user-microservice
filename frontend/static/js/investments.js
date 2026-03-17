@@ -48,6 +48,46 @@
         });
     }
 
+    function fetchAlpacaStatus() {
+        return fetch(apiUrl('/api/v1/alpaca/status'), { headers: getAuthHeaders() }).then(function (r) {
+            if (!r.ok) return { connected: false };
+            return r.json();
+        }).catch(function () { return { connected: false }; });
+    }
+
+    function alpacaSync() {
+        return fetch(apiUrl('/api/v1/alpaca/sync'), {
+            method: 'POST',
+            headers: getAuthHeaders(),
+        }).then(function (r) {
+            if (!r.ok) throw new Error('Sync failed');
+            return r.json();
+        });
+    }
+
+    function placeOrder(symbol, qty, side) {
+        return fetch(apiUrl('/api/v1/alpaca/orders'), {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ symbol: symbol, qty: Number(qty), side: side, type: 'market' }),
+        }).then(function (r) {
+            if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || 'Order failed'); });
+            return r.json();
+        });
+    }
+
+    function sellHolding(symbol, quantity) {
+        if (!confirm('Sell ' + quantity + ' share(s) of ' + symbol + '?')) return Promise.resolve();
+        return placeOrder(symbol, quantity, 'sell').then(function () {
+            return alpacaSync().catch(function () {}).then(function () { return fetchHoldings(); });
+        }).then(function (data) {
+            var listEl = document.getElementById('holdings-list');
+            if (listEl) renderHoldings(listEl, (data && data.items) ? data.items : []);
+        }).catch(function (err) {
+            alert(err.message || 'Sell failed');
+        });
+    }
+
     function renderHoldings(listEl, items) {
         if (!listEl) return;
         if (!items || items.length === 0) {
@@ -62,13 +102,15 @@
             var value = qty * cost;
             totalCost += value;
             var sym = (h.symbol || '').toUpperCase();
-            html += '<li class="holding-item" data-holding-id="' + (h.holding_id || '') + '">';
-            html += '<div class="holding-symbol">' + escapeHtml(sym) + '</div>';
+            var source = (h.source || '').toLowerCase();
+            html += '<li class="holding-item" data-holding-id="' + (h.holding_id || '') + '" data-symbol="' + escapeHtml(sym) + '" data-quantity="' + qty + '" data-source="' + escapeHtml(source) + '">';
+            html += '<div class="holding-symbol">' + escapeHtml(sym) + (source === 'alpaca' ? ' <span class="badge" style="font-size:0.65rem; opacity:0.9;">Alpaca</span>' : '') + '</div>';
             html += '<div class="holding-details">';
             html += '<span class="holding-qty">' + qty + ' @ ' + formatMoney(cost) + ' ' + (h.currency || 'USD') + '</span>';
             if (h.notes) html += '<span class="holding-notes">' + escapeHtml(h.notes) + '</span>';
             html += '</div>';
             html += '<div class="holding-value">' + formatMoney(value) + '</div>';
+            if (source === 'alpaca') html += '<button type="button" class="btn btn-sm btn-ghost holding-sell" aria-label="Sell ' + escapeHtml(sym) + '">Sell</button>';
             html += '<button type="button" class="btn btn-sm btn-ghost holding-delete" aria-label="Delete ' + escapeHtml(sym) + '">Delete</button>';
             html += '</li>';
         });
@@ -88,6 +130,14 @@
                 }).catch(function (err) {
                     alert(err.message || 'Delete failed');
                 });
+            });
+        });
+        listEl.querySelectorAll('.holding-sell').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var li = btn.closest('.holding-item');
+                var sym = li && li.getAttribute('data-symbol');
+                var qty = li && li.getAttribute('data-quantity');
+                if (sym && qty != null) sellHolding(sym, parseFloat(qty, 10));
             });
         });
     }
@@ -123,12 +173,22 @@
         var listEl = document.getElementById('holdings-list');
         if (!listEl) return;
 
-        fetchHoldings().then(function (data) {
-            var items = (data && data.items) ? data.items : [];
-            renderHoldings(listEl, items);
-        }).catch(function () {
-            listEl.innerHTML = '<p class="muted">Could not load holdings. Make sure you are logged in.</p>';
-        });
+        function loadHoldings() {
+            fetchHoldings().then(function (data) {
+                var items = (data && data.items) ? data.items : [];
+                renderHoldings(listEl, items);
+            }).catch(function () {
+                listEl.innerHTML = '<p class="muted">Could not load holdings. Make sure you are logged in.</p>';
+            });
+        }
+
+        fetchAlpacaStatus().then(function (status) {
+            if (status && status.connected) {
+                alpacaSync().then(function () { loadHoldings(); }).catch(function () { loadHoldings(); });
+            } else {
+                loadHoldings();
+            }
+        }).catch(function () { loadHoldings(); });
 
         var addBtn = document.getElementById('holdings-add-btn');
         if (addBtn) addBtn.addEventListener('click', showAddForm);
@@ -168,6 +228,18 @@
                     return fetchHoldings();
                 }).then(function (data) {
                     renderHoldings(listEl, (data && data.items) ? data.items : []);
+                    return fetchAlpacaStatus().then(function (status) {
+                        if (status && status.connected && confirm('Place this as a buy order on Alpaca? Market order for ' + quantity + ' share(s) of ' + symbol.toUpperCase() + '.')) {
+                            return placeOrder(symbol.toUpperCase(), quantity, 'buy').then(function () {
+                                alert('Order placed.');
+                                return alpacaSync().catch(function () {}).then(function () { return fetchHoldings(); });
+                            }).then(function (d) {
+                                if (d && d.items) renderHoldings(listEl, d.items);
+                            }).catch(function (err) {
+                                alert(err.message || 'Order failed');
+                            });
+                        }
+                    });
                 }).catch(function (err) {
                     alert(err.message || 'Failed to add holding');
                 });
@@ -181,5 +253,5 @@
         init();
     }
 
-    window.Investments = { fetchHoldings: fetchHoldings, renderHoldings: renderHoldings };
+    window.Investments = { fetchHoldings: fetchHoldings, renderHoldings: renderHoldings, sellHolding: sellHolding };
 })();

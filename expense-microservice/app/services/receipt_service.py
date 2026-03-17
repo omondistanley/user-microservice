@@ -1,6 +1,7 @@
 """
 Receipt create/download/delete with backend branching (local vs db).
 """
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -19,18 +20,20 @@ class ReceiptService:
         self.storage = storage  # None when backend == "db"
         self.backend = backend  # "local" or "db"
 
-    def _storage_key(self, user_id: int, expense_id: str, ext: str) -> str:
-        return f"users/{user_id}/expenses/{expense_id}/{uuid4()}{ext}"
+    def _storage_key(self, user_id: int, expense_id: Optional[str], ext: str) -> str:
+        if expense_id:
+            return f"users/{user_id}/expenses/{expense_id}/{uuid4()}{ext}"
+        return f"users/{user_id}/unmatched/{uuid4()}{ext}"
 
     def create_receipt(
         self,
-        expense_id: str,
         user_id: int,
         file_name: str,
         content_type: str,
         file_size_bytes: int,
         file_bytes: bytes | None = None,
         storage_key: str | None = None,
+        expense_id: Optional[str] = None,
     ) -> dict:
         if file_bytes is not None:
             if content_type not in RECEIPT_ALLOWED_CONTENT_TYPES:
@@ -52,7 +55,7 @@ class ReceiptService:
         }
         if self.backend == "db" and file_bytes is not None:
             data["file_bytes"] = file_bytes
-        row = self.data_service.insert_receipt(expense_id, user_id, data)
+        row = self.data_service.insert_receipt(user_id, data, expense_id=expense_id)
         if self.backend == "local" and file_bytes is not None and self.storage is not None:
             self.storage.save(storage_key, file_bytes)
         return row

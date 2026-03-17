@@ -168,3 +168,98 @@ async def get_goal_progress(
     if not progress:
         raise HTTPException(status_code=404, detail="Goal not found")
     return GoalProgressResponse(**progress)
+
+
+@router.get("/goals/{goal_id}/contributions", response_model=dict)
+async def list_goal_contributions(
+    goal_id: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    """List contributions for a goal with user_id per row (for household goal breakdown)."""
+    try:
+        gid = UUID(goal_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid goal_id")
+    svc = _get_goal_service()
+    rows = svc.list_contributions_for_goal(gid, user_id)
+    return {"contributions": [ContributionResponse(**r) for r in rows]}
+
+
+@router.get("/goals/{goal_id}/round-up-config", response_model=dict)
+async def get_round_up_config(
+    goal_id: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    try:
+        gid = UUID(goal_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid goal_id")
+    svc = _get_goal_service()
+    goal = svc.get_goal_by_id(gid, user_id)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    cfg = svc.get_round_up_config_by_goal(gid, user_id)
+    if not cfg:
+        return {"configured": False}
+    return {"configured": True, **cfg}
+
+
+@router.post("/goals/{goal_id}/round-up-config", response_model=dict)
+async def create_round_up_config(
+    goal_id: str,
+    payload: dict,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Enable round-up for this goal. Body: round_to (optional, default 1)."""
+    try:
+        gid = UUID(goal_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid goal_id")
+    from decimal import Decimal
+    svc = _get_goal_service()
+    goal = svc.get_goal_by_id(gid, user_id)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    round_to = Decimal(str(payload.get("round_to", 1)))
+    row = svc.create_round_up_config(user_id, gid, round_to=round_to)
+    return row
+
+
+@router.patch("/goals/{goal_id}/round-up-config", response_model=dict)
+async def update_round_up_config(
+    goal_id: str,
+    payload: dict,
+    user_id: int = Depends(get_current_user_id),
+):
+    try:
+        gid = UUID(goal_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid goal_id")
+    from decimal import Decimal
+    svc = _get_goal_service()
+    cfg = svc.get_round_up_config_by_goal(gid, user_id)
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Round-up config not found")
+    updates = {}
+    if "is_active" in payload:
+        updates["is_active"] = bool(payload["is_active"])
+    if "round_to" in payload:
+        updates["round_to"] = Decimal(str(payload["round_to"]))
+    row = svc.update_round_up_config(str(cfg["id"]), user_id, **updates)
+    return row or cfg
+
+
+@router.delete("/goals/{goal_id}/round-up-config", status_code=204)
+async def delete_round_up_config(
+    goal_id: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    try:
+        gid = UUID(goal_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid goal_id")
+    svc = _get_goal_service()
+    cfg = svc.get_round_up_config_by_goal(gid, user_id)
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Round-up config not found")
+    svc.delete_round_up_config(str(cfg["id"]), user_id)

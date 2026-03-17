@@ -33,6 +33,8 @@ class HoldingResponse(BaseModel):
     currency: str
     exchange: Optional[str] = None
     notes: Optional[str] = None
+    source: Optional[str] = None
+    external_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

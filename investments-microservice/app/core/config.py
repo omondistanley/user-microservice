@@ -22,6 +22,10 @@ DB_HOST: Optional[str] = os.environ.get("DB_HOST")
 DB_PORT: Optional[str] = os.environ.get("DB_PORT")
 DB_NAME: Optional[str] = os.environ.get("DB_NAME", os.environ.get("INVESTMENTS_DB_NAME", "investments_db"))
 
+# Optional symmetric key for encrypting third-party credentials (e.g. Alpaca API keys),
+# shared pattern with expense-microservice ENCRYPTION_KEY.
+ENCRYPTION_KEY: str = os.environ.get("ENCRYPTION_KEY", "")
+
 INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")
 CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "*")
 

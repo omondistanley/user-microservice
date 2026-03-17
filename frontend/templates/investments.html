@@ -135,6 +135,7 @@
 
         items.forEach(function (li) {
             var sym = (li.querySelector('.holding-symbol') || {}).textContent || '';
+            var symOnly = sym.replace(/\s*Alpaca\s*$/i, '').trim();
             var detailEl = li.querySelector('.holding-qty');
             var detail = detailEl ? detailEl.textContent : '';
             // parse "qty @ cost CURRENCY"
@@ -144,15 +145,21 @@
             var value = qty * cost;
             totalValue += value;
             var holdingId = li.getAttribute('data-holding-id') || '';
-            alloc.push({ sym: sym, value: value });
+            var source = (li.getAttribute('data-source') || '').toLowerCase();
+            var dataSym = li.getAttribute('data-symbol') || symOnly;
+            alloc.push({ sym: symOnly || dataSym, value: value });
 
             rows += '<tr>';
-            rows += '<td><strong>' + sym + '</strong></td>';
+            rows += '<td><strong>' + (symOnly || dataSym) + '</strong></td>';
             rows += '<td>' + qty + '</td>';
             rows += '<td>$' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>';
             rows += '<td>$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>';
             rows += '<td><span class="stat-change">—</span></td>';
-            rows += '<td><button type="button" class="btn btn-ghost" style="font-size:0.75rem; padding:0.15rem 0.5rem;"'
+            rows += '<td>';
+            if (source === 'alpaca' && window.Investments && window.Investments.sellHolding) {
+                rows += '<button type="button" class="btn btn-ghost holding-table-sell" style="font-size:0.75rem; padding:0.15rem 0.5rem; margin-right:0.25rem;" data-symbol="' + (dataSym || symOnly) + '" data-quantity="' + qty + '">Sell</button>';
+            }
+            rows += '<button type="button" class="btn btn-ghost" style="font-size:0.75rem; padding:0.15rem 0.5rem;"'
                   + ' data-holding-id="' + holdingId + '" onclick="(function(b){'
                   + 'var li=document.querySelector(\'[data-holding-id=\\\'' + holdingId + '\\\']\');'
                   + 'var del=li&&li.querySelector(\'.holding-delete\');if(del)del.click();'
@@ -161,6 +168,13 @@
         });
 
         tbody.innerHTML = rows;
+        tbody.querySelectorAll('.holding-table-sell').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var s = btn.getAttribute('data-symbol');
+                var q = btn.getAttribute('data-quantity');
+                if (s && q != null && window.Investments && window.Investments.sellHolding) window.Investments.sellHolding(s, parseFloat(q, 10));
+            });
+        });
         if (totalEl) totalEl.textContent = '$' + totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         if (countEl) countEl.textContent = String(items.length);
 

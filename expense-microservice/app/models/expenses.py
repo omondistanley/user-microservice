@@ -77,6 +77,7 @@ class ExpenseListParams(BaseModel):
     tag_id: Optional[str] = None
     tag: Optional[str] = None
     household_id: Optional[UUID] = None
+    exclude_matched_duplicates: bool = False
     page: int = 1
     page_size: int = 20
 

@@ -64,6 +64,48 @@ def _notify_user_service(event: Dict[str, Any], request_id: str) -> None:
             raise RuntimeError(f"notification_write_failed:{resp.status_code}")
 
 
+def _notify_spend_pace(
+    user_id: int,
+    budget_id: str,
+    period_start: date,
+    period_end: date,
+    spent_amount: Decimal,
+    budget_amount: Decimal,
+    spent_ratio: float,
+    time_ratio: float,
+    request_id: str,
+) -> None:
+    if not USER_SERVICE_INTERNAL_URL:
+        return
+    headers = {"x-request-id": request_id}
+    if INTERNAL_API_KEY:
+        headers["x-internal-api-key"] = INTERNAL_API_KEY
+    payload = {
+        "user_id": user_id,
+        "type": "spend_pace",
+        "title": "Spend pace ahead of time",
+        "body": (
+            f"You've used {spent_ratio:.0f}% of your budget with {time_ratio:.0f}% of the period elapsed. "
+            f"({spent_amount} of {budget_amount})"
+        ),
+        "payload": {
+            "budget_id": budget_id,
+            "period_start": str(period_start),
+            "period_end": str(period_end),
+            "spent_amount": str(spent_amount),
+            "budget_amount": str(budget_amount),
+            "spent_ratio": spent_ratio,
+            "time_ratio": time_ratio,
+        },
+    }
+    with httpx.Client(timeout=15.0) as client:
+        client.post(
+            f"{USER_SERVICE_INTERNAL_URL}/internal/v1/notifications",
+            json=payload,
+            headers=headers,
+        )
+
+
 def evaluate_budget_alerts(
     as_of_date: date,
     user_id: Optional[int] = None,
@@ -124,6 +166,58 @@ def evaluate_budget_alerts(
                 }
             )
 
+    # Spend-pace: for each target, if spent_ratio > time_ratio, send at most one nudge per period
+    spend_pace_sent = 0
+    for target in targets:
+        try:
+            budget_amount = Decimal(str(target["budget_amount"]))
+            if budget_amount <= 0:
+                continue
+            period_start = target["period_start"]
+            period_end = target["period_end"]
+            if isinstance(period_start, str):
+                period_start = date.fromisoformat(period_start)
+            if isinstance(period_end, str):
+                period_end = date.fromisoformat(period_end)
+            spent_amount = ds.get_spent_amount(
+                user_id=int(target["user_id"]),
+                category_code=int(target["category_code"]),
+                period_start=period_start,
+                period_end=period_end,
+            )
+            total_days = (period_end - period_start).days + 1
+            days_elapsed = (as_of_date - period_start).days + 1
+            days_elapsed = min(max(0, days_elapsed), total_days)
+            time_ratio = float(days_elapsed) / total_days if total_days else 0.0
+            spent_ratio = float(spent_amount / budget_amount)
+            if spent_ratio <= time_ratio:
+                continue
+            inserted = ds.create_spend_pace_event_if_new(
+                user_id=int(target["user_id"]),
+                budget_id=str(target["budget_id"]),
+                period_start=period_start,
+                period_end=period_end,
+                spent_amount=spent_amount,
+                budget_amount=budget_amount,
+                spent_ratio=spent_ratio,
+                time_ratio=time_ratio,
+            )
+            if inserted:
+                _notify_spend_pace(
+                    int(target["user_id"]),
+                    str(target["budget_id"]),
+                    period_start,
+                    period_end,
+                    spent_amount,
+                    budget_amount,
+                    spent_ratio,
+                    time_ratio,
+                    rid,
+                )
+                spend_pace_sent += 1
+        except Exception as e:
+            logger.warning("spend_pace target %s error: %s", target.get("budget_id"), e)
+
     result = {
         "as_of_date": as_of_date.isoformat(),
         "candidate_count": len(targets),
@@ -133,6 +227,7 @@ def evaluate_budget_alerts(
         "failed_count": failed_count,
         "failures": failures,
         "request_id": rid,
+        "spend_pace_sent": spend_pace_sent,
     }
     if job_id:
         result["job_id"] = job_id

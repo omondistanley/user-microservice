@@ -60,6 +60,11 @@
 </div>
 
 <p id="income-list-message" class="note" style="display:none;margin-bottom:1rem;"></p>
+
+<!-- Mobile income list -->
+<ul class="m-list" id="income-list-mobile" style="display:none;margin-bottom:12px;"></ul>
+
+<!-- Desktop income list -->
 <div id="income-list">Loading…</div>
 <div id="income-pagination" style="margin-top:1rem;"></div>
 {% endblock %}
@@ -388,6 +393,65 @@
     }
     loadStats();
     load();
+})();
+</script>
+<script nonce="{{ csp_nonce | default('') }}">
+/* Mobile income list */
+(function() {
+    var isMobile = window.innerWidth <= 1023;
+    var mListEl  = document.getElementById('income-list-mobile');
+    var dListEl  = document.getElementById('income-list');
+    if (!isMobile || !mListEl) return;
+    dListEl.style.display = 'none';
+    mListEl.style.display = '';
+
+    var TYPE_EMOJI = { salary:'💼', freelance:'🧑‍💻', dividend:'📈', interest:'🏦', other:'💡' };
+    function esc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function fmtDate(v) {
+        if (!v) return '';
+        var s = String(v).slice(0,10);
+        var p = s.split('-');
+        if (p.length !== 3) return s;
+        var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return (mon[parseInt(p[1],10)-1]||p[1]) + ' ' + parseInt(p[2],10);
+    }
+
+    function loadMobileIncome(opts) {
+        if (!window.Income || !window.Income.list) return;
+        mListEl.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Loading…</li>';
+        window.Income.list(opts || { page:1, page_size:20 }).then(function(data) {
+            var items = (data && data.items) || [];
+            if (!items.length) {
+                mListEl.innerHTML = '<li style="padding:28px;text-align:center;color:var(--s400);font-size:13px;">No income entries. <a href="/income/add">Add income</a>.</li>';
+                return;
+            }
+            mListEl.innerHTML = items.map(function(item) {
+                var type  = item.income_type || 'other';
+                var emoji = TYPE_EMOJI[type] || '💡';
+                var label = item.source_label || item.description || type;
+                var amt   = Number(item.amount || 0);
+                return '<li><div class="m-txn-item">' +
+                    '<span class="m-txn-icon income">'+emoji+'</span>' +
+                    '<div class="m-txn-body"><div class="m-txn-name">'+esc(label)+'</div>' +
+                    '<div class="m-txn-meta">'+esc(type.charAt(0).toUpperCase()+type.slice(1))+'</div></div>' +
+                    '<div class="m-txn-right">' +
+                    '<div class="m-txn-amount positive">+$'+amt.toFixed(2)+'</div>' +
+                    '<div class="m-txn-date">'+fmtDate(item.date)+'</div>' +
+                    '</div></div></li>';
+            }).join('');
+        }).catch(function() {
+            mListEl.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Could not load income.</li>';
+        });
+    }
+
+    // Hook filter form
+    var filterForm = document.getElementById('income-filter-form');
+    if (filterForm) {
+        filterForm.addEventListener('submit', function() {
+            setTimeout(function() { loadMobileIncome({ page:1, page_size:20 }); }, 100);
+        });
+    }
+    if (window.Income) setTimeout(function() { loadMobileIncome({ page:1, page_size:20 }); }, 100);
 })();
 </script>
 {% endblock %}

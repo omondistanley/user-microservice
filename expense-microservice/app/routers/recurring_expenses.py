@@ -83,6 +83,54 @@ async def create_recurring_expense(
     return RecurringExpenseResponse(**row)
 
 
+def _monthly_equivalent(amount: Decimal, rule: str) -> Decimal:
+    if rule == "weekly":
+        return amount * Decimal("4.33")
+    if rule == "monthly":
+        return amount
+    if rule == "yearly":
+        return amount / 12
+    return amount
+
+
+@router.get("/recurring-expenses/suggestions", response_model=dict)
+async def get_recurring_suggestions(
+    user_id: int = Depends(get_current_user_id),
+    months_back: int = Query(6, ge=1, le=24),
+):
+    """Infer possible recurring expenses from expense history (same description + amount pattern)."""
+    ds = _get_data_service()
+    suggestions = ds.get_recurring_suggestions(user_id, months_back=months_back)
+    return {"items": suggestions, "months_back": months_back}
+
+
+@router.get("/recurring-expenses/dashboard", response_model=dict)
+async def get_recurring_dashboard(
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Combined view: explicit recurring expenses + inferred suggestions, plus total_monthly_recurring.
+    """
+    ds = _get_data_service()
+    explicit_items, total = ds.list_recurring_expenses(user_id=user_id, active_only=True, limit=500, offset=0)
+    suggestions = ds.get_recurring_suggestions(user_id, months_back=6)
+    explicit_monthly = sum(
+        _monthly_equivalent(Decimal(str(r["amount"])), str(r.get("recurrence_rule") or "monthly"))
+        for r in explicit_items
+    )
+    inferred_monthly = sum(
+        _monthly_equivalent(Decimal(str(s["amount"])), str(s.get("estimated_rule") or "monthly"))
+        for s in suggestions
+    )
+    return {
+        "explicit": [RecurringExpenseResponse(**r) for r in explicit_items],
+        "inferred": suggestions,
+        "total_monthly_recurring": float(explicit_monthly + inferred_monthly),
+        "explicit_monthly_total": float(explicit_monthly),
+        "inferred_monthly_total": float(inferred_monthly),
+    }
+
+
 @router.get("/recurring-expenses", response_model=dict)
 async def list_recurring_expenses(
     user_id: int = Depends(get_current_user_id),
@@ -193,6 +241,21 @@ async def run_recurring_expense(
         ),
         source="recurring",
     )
+    try:
+        from app.services.rule_engine_service import evaluate_rules
+        ds = _get_data_service()
+        evaluate_rules(
+            ds,
+            user_id,
+            str(created_expense.expense_id),
+            created_expense.description,
+            created_expense.amount,
+            created_expense.category_code,
+            created_expense.date,
+            "recurring",
+        )
+    except Exception:
+        pass
 
     now = datetime.now(timezone.utc)
     next_due = _advance_due_date(due_date, recurring["recurrence_rule"])

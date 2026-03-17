@@ -3,6 +3,70 @@
 {% block title %}Dashboard — pocketii{% endblock %}
 {% block content %}
 
+<!-- ── MOBILE DASHBOARD ── (hidden on desktop) -->
+<div class="m-dash-mobile">
+    <!-- Balance hero card -->
+    <div class="m-balance-hero">
+        <div class="m-balance-label">Running Balance</div>
+        <div class="m-balance-value" id="m-dashboard-balance">—</div>
+        <div class="m-balance-chips">
+            <div class="m-balance-chip">
+                <span class="m-balance-chip-label">Income</span>
+                <span class="m-balance-chip-val income" id="m-dashboard-income">—</span>
+            </div>
+            <div class="m-balance-chip" style="margin-left:20px;">
+                <span class="m-balance-chip-label">Expenses</span>
+                <span class="m-balance-chip-val expense" id="m-dashboard-expenses">—</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2-col KPI row -->
+    <div class="m-kpi-row">
+        <div class="m-kpi-card">
+            <div class="m-kpi-label">Savings Rate</div>
+            <div class="m-kpi-value" id="m-dashboard-savings">—</div>
+            <div class="m-kpi-sub">this month</div>
+        </div>
+        <div class="m-kpi-card">
+            <div class="m-kpi-label">Budgets</div>
+            <div class="m-kpi-value" id="m-dashboard-budget-count">—</div>
+            <div class="m-kpi-sub">active</div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="m-section-header">
+        <span class="m-section-title">Recent</span>
+        <a href="/expenses" class="m-section-link">View all →</a>
+    </div>
+    <ul class="m-list" id="m-dashboard-txn-list">
+        <li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Loading…</li>
+    </ul>
+
+    <!-- Budget Overview -->
+    <div class="m-section-header" style="margin-top:16px;">
+        <span class="m-section-title">Budgets</span>
+        <a href="/budgets" class="m-section-link">All →</a>
+    </div>
+    <div id="m-dashboard-budgets">
+        <p style="font-size:13px;color:var(--s400);">Loading…</p>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="m-card" style="margin-top:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <a href="/expenses/add" class="btn btn-primary btn-sm" style="justify-content:center;">+ Expense</a>
+            <a href="/income/add" class="btn btn-ghost btn-sm" style="justify-content:center;">+ Income</a>
+            <a href="/link-bank" class="btn btn-ghost btn-sm" style="justify-content:center;">🏦 Link Bank</a>
+            <a href="/reports" class="btn btn-ghost btn-sm" style="justify-content:center;">📊 Reports</a>
+        </div>
+    </div>
+</div>
+
+<!-- ── DESKTOP DASHBOARD ── (hidden on mobile) -->
+<div class="m-dash-desktop">
+
 <!-- 4-stat row -->
 <div class="stat-row">
     <div class="stat-card">
@@ -105,6 +169,7 @@
         </div>
     </div>
 </div>
+</div><!-- end .m-dash-desktop -->
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
@@ -325,6 +390,129 @@
     } else {
         if (tbodyEl) tbodyEl.innerHTML = '<tr><td colspan="4" style="color:var(--s400);text-align:center;padding:24px;">Sign in to see transactions.</td></tr>';
     }
+})();
+</script>
+<script nonce="{{ csp_nonce | default('') }}">
+/* Mobile dashboard data loader */
+(function() {
+    var mBalanceEl  = document.getElementById('m-dashboard-balance');
+    var mIncomeEl   = document.getElementById('m-dashboard-income');
+    var mExpensesEl = document.getElementById('m-dashboard-expenses');
+    var mSavingsEl  = document.getElementById('m-dashboard-savings');
+    var mBudgetCnt  = document.getElementById('m-dashboard-budget-count');
+    var mTxnList    = document.getElementById('m-dashboard-txn-list');
+    var mBudgets    = document.getElementById('m-dashboard-budgets');
+
+    var CAT_EMOJI = {'food':'🍕','grocery':'🍕','restaurant':'🍕','transport':'🚗','car':'🚗','travel':'✈️','entertainment':'🎭','health':'💊','medical':'💊','shopping':'🛍️','housing':'🏠','rent':'🏠','utilities':'💡','salary':'💼','income':'💼'};
+    function getCatEmoji(name) {
+        var n = (name || '').toLowerCase();
+        for (var k in CAT_EMOJI) { if (n.indexOf(k) !== -1) return CAT_EMOJI[k]; }
+        return '📋';
+    }
+    function fmt(v) { var n = parseFloat(v); return isNaN(n) ? '—' : '$' + n.toFixed(2); }
+    function fmtDateShort(val) {
+        if (!val) return '';
+        var s = String(val).slice(0, 10);
+        var p = s.split('-');
+        if (p.length !== 3) return s;
+        var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var today = new Date().toISOString().slice(0,10);
+        var yest = new Date(); yest.setDate(yest.getDate()-1);
+        if (s === today) return 'Today';
+        if (s === yest.toISOString().slice(0,10)) return 'Yesterday';
+        return (mon[parseInt(p[1],10)-1] || p[1]) + ' ' + parseInt(p[2],10);
+    }
+
+    function loadMobile() {
+        if (!window.Auth || !window.Auth.getAuthHeaders) return;
+        var now = new Date();
+        var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+        var today = now.toISOString().slice(0,10);
+
+        Promise.all([
+            window.Income && window.Income.getCashflow ? window.Income.getCashflow(firstDay, today, 'USD') : Promise.resolve(null),
+            window.Budgets && window.Budgets.getList ? window.Budgets.getList({ page:1, page_size:10 }) : Promise.resolve({ items:[] }),
+            window.Expenses && window.Expenses.getSummary ? window.Expenses.getSummary('category', firstDay, today, 'USD') : Promise.resolve({ items:[] })
+        ]).then(function(res) {
+            var cashflow = res[0];
+            var budgetData = res[1];
+            var catSummary = (res[2] && res[2].items) || [];
+            var budgets = (budgetData && budgetData.items) || [];
+            var incomeTotal  = cashflow && cashflow.income_total  != null ? Number(cashflow.income_total)  : null;
+            var expenseTotal = cashflow && cashflow.expense_total != null ? Number(cashflow.expense_total) : null;
+            var net = (incomeTotal != null && expenseTotal != null) ? (incomeTotal - expenseTotal) : null;
+            var savingsRate = (incomeTotal && incomeTotal > 0 && net != null) ? Math.round((net/incomeTotal)*100) : null;
+
+            if (mBalanceEl)  mBalanceEl.textContent  = net != null ? fmt(net) : '—';
+            if (mIncomeEl)   mIncomeEl.textContent   = incomeTotal != null ? fmt(incomeTotal) : '—';
+            if (mExpensesEl) mExpensesEl.textContent = expenseTotal != null ? fmt(expenseTotal) : '—';
+            if (mSavingsEl)  mSavingsEl.textContent  = savingsRate != null ? savingsRate + '%' : '—';
+            if (mBudgetCnt)  mBudgetCnt.textContent  = budgets.length;
+
+            // Mobile budget bars
+            if (mBudgets) {
+                if (!budgets.length) {
+                    mBudgets.innerHTML = '<p style="font-size:13px;color:var(--s400);">No budgets. <a href="/budgets/add" style="color:var(--indigo);">Create one</a></p>';
+                } else {
+                    var spentByCode = {};
+                    catSummary.forEach(function(s) { spentByCode[String(s.group_key||'')] = Number(s.total_amount||0); });
+                    mBudgets.innerHTML = budgets.slice(0,3).map(function(b) {
+                        var key = b.category_code != null ? String(b.category_code) : '';
+                        var spent = spentByCode[key] || 0;
+                        var limit = Number(b.amount) || 0;
+                        var pct = limit > 0 ? Math.min(100, Math.round((spent/limit)*100)) : 0;
+                        var over = spent > limit;
+                        var fillColor = over ? 'var(--rose)' : pct >= 75 ? 'var(--amber)' : 'var(--emerald)';
+                        var name = (b.name || b.category_name || 'Budget').replace(/</g,'&lt;');
+                        return '<div class="m-progress-card">' +
+                            '<div class="m-progress-top"><span class="m-progress-name">' + name + '</span>' +
+                            '<span class="m-progress-pct">' + pct + '%</span></div>' +
+                            '<div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+fillColor+';"></div></div>' +
+                            '<div class="m-progress-amounts"><span class="m-progress-spent">'+fmt(spent)+' spent</span><span class="m-progress-limit">of '+fmt(limit)+'</span></div>' +
+                            '</div>';
+                    }).join('');
+                }
+            }
+        }).catch(function() {});
+
+        // Mobile recent transactions
+        if (mTxnList && window.Expenses && window.Expenses.buildListQuery) {
+            var q = window.Expenses.buildListQuery({ page:1, page_size:6 });
+            var api = window.EXPENSE_API_BASE || '';
+            var headers = window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+            var fn = window.Auth.requestWithRefresh
+                ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/expenses' + q, { headers: headers }); }
+                : function() { return fetch(api + '/api/v1/expenses' + q, { headers: headers }); };
+            fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+                .then(function(d) {
+                    var list = (d && d.items) || [];
+                    if (!list.length) {
+                        mTxnList.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">No transactions yet.</li>';
+                        return;
+                    }
+                    mTxnList.innerHTML = list.map(function(item) {
+                        var amt  = item.amount != null ? item.amount : item.value;
+                        var label = (item.description || '').trim() || item.category_name || 'Expense';
+                        var cat  = item.category_name || '';
+                        var href = item.expense_id ? '/expenses/' + item.expense_id : '#';
+                        var emoji = getCatEmoji(cat || label);
+                        var amtColor = Number(amt) < 0 ? 'negative' : 'positive';
+                        var sign = Number(amt) < 0 ? '' : '-';
+                        return '<li><a href="'+href+'" class="m-txn-item">' +
+                            '<span class="m-txn-icon expense">'+emoji+'</span>' +
+                            '<div class="m-txn-body"><div class="m-txn-name">'+label.replace(/</g,'&lt;')+'</div>' +
+                            '<div class="m-txn-meta">'+esc(cat)+'</div></div>' +
+                            '<div class="m-txn-right"><div class="m-txn-amount '+amtColor+'">'+sign+'$'+Math.abs(parseFloat(amt)||0).toFixed(2)+'</div>' +
+                            '<div class="m-txn-date">'+fmtDateShort(item.date)+'</div></div>' +
+                            '</a></li>';
+                    }).join('');
+                }).catch(function() {
+                    mTxnList.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Could not load.</li>';
+                });
+        }
+    }
+    function esc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    if (window.Auth && window.Auth.getAuthHeaders) setTimeout(loadMobile, 50);
 })();
 </script>
 {% endblock %}

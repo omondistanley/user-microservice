@@ -82,6 +82,7 @@ async def list_expenses(
     min_amount: Optional[Decimal] = Query(None),
     max_amount: Optional[Decimal] = Query(None),
     household_id: Optional[str] = Query(None),
+    exclude_matched_duplicates: bool = Query(False),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -107,6 +108,7 @@ async def list_expenses(
         min_amount=min_amount,
         max_amount=max_amount,
         household_id=hh_uuid,
+        exclude_matched_duplicates=exclude_matched_duplicates,
         page=page,
         page_size=page_size,
     )
@@ -349,3 +351,42 @@ async def delete_expense(
         raise HTTPException(status_code=400, detail="Invalid expense id")
     resource = _get_expense_resource()
     resource.delete(eid, user_id)
+
+
+@router.get("/expenses/{expense_id}/match-candidates", response_model=dict)
+async def get_match_candidates(
+    expense_id: str,
+    user_id: int = Depends(get_current_user_id),
+    limit: int = Query(20, ge=1, le=50),
+):
+    """Expenses that could be matched to this one (same user, date ±3 days, not already matched)."""
+    try:
+        UUID(expense_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid expense id")
+    ds = _get_expense_data_service()
+    candidates = ds.get_match_candidates(expense_id, user_id, limit=limit)
+    return {"items": candidates}
+
+
+@router.post("/expenses/{expense_id}/match", response_model=dict)
+async def create_expense_match(
+    expense_id: str,
+    body: dict,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Link this expense to another (e.g. bank import + manual entry). Body: { "matched_expense_id": "uuid" }."""
+    matched_id = body.get("matched_expense_id")
+    if not matched_id:
+        raise HTTPException(status_code=400, detail="matched_expense_id required")
+    try:
+        UUID(expense_id)
+        UUID(matched_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid expense id")
+    ds = _get_expense_data_service()
+    try:
+        row = ds.create_expense_match(expense_id, str(matched_id), user_id)
+        return {"expense_id_a": str(row.get("expense_id_a")), "expense_id_b": str(row.get("expense_id_b")), "created_at": row.get("created_at")}
+    except HTTPException:
+        raise

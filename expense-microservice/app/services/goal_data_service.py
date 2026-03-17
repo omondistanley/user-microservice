@@ -13,6 +13,7 @@ from psycopg2.extras import RealDictCursor
 SCHEMA = "expenses_db"
 GOAL_TABLE = "savings_goal"
 CONTRIBUTION_TABLE = "goal_contribution"
+ROUND_UP_CONFIG_TABLE = "round_up_config"
 
 
 def _dict_row(row: Any) -> Optional[Dict]:
@@ -174,11 +175,22 @@ class GoalDataService:
         percent = (float(current) / float(target) * 100) if target else Decimal("0")
         target_date = goal.get("target_date")
         days_remaining = None
+        months_left = None
+        suggested_monthly = None
+        on_track = None
         if target_date:
             today = date.today()
             if isinstance(target_date, str):
                 target_date = date.fromisoformat(target_date)
             days_remaining = max(0, (target_date - today).days)
+            if days_remaining > 0 and remaining > 0:
+                months_left = max(1, days_remaining / 30.0)
+                suggested_monthly = float(remaining) / months_left
+        if suggested_monthly is not None and suggested_monthly > 0:
+            recent_total = self._get_contributions_total_since(goal_id, days=30)
+            on_track = float(recent_total) >= suggested_monthly or remaining <= 0
+        elif remaining <= 0:
+            on_track = True
         return {
             "goal_id": str(goal_id),
             "current_amount": float(current),
@@ -188,4 +200,152 @@ class GoalDataService:
             "days_remaining": days_remaining,
             "start_amount": float(start),
             "contributions_total": float(total_contrib),
+            "suggested_monthly": round(suggested_monthly, 2) if suggested_monthly is not None else None,
+            "on_track": on_track,
         }
+
+    def _get_contributions_total_since(self, goal_id: UUID, days: int = 30) -> Decimal:
+        """Sum contributions in the last `days` days for this goal."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT COALESCE(SUM(amount), 0) AS total FROM \"{SCHEMA}\".\"{CONTRIBUTION_TABLE}\" "
+                "WHERE goal_id = %s AND contribution_date >= CURRENT_DATE - INTERVAL '1 day' * %s",
+                (str(goal_id), days),
+            )
+            row = cur.fetchone()
+            return Decimal(str(row["total"])) if row else Decimal("0")
+        finally:
+            conn.close()
+
+    def list_contributions_for_goal(self, goal_id: UUID, user_id: int) -> List[Dict]:
+        """List contributions for a goal (goal must belong to user). Returns list with user_id per contribution."""
+        goal = self.get_goal_by_id(goal_id, user_id)
+        if not goal:
+            return []
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT contribution_id, goal_id, user_id, amount, contribution_date, source, created_at '
+                f'FROM "{SCHEMA}"."{CONTRIBUTION_TABLE}" WHERE goal_id = %s ORDER BY contribution_date DESC, created_at DESC',
+                (str(goal_id),),
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def list_round_up_configs(self, user_id: int, active_only: bool = True) -> List[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            where = "user_id = %s"
+            params: List[Any] = [user_id]
+            if active_only:
+                where += " AND is_active = TRUE"
+            cur.execute(
+                f'SELECT id, user_id, goal_id, round_to, is_active, last_processed_at, created_at, updated_at '
+                f'FROM "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" WHERE {where}',
+                params,
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_round_up_config(self, config_id: str, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" WHERE id = %s::uuid AND user_id = %s',
+                (config_id, user_id),
+            )
+            return _dict_row(cur.fetchone())
+        finally:
+            conn.close()
+
+    def get_round_up_config_by_goal(self, goal_id: UUID, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" WHERE goal_id = %s AND user_id = %s',
+                (str(goal_id), user_id),
+            )
+            return _dict_row(cur.fetchone())
+        finally:
+            conn.close()
+
+    def create_round_up_config(self, user_id: int, goal_id: UUID, round_to: Decimal = Decimal("1")) -> Dict:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" (user_id, goal_id, round_to, is_active, created_at, updated_at) '
+                "VALUES (%s, %s, %s, TRUE, now(), now()) "
+                "ON CONFLICT (user_id, goal_id) DO UPDATE SET round_to = EXCLUDED.round_to, is_active = TRUE, updated_at = now() "
+                "RETURNING id, user_id, goal_id, round_to, is_active, last_processed_at, created_at, updated_at",
+                (user_id, str(goal_id), round_to),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else {}
+        finally:
+            conn.close()
+
+    def update_round_up_config(self, config_id: str, user_id: int, is_active: Optional[bool] = None, round_to: Optional[Decimal] = None) -> Optional[Dict]:
+        updates = []
+        params: List[Any] = []
+        if is_active is not None:
+            updates.append("is_active = %s")
+            params.append(is_active)
+        if round_to is not None:
+            updates.append("round_to = %s")
+            params.append(round_to)
+        if not updates:
+            return self.get_round_up_config(config_id, user_id)
+        updates.append("updated_at = now()")
+        params.extend([config_id, user_id])
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" SET {", ".join(updates)} WHERE id = %s::uuid AND user_id = %s',
+                params,
+            )
+            return self.get_round_up_config(config_id, user_id) if cur.rowcount else None
+        finally:
+            conn.close()
+
+    def delete_round_up_config(self, config_id: str, user_id: int) -> bool:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(f'DELETE FROM "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" WHERE id = %s::uuid AND user_id = %s', (config_id, user_id))
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def mark_round_up_processed(self, config_id: str, user_id: int, when: Optional[datetime] = None) -> None:
+        ts = when or datetime.now(timezone.utc)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" SET last_processed_at = %s, updated_at = %s WHERE id = %s::uuid AND user_id = %s',
+                (ts, ts, config_id, user_id),
+            )
+        finally:
+            conn.close()
+
+    def list_all_active_round_up_configs(self) -> List[Dict]:
+        """Return all active round-up configs (for job)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT id, user_id, goal_id, round_to, is_active, last_processed_at FROM "{SCHEMA}"."{ROUND_UP_CONFIG_TABLE}" WHERE is_active = TRUE'
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()

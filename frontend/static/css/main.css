@@ -483,6 +483,41 @@ tbody tr:last-child td { border-bottom: none; }
 /* ── 20. AUTH SCREENS ──────────────────────────────────────── */
 .auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--sp-6) var(--sp-4); background: var(--s50); }
 .auth-card { width: 100%; max-width: 400px; background: #fff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); border: 1px solid var(--s200); }
+
+/* Shared mobile auth header (dark gradient top + white form below) */
+.auth-mobile-header {
+    background: linear-gradient(160deg,#0A0F1E,#1a1f3e);
+    padding: 40px 24px 32px;
+    text-align: center;
+}
+.auth-mobile-logo {
+    font-size: 24px; font-weight: 800;
+    background: linear-gradient(135deg,#6366F1,#10B981);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+}
+.auth-mobile-title { font-size: 22px; font-weight: 800; color: #fff; margin: 0 0 6px; }
+.auth-mobile-sub   { font-size: 13px; color: rgba(255,255,255,0.5); margin: 0; }
+.auth-mobile-body  { padding: 24px 20px 40px; background: #fff; }
+.auth-mobile-oauth { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.auth-mobile-btn-google {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 13px; border: 1.5px solid var(--s200); border-radius: 12px;
+    background: #fff; font-family: inherit; font-size: 14px; font-weight: 600;
+    color: var(--s700); text-decoration: none;
+}
+.auth-mobile-btn-apple {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 13px; border: none; border-radius: 12px;
+    background: #000; font-family: inherit; font-size: 14px; font-weight: 600;
+    color: #fff; text-decoration: none;
+}
+.auth-mobile-divider {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    font-size: 12px; color: var(--s400);
+}
+.auth-mobile-divider::before,
+.auth-mobile-divider::after { content: ''; flex: 1; height: 1px; background: var(--s200); }
 .auth-brand { text-align: center; margin-bottom: var(--sp-6); }
 .auth-brand-logo { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #6366F1, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.03em; }
 .auth-title { font-size: var(--text-2xl); font-weight: var(--fw-bold); color: var(--s900); margin: 0 0 var(--sp-1) 0; text-align: center; }
@@ -672,10 +707,22 @@ body.app-shell-page .onboarding-banner   { display: none; }
     .topbar { padding: 12px 16px; }
     .page-title { font-size: 20px; }
     .form-page-card { padding: var(--sp-5); border-radius: var(--radius-md); }
-    .form-row-two { grid-template-columns: 1fr; }
+    .form-row-two { grid-template-columns: 1fr !important; }
     table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .navbar-nav { display: none; }
     .bottom-nav { display: flex; }
+    /* Hide desktop-only sidebar columns on mobile */
+    .m-sidebar-hide { display: none !important; }
+    /* Force single col on all 2-col desktop grids */
+    .add-expense-layout,
+    .add-income-layout,
+    .net-worth-two-col,
+    .profile-two-col,
+    .integrations-two-col,
+    .link-bank-two-col,
+    .settings-two-col { grid-template-columns: 1fr !important; }
+    /* Budget cards: prevent overflow */
+    .budget-cards-grid { grid-template-columns: 1fr !important; }
 }
 @media (max-width: 599px) {
     .filter-bar { flex-direction: column; }
@@ -692,3 +739,255 @@ body.app-shell-page .onboarding-banner   { display: none; }
     .dash-quick-actions { width: 100%; }
     .dash-quick-actions .btn { flex: 1; justify-content: center; }
 }
+
+/* ── 31. MOBILE APP SCREENS (≤1023px) ──────────────────────── */
+/* Wireframe-accurate mobile layout for all 24 app screens      */
+
+/* ── Dashboard mobile hero card ── */
+.m-balance-hero {
+    background: linear-gradient(160deg, #0A0F1E 0%, #1a1f3e 60%, #0f2040 100%);
+    border-radius: 20px;
+    padding: 24px 20px 20px;
+    margin-bottom: 16px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+}
+.m-balance-hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: rgba(99,102,241,0.15);
+    border-radius: 50%;
+}
+.m-balance-label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 6px; }
+.m-balance-value { font-size: 36px; font-weight: 800; color: #fff; line-height: 1.1; margin-bottom: 16px; letter-spacing: -0.02em; }
+.m-balance-chips { display: flex; gap: 10px; }
+.m-balance-chip { display: flex; flex-direction: column; gap: 2px; }
+.m-balance-chip-label { font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500; }
+.m-balance-chip-val  { font-size: 14px; font-weight: 700; }
+.m-balance-chip-val.income  { color: #34d399; }
+.m-balance-chip-val.expense { color: #f87171; }
+
+/* ── Mobile 2-col KPI row ── */
+.m-kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.m-kpi-card { background: #fff; border: 1px solid var(--s200); border-radius: 12px; padding: 14px 14px 12px; box-shadow: var(--shadow-card); }
+.m-kpi-label { font-size: 10px; font-weight: 600; color: var(--s500); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+.m-kpi-value { font-size: 18px; font-weight: 800; color: var(--s900); line-height: 1.2; }
+.m-kpi-sub   { font-size: 10px; color: var(--s400); margin-top: 2px; }
+
+/* ── Mobile section header ── */
+.m-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.m-section-title  { font-size: 13px; font-weight: 700; color: var(--s700); text-transform: uppercase; letter-spacing: 0.06em; }
+.m-section-link   { font-size: 12px; font-weight: 600; color: var(--indigo); text-decoration: none; }
+
+/* ── Mobile transaction item (wireframe .m-txn-item) ── */
+.m-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.m-txn-item {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border: 1px solid var(--s200);
+    border-radius: 12px; padding: 12px 14px;
+    text-decoration: none; color: inherit;
+    box-shadow: var(--shadow-card);
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+.m-txn-item:hover { border-color: var(--s300); box-shadow: var(--shadow-sm); }
+.m-txn-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0; background: var(--s100);
+}
+.m-txn-icon.expense { background: rgba(244,63,94,0.10); }
+.m-txn-icon.income  { background: rgba(16,185,129,0.10); }
+.m-txn-icon.recurring { background: rgba(99,102,241,0.10); }
+.m-txn-body { flex: 1; min-width: 0; }
+.m-txn-name { font-size: 14px; font-weight: 600; color: var(--s900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-txn-meta { font-size: 11px; color: var(--s500); margin-top: 2px; }
+.m-txn-right { flex-shrink: 0; text-align: right; }
+.m-txn-amount { font-size: 15px; font-weight: 700; }
+.m-txn-amount.negative { color: var(--rose); }
+.m-txn-amount.positive { color: var(--emerald); }
+.m-txn-date   { font-size: 11px; color: var(--s400); margin-top: 2px; }
+
+/* ── Mobile card wrapper ── */
+.m-card { background: #fff; border: 1px solid var(--s200); border-radius: 14px; padding: 16px; box-shadow: var(--shadow-card); margin-bottom: 12px; }
+.m-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.m-card-title  { font-size: 14px; font-weight: 700; color: var(--s900); }
+
+/* ── Mobile form: single-column full-width ── */
+@media (max-width: 1023px) {
+    /* Kill the 2-col grids that overflow */
+    .m-form-grid { display: flex !important; flex-direction: column !important; gap: 0 !important; }
+    .m-sidebar-hide { display: none !important; }
+
+    /* Dashboard: hide desktop 2-col layout, show mobile cards */
+    .m-dash-desktop { display: none !important; }
+    .m-dash-mobile  { display: block !important; }
+
+    /* Stat row: 2 cols max on mobile */
+    .stat-row { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+
+    /* Content grids: force single column */
+    .grid-2col-desktop { grid-template-columns: 1fr !important; }
+
+    /* Budget cards: fix minmax overflow */
+    .budget-cards-grid { grid-template-columns: 1fr !important; }
+
+    /* Goals cards: fix minmax overflow */
+    .goals-cards-grid { grid-template-columns: 1fr !important; }
+
+    /* Tables: make scrollable on mobile */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Form 2-col rows: stack on mobile */
+    .form-row-two { grid-template-columns: 1fr !important; }
+
+    /* Page header actions: wrap */
+    .page-header { flex-wrap: wrap; }
+
+    /* Filter bar: stack vertically on small screens */
+    .filter-bar { flex-direction: column; }
+    .filter-bar-inputs { flex-direction: column; width: 100%; }
+    .filter-input { width: 100% !important; min-width: unset !important; }
+    .filter-bar-actions { width: 100%; display: flex; gap: 8px; }
+    .filter-bar-actions .btn { flex: 1; justify-content: center; }
+}
+
+/* ── Mobile dashboard layout blocks ── */
+.m-dash-mobile { display: none; }
+@media (max-width: 1023px) {
+    .m-dash-mobile { display: block; }
+}
+
+/* ── Mobile period tab strip ── */
+.m-period-tabs {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding-bottom: 4px; margin-bottom: 14px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.m-period-tabs::-webkit-scrollbar { display: none; }
+.m-period-tab {
+    flex-shrink: 0; padding: 6px 14px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    background: #fff; border: 1.5px solid var(--s200);
+    color: var(--s600); transition: background var(--transition), color var(--transition), border-color var(--transition);
+    white-space: nowrap;
+}
+.m-period-tab.active { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+
+/* ── Mobile recurring item card ── */
+.m-rec-item {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border: 1px solid var(--s200);
+    border-radius: 12px; padding: 14px;
+    box-shadow: var(--shadow-card); margin-bottom: 8px;
+}
+.m-rec-body { flex: 1; min-width: 0; }
+.m-rec-name { font-size: 14px; font-weight: 600; color: var(--s900); }
+.m-rec-meta { font-size: 11px; color: var(--s500); margin-top: 2px; }
+.m-rec-right { flex-shrink: 0; text-align: right; }
+.m-rec-amount { font-size: 15px; font-weight: 700; color: var(--s900); }
+.m-rec-freq   { font-size: 11px; color: var(--s400); margin-top: 2px; }
+.m-rec-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ── Mobile budget / goal progress card ── */
+.m-progress-card {
+    background: #fff; border: 1px solid var(--s200);
+    border-radius: 14px; padding: 16px; box-shadow: var(--shadow-card);
+    margin-bottom: 10px;
+}
+.m-progress-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.m-progress-name { font-size: 14px; font-weight: 700; color: var(--s900); }
+.m-progress-pct  { font-size: 13px; font-weight: 700; color: var(--s500); }
+.m-progress-amounts { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: var(--s500); }
+.m-progress-spent { color: var(--rose); font-weight: 600; }
+.m-progress-limit { color: var(--s500); }
+
+/* ── Mobile net worth / investment dark summary card ── */
+.m-net-hero {
+    background: linear-gradient(160deg, #0A0F1E, #1a1f3e);
+    border-radius: 20px; padding: 24px 20px; margin-bottom: 16px; color: #fff;
+}
+.m-net-hero-label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.m-net-hero-value { font-size: 32px; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 14px; }
+.m-net-hero-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-net-hero-item { display: flex; flex-direction: column; gap: 3px; }
+.m-net-hero-item-label { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.07em; }
+.m-net-hero-item-val { font-size: 16px; font-weight: 700; }
+.m-net-hero-item-val.assets { color: #34d399; }
+.m-net-hero-item-val.liabilities { color: #f87171; }
+
+/* ── Mobile asset/liability row ── */
+.m-asset-item {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border: 1px solid var(--s200);
+    border-radius: 12px; padding: 14px;
+    box-shadow: var(--shadow-card); margin-bottom: 8px;
+}
+.m-asset-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: var(--s100); }
+.m-asset-body { flex: 1; min-width: 0; }
+.m-asset-name { font-size: 14px; font-weight: 600; color: var(--s900); }
+.m-asset-type { font-size: 11px; color: var(--s500); margin-top: 2px; }
+.m-asset-value { font-size: 15px; font-weight: 700; flex-shrink: 0; }
+.m-asset-value.asset   { color: var(--emerald); }
+.m-asset-value.liability { color: var(--rose); }
+
+/* ── Mobile profile / settings single-col ── */
+@media (max-width: 1023px) {
+    .profile-two-col { grid-template-columns: 1fr !important; }
+    .settings-two-col { grid-template-columns: 1fr !important; }
+    .integrations-two-col { grid-template-columns: 1fr !important; }
+    .link-bank-two-col { grid-template-columns: 1fr !important; }
+    .net-worth-two-col { grid-template-columns: 1fr !important; }
+    .add-expense-layout { grid-template-columns: 1fr !important; }
+    .add-income-layout  { grid-template-columns: 1fr !important; }
+}
+
+/* ── Mobile notification row ── */
+.m-notif-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: #fff; border: 1px solid var(--s200);
+    border-radius: 12px; padding: 14px;
+    box-shadow: var(--shadow-card); margin-bottom: 8px;
+}
+.m-notif-item.unread { background: #EEF2FF; border-color: #C7D2FE; border-left: 3px solid var(--indigo); }
+.m-notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo); flex-shrink: 0; margin-top: 5px; }
+.m-notif-body { flex: 1; min-width: 0; }
+.m-notif-title { font-size: 13px; font-weight: 600; color: var(--s900); }
+.m-notif-text  { font-size: 12px; color: var(--s600); margin-top: 2px; line-height: 1.4; }
+.m-notif-time  { font-size: 11px; color: var(--s400); margin-top: 4px; }
+
+/* ── Mobile member / session row ── */
+.m-member-item, .m-session-item {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border: 1px solid var(--s200);
+    border-radius: 12px; padding: 14px;
+    box-shadow: var(--shadow-card); margin-bottom: 8px;
+}
+.m-member-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--indigo), var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.m-member-body { flex: 1; min-width: 0; }
+.m-member-name { font-size: 14px; font-weight: 600; color: var(--s900); }
+.m-member-role { font-size: 11px; color: var(--s500); margin-top: 2px; }
+.m-session-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--s100); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.m-session-body { flex: 1; min-width: 0; }
+.m-session-device { font-size: 14px; font-weight: 600; color: var(--s900); }
+.m-session-meta { font-size: 11px; color: var(--s500); margin-top: 2px; }
+
+/* ── Mobile saved-view / integration row ── */
+.m-row-item {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border: 1px solid var(--s200);
+    border-radius: 12px; padding: 14px;
+    box-shadow: var(--shadow-card); margin-bottom: 8px;
+}
+.m-row-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; background: var(--s100); }
+.m-row-body { flex: 1; min-width: 0; }
+.m-row-title { font-size: 14px; font-weight: 600; color: var(--s900); }
+.m-row-sub   { font-size: 11px; color: var(--s500); margin-top: 2px; }
+
+/* ── Mobile link bank search + list ── */
+.m-search-bar { display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid var(--s200); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; box-shadow: var(--shadow-card); }
+.m-search-icon { font-size: 16px; color: var(--s400); flex-shrink: 0; }
+.m-search-input { flex: 1; border: none; outline: none; font-size: 14px; color: var(--s900); background: transparent; font-family: inherit; }
+.m-search-input::placeholder { color: var(--s400); }

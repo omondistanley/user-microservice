@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;">
+<div class="add-expense-layout" style="display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;">
     <!-- Left: main form -->
     <div class="card">
         <form id="add-expense-form">
@@ -85,8 +85,8 @@
         </form>
     </div>
 
-    <!-- Right: sidebar cards -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
+    <!-- Right: sidebar cards (hidden on mobile) -->
+    <div class="m-sidebar-hide" style="display:flex;flex-direction:column;gap:16px;">
         <!-- Receipt upload -->
         <div class="card">
             <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:12px;">📎 Receipt</div>

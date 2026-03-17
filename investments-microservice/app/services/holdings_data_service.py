@@ -37,6 +37,7 @@ class HoldingsDataService:
         cols = [
             "user_id", "household_id", "symbol", "quantity", "avg_cost",
             "currency", "exchange", "notes", "created_at", "updated_at",
+            "source", "external_id",
         ]
         keys = [k for k in cols if k in data]
         columns = ",".join(f'"{k}"' for k in keys)
@@ -61,6 +62,7 @@ class HoldingsDataService:
                     purchase_date = (data.get("created_at") or datetime.now(timezone.utc))
                     if hasattr(purchase_date, "date"):
                         purchase_date = purchase_date.date()
+                    lot_source = data.get("source") or "manual"
                     cur.execute(
                         'INSERT INTO investments_db.tax_lot (holding_id, quantity, cost_per_share, purchase_date, source) '
                         'VALUES (%s, %s, %s, %s, %s)',
@@ -69,7 +71,7 @@ class HoldingsDataService:
                             data.get("quantity"),
                             data.get("avg_cost"),
                             purchase_date,
-                            "manual",
+                            lot_source,
                         ),
                     )
                 except Exception:
@@ -178,6 +180,20 @@ class HoldingsDataService:
         try:
             cur = conn.cursor()
             cur.execute(f'DELETE FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s', (user_id,))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
+    def delete_holdings_by_source(self, user_id: int, source: str) -> int:
+        """Delete all holdings for user with the given source (e.g. 'alpaca'). Returns count deleted."""
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s AND source = %s',
+                (user_id, source),
+            )
             conn.commit()
             return cur.rowcount
         finally:

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
@@ -242,6 +242,32 @@ async def cashflow_summary(
         "original_savings": original_income_total - original_expense_total,
         "income_currency_breakdown": income_by_currency,
         "expense_currency_breakdown": expense_by_currency,
+    }
+
+
+@router.get("/cashflow/projected-balance", response_model=dict)
+async def projected_balance(
+    user_id: int = Depends(get_current_user_id),
+    days: int = 30,
+):
+    """
+    Projected balance in N days: current balance minus recurring expenses due in that window.
+    Does not include future income or one-off expenses.
+    """
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 365")
+    ds = _get_data_service()
+    today = date.today()
+    end_date = today + timedelta(days=days)
+    current = ds.get_current_balance(user_id, today.isoformat())
+    recurring_due = ds.get_recurring_total_due_in_range(user_id, today + timedelta(days=1), end_date)
+    projected = current - recurring_due
+    return {
+        "current_balance": float(current),
+        "recurring_due_in_window": float(recurring_due),
+        "projected_balance": float(projected),
+        "as_of_date": today.isoformat(),
+        "days": days,
     }
 
 

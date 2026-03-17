@@ -13,6 +13,7 @@ SCHEMA = "budgets_db"
 TABLE = "budget"
 ALERT_CONFIG_TABLE = "budget_alert_config"
 ALERT_EVENT_TABLE = "budget_alert_event"
+SPEND_PACE_EVENT_TABLE = "budget_spend_pace_event"
 
 
 def _dict_row(row: Any) -> Optional[Dict]:
@@ -381,6 +382,35 @@ class BudgetDataService:
             )
             row = cur.fetchone()
             return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def create_spend_pace_event_if_new(
+        self,
+        user_id: int,
+        budget_id: str,
+        period_start: date,
+        period_end: date,
+        spent_amount: Decimal,
+        budget_amount: Decimal,
+        spent_ratio: float,
+        time_ratio: float,
+    ) -> bool:
+        """Insert spend-pace event if not already sent for this (user, budget, period). Returns True if inserted."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                INSERT INTO "{SCHEMA}"."{SPEND_PACE_EVENT_TABLE}"
+                    (user_id, budget_id, period_start, period_end, spent_amount, budget_amount, spent_ratio, time_ratio, sent_at)
+                VALUES (%s, %s::uuid, %s, %s, %s, %s, %s, %s, now())
+                ON CONFLICT (user_id, budget_id, period_start, period_end) DO NOTHING
+                RETURNING event_id
+                """,
+                (user_id, budget_id, period_start, period_end, spent_amount, budget_amount, spent_ratio, time_ratio),
+            )
+            return cur.fetchone() is not None
         finally:
             conn.close()
 

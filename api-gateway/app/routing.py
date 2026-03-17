@@ -16,6 +16,7 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/cashflow", EXPENSE_SERVICE_URL),
     ("/api/v1/recurring-expenses", EXPENSE_SERVICE_URL),
     ("/api/v1/categories", EXPENSE_SERVICE_URL),
+    ("/api/v1/categorization-rules", EXPENSE_SERVICE_URL),
     ("/api/v1/tags", EXPENSE_SERVICE_URL),
     ("/api/v1/receipts", EXPENSE_SERVICE_URL),
     ("/api/v1/plaid", EXPENSE_SERVICE_URL),
@@ -23,6 +24,7 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/truelayer", EXPENSE_SERVICE_URL),
     ("/api/v1/bank", EXPENSE_SERVICE_URL),
     ("/api/v1/goals", EXPENSE_SERVICE_URL),
+    ("/api/v1/alert-preferences", EXPENSE_SERVICE_URL),
     ("/api/v1/insights", EXPENSE_SERVICE_URL),
     ("/api/v1/reminders", EXPENSE_SERVICE_URL),
     ("/api/v1/export", EXPENSE_SERVICE_URL),
@@ -38,6 +40,7 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/budgets", BUDGET_SERVICE_URL),
     # Investment
     ("/api/v1/holdings", INVESTMENT_SERVICE_URL),
+    ("/api/v1/alpaca", INVESTMENT_SERVICE_URL),
     ("/api/v1/recommendations", INVESTMENT_SERVICE_URL),
     ("/api/v1/portfolio", INVESTMENT_SERVICE_URL),
     ("/api/v1/market", INVESTMENT_SERVICE_URL),

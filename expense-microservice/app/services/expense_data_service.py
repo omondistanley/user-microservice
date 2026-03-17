@@ -25,6 +25,11 @@ RECURRING_TABLE = "recurring_expense"
 TAG_TABLE = "tag"
 EXPENSE_TAG_TABLE = "expense_tag"
 EXCHANGE_RATE_TABLE = "exchange_rate"
+RULE_TABLE = "user_categorization_rule"
+NO_INCOME_SENT_TABLE = "no_income_notification_sent"
+USER_ALERT_PREFERENCE_TABLE = "user_alert_preference"
+LOW_PROJECTED_BALANCE_SENT_TABLE = "low_projected_balance_sent"
+EXPENSE_MATCH_TABLE = "expense_match"
 
 
 def _dict_row(row: Any) -> Optional[Dict]:
@@ -219,11 +224,18 @@ class ExpenseDataService:
         min_amount: Optional[Decimal] = None,
         max_amount: Optional[Decimal] = None,
         household_id: Optional[str] = None,
+        exclude_matched_duplicates: bool = False,
         limit: int = 20,
         offset: int = 0,
     ) -> Tuple[List[Dict], int]:
         conditions = ['e.user_id = %s', 'e.deleted_at IS NULL']
         params: List[Any] = [user_id]
+        if exclude_matched_duplicates:
+            excluded = self.get_expense_ids_excluded_from_totals(user_id)
+            if excluded:
+                placeholders = ",".join(["%s"] * len(excluded))
+                conditions.append(f"e.expense_id::text NOT IN ({placeholders})")
+                params.extend(excluded)
         if household_id is not None:
             conditions.append('e.household_id IS NOT DISTINCT FROM %s')
             params.append(household_id)
@@ -744,10 +756,12 @@ class ExpenseDataService:
     # --- Receipts (metadata; file storage is external) ---
     RECEIPT_TABLE = "receipt"
 
-    def insert_receipt(self, expense_id: str, user_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
-        data["expense_id"] = expense_id
+    def insert_receipt(
+        self, user_id: int, data: Dict[str, Any], expense_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         data["user_id"] = user_id
-        cols = ["expense_id", "user_id", "file_name", "content_type", "file_size_bytes", "storage_key", "file_bytes"]
+        data["expense_id"] = expense_id
+        cols = ["user_id", "expense_id", "file_name", "content_type", "file_size_bytes", "storage_key", "file_bytes"]
         keys = [k for k in cols if k in data]
         columns = ",".join(f'"{k}"' for k in keys)
         placeholders = ",".join(["%s"] * len(keys))
@@ -775,9 +789,8 @@ class ExpenseDataService:
         try:
             cur = conn.cursor()
             cur.execute(
-                f'SELECT r.file_bytes FROM "{SCHEMA}"."{RECEIPT_TABLE}" r '
-                f'JOIN "{SCHEMA}"."{TABLE}" e ON e.expense_id = r.expense_id '
-                "WHERE r.receipt_id = %s AND e.user_id = %s",
+                f'SELECT file_bytes FROM "{SCHEMA}"."{RECEIPT_TABLE}" '
+                "WHERE receipt_id = %s::uuid AND user_id = %s",
                 (receipt_id, user_id),
             )
             row = cur.fetchone()
@@ -793,8 +806,7 @@ class ExpenseDataService:
             cur = conn.cursor()
             cur.execute(
                 f'SELECT r.* FROM "{SCHEMA}"."{RECEIPT_TABLE}" r '
-                f'JOIN "{SCHEMA}"."{TABLE}" e ON e.expense_id = r.expense_id '
-                "WHERE r.expense_id = %s AND e.user_id = %s ORDER BY r.uploaded_at",
+                "WHERE r.expense_id = %s::uuid AND r.user_id = %s ORDER BY r.uploaded_at",
                 (expense_id, user_id),
             )
             return [dict(r) for r in cur.fetchall()]
@@ -806,12 +818,71 @@ class ExpenseDataService:
         try:
             cur = conn.cursor()
             cur.execute(
-                f'SELECT r.* FROM "{SCHEMA}"."{RECEIPT_TABLE}" r '
-                f'JOIN "{SCHEMA}"."{TABLE}" e ON e.expense_id = r.expense_id '
-                "WHERE r.receipt_id = %s AND e.user_id = %s",
+                f'SELECT * FROM "{SCHEMA}"."{RECEIPT_TABLE}" '
+                "WHERE receipt_id = %s::uuid AND user_id = %s",
                 (receipt_id, user_id),
             )
             row = cur.fetchone()
+            return _dict_row(row)
+        finally:
+            conn.close()
+
+    def list_unmatched_receipts(self, user_id: int, limit: int = 50) -> List[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{RECEIPT_TABLE}" '
+                "WHERE user_id = %s AND expense_id IS NULL ORDER BY uploaded_at DESC LIMIT %s",
+                (user_id, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def suggest_expenses_for_receipt(
+        self, receipt_id: str, user_id: int, limit: int = 15
+    ) -> List[Dict[str, Any]]:
+        """Suggest expenses to link: by receipt uploaded_at date ±3 days and optionally OCR amount."""
+        rec = self.get_receipt_by_id(receipt_id, user_id)
+        if not rec:
+            return []
+        # Use uploaded_at as proxy for transaction date
+        uploaded = rec.get("uploaded_at")
+        if isinstance(uploaded, datetime):
+            day = uploaded.date()
+        else:
+            try:
+                day = date.fromisoformat(str(uploaded)[:10])
+            except Exception:
+                day = date.today()
+        date_lo = (day - timedelta(days=3)).isoformat()
+        date_hi = (day + timedelta(days=3)).isoformat()
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT expense_id, date, amount, currency, description, source FROM "{SCHEMA}"."{TABLE}" '
+                "WHERE user_id = %s AND deleted_at IS NULL AND date >= %s AND date <= %s "
+                "ORDER BY date DESC LIMIT %s",
+                (user_id, date_lo, date_hi, limit),
+            )
+            return [_dict_row(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def link_receipt_to_expense(self, receipt_id: str, expense_id: str, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{RECEIPT_TABLE}" SET expense_id = %s::uuid '
+                "WHERE receipt_id = %s::uuid AND user_id = %s RETURNING receipt_id, expense_id, uploaded_at",
+                (expense_id, receipt_id, user_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
             return _dict_row(row)
         finally:
             conn.close()
@@ -821,12 +892,117 @@ class ExpenseDataService:
         try:
             cur = conn.cursor()
             cur.execute(
-                f'DELETE FROM "{SCHEMA}"."{RECEIPT_TABLE}" r '
-                f'USING "{SCHEMA}"."{TABLE}" e '
-                "WHERE r.expense_id = e.expense_id AND e.user_id = %s AND r.receipt_id = %s",
-                (user_id, receipt_id),
+                f'DELETE FROM "{SCHEMA}"."{RECEIPT_TABLE}" WHERE receipt_id = %s::uuid AND user_id = %s',
+                (receipt_id, user_id),
             )
             return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def create_expense_match(self, expense_id: str, matched_expense_id: str, user_id: int) -> Dict[str, Any]:
+        """Link two expenses as the same transaction. Stores (min, max) so order is canonical."""
+        try:
+            a, b = UUID(expense_id), UUID(matched_expense_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid expense id")
+        if a == b:
+            raise HTTPException(status_code=400, detail="Cannot match an expense to itself")
+        expense_id_a, expense_id_b = (str(min(a, b)), str(max(a, b)))
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT 1 FROM "{SCHEMA}"."{TABLE}" WHERE expense_id = %s::uuid AND user_id = %s',
+                (expense_id_a, user_id),
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Expense not found")
+            cur.execute(
+                f'SELECT 1 FROM "{SCHEMA}"."{TABLE}" WHERE expense_id = %s::uuid AND user_id = %s',
+                (expense_id_b, user_id),
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Matched expense not found")
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{EXPENSE_MATCH_TABLE}" (expense_id_a, expense_id_b, user_id) '
+                "VALUES (%s::uuid, %s::uuid, %s) ON CONFLICT (expense_id_a, expense_id_b) DO NOTHING RETURNING expense_id_a, expense_id_b, created_at",
+                (expense_id_a, expense_id_b, user_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return self.get_expense_match(expense_id, user_id) or {}
+            return _dict_row(row)
+        finally:
+            conn.close()
+
+    def get_expense_match(self, expense_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+        """Return the match pair containing this expense (expense_id_a, expense_id_b, created_at)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT expense_id_a, expense_id_b, created_at FROM "{SCHEMA}"."{EXPENSE_MATCH_TABLE}" '
+                "WHERE user_id = %s AND (expense_id_a = %s::uuid OR expense_id_b = %s::uuid)",
+                (user_id, expense_id, expense_id),
+            )
+            row = cur.fetchone()
+            return _dict_row(row) if row else None
+        finally:
+            conn.close()
+
+    def get_matched_expense_id(self, expense_id: str, user_id: int) -> Optional[str]:
+        """Return the other expense_id in the pair, or None."""
+        m = self.get_expense_match(expense_id, user_id)
+        if not m:
+            return None
+        a, b = str(m.get("expense_id_a")), str(m.get("expense_id_b"))
+        return b if a == expense_id else a
+
+    def get_expense_ids_excluded_from_totals(self, user_id: int) -> List[str]:
+        """Expense IDs to exclude from balance/totals (the 'duplicate' side of each pair: expense_id_b)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT expense_id_b::text FROM "{SCHEMA}"."{EXPENSE_MATCH_TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            return [str(r["expense_id_b"]) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_match_candidates(
+        self, expense_id: str, user_id: int, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Expenses that could be matched: same user, same date or ±3 days, not already matched."""
+        exp = self.get_expense_by_id(UUID(expense_id), user_id)
+        if not exp:
+            return []
+        exp_date = exp.get("date")
+        if isinstance(exp_date, str):
+            exp_date = date.fromisoformat(exp_date[:10])
+        date_lo = (exp_date - timedelta(days=3)).isoformat()
+        date_hi = (exp_date + timedelta(days=3)).isoformat()
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT e.expense_id, e.date, e.amount, e.currency, e.description, e.source
+                FROM "{SCHEMA}"."{TABLE}" e
+                WHERE e.user_id = %s AND e.deleted_at IS NULL AND e.expense_id != %s::uuid
+                  AND e.date >= %s AND e.date <= %s
+                  AND NOT EXISTS (
+                    SELECT 1 FROM "{SCHEMA}"."{EXPENSE_MATCH_TABLE}" m
+                    WHERE m.user_id = e.user_id
+                      AND (m.expense_id_a = e.expense_id OR m.expense_id_b = e.expense_id)
+                  )
+                ORDER BY e.date DESC
+                LIMIT %s
+                """,
+                (user_id, expense_id, date_lo, date_hi, limit),
+            )
+            return [_dict_row(r) for r in cur.fetchall()]
         finally:
             conn.close()
 
@@ -846,14 +1022,13 @@ class ExpenseDataService:
             conn.close()
 
     def get_receipt_ocr_result(self, receipt_id: str, user_id: int) -> Optional[Dict]:
-        """Return OCR result if receipt exists and belongs to user."""
+        """Return OCR result if receipt exists and belongs to user (matched or unmatched)."""
         conn = self._conn_autocommit()
         try:
             cur = conn.cursor()
             cur.execute(
                 f'SELECT o.receipt_id, o.raw_text, o.extracted_json, o.ocr_run_at FROM "{SCHEMA}"."{self.OCR_RESULT_TABLE}" o '
-                f'JOIN "{SCHEMA}"."{RECEIPT_TABLE}" r ON r.receipt_id = o.receipt_id '
-                f'JOIN "{SCHEMA}"."{TABLE}" e ON e.expense_id = r.expense_id AND e.user_id = %s '
+                f'JOIN "{SCHEMA}"."{RECEIPT_TABLE}" r ON r.receipt_id = o.receipt_id AND r.user_id = %s '
                 "WHERE o.receipt_id = %s::uuid",
                 (user_id, receipt_id),
             )
@@ -1426,6 +1601,7 @@ class ExpenseDataService:
         user_id: int,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
+        exclude_matched_duplicates: bool = False,
     ) -> Decimal:
         conditions = ["user_id = %s", "deleted_at IS NULL"]
         params: List[Any] = [user_id]
@@ -1435,6 +1611,12 @@ class ExpenseDataService:
         if date_to:
             conditions.append("date <= %s")
             params.append(date_to)
+        if exclude_matched_duplicates:
+            excluded = self.get_expense_ids_excluded_from_totals(user_id)
+            if excluded:
+                placeholders = ",".join(["%s"] * len(excluded))
+                conditions.append(f"expense_id::text NOT IN ({placeholders})")
+                params.extend(excluded)
         where = " AND ".join(conditions)
         conn = self._conn_autocommit()
         try:
@@ -1552,6 +1734,101 @@ class ExpenseDataService:
         finally:
             conn.close()
 
+    def get_recurring_suggestions(
+        self, user_id: int, months_back: int = 6
+    ) -> List[Dict[str, Any]]:
+        """
+        Infer possible recurring expenses from expense history.
+        Groups by normalized description + amount + currency; requires at least 2 occurrences.
+        Returns list of { description, amount, currency, occurrence_count, first_date, last_date, estimated_rule }.
+        """
+        start = (date.today() - timedelta(days=months_back * 31)).replace(day=1)
+        end = date.today()
+        date_from = start.isoformat()
+        date_to = end.isoformat()
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT
+                    MAX(description) AS description,
+                    amount,
+                    currency,
+                    COUNT(*) AS occurrence_count,
+                    MIN(date)::text AS first_date,
+                    MAX(date)::text AS last_date,
+                    array_agg(date ORDER BY date) AS dates
+                FROM "{SCHEMA}"."{TABLE}"
+                WHERE user_id = %s AND deleted_at IS NULL AND date >= %s AND date <= %s
+                GROUP BY lower(trim(COALESCE(description, ''))), amount, currency
+                HAVING COUNT(*) >= 2
+                """,
+                (user_id, date_from, date_to),
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+        suggestions = []
+        for r in rows:
+            dates_agg = r.get("dates") or []
+            if isinstance(dates_agg, str):
+                continue
+            dates_sorted = sorted([d if isinstance(d, date) else date.fromisoformat(str(d)[:10]) for d in dates_agg])
+            if len(dates_sorted) < 2:
+                continue
+            gaps = [
+                (dates_sorted[i + 1] - dates_sorted[i]).days
+                for i in range(len(dates_sorted) - 1)
+            ]
+            avg_gap = sum(gaps) / len(gaps)
+            if avg_gap <= 10:
+                estimated_rule = "weekly"
+            elif 25 <= avg_gap <= 35:
+                estimated_rule = "monthly"
+            elif 350 <= avg_gap <= 380:
+                estimated_rule = "yearly"
+            else:
+                estimated_rule = "monthly"  # default
+            suggestions.append({
+                "description": (r.get("description") or "").strip() or "Recurring",
+                "amount": float(r["amount"]) if r.get("amount") is not None else 0,
+                "currency": (r.get("currency") or "USD").strip(),
+                "occurrence_count": int(r.get("occurrence_count") or 0),
+                "first_date": r.get("first_date"),
+                "last_date": r.get("last_date"),
+                "estimated_rule": estimated_rule,
+            })
+        return suggestions
+
+    def get_user_ids_with_recent_expenses(self, days: int = 7) -> List[int]:
+        """Return distinct user_ids that have at least one expense in the last `days` days (for jobs)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT DISTINCT user_id FROM "{SCHEMA}"."{TABLE}" '
+                "WHERE deleted_at IS NULL AND created_at >= CURRENT_TIMESTAMP - INTERVAL '1 day' * %s",
+                (days,),
+            )
+            return [int(r["user_id"]) for r in cur.fetchall() if r.get("user_id") is not None]
+        finally:
+            conn.close()
+
+    def list_expenses_created_since(self, user_id: int, since: datetime) -> List[Dict]:
+        """Return expenses (amount, created_at) for user with created_at > since (for round-up job)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT expense_id, amount, created_at FROM "{SCHEMA}"."{TABLE}" '
+                "WHERE user_id = %s AND deleted_at IS NULL AND created_at > %s ORDER BY created_at ASC",
+                (user_id, since),
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
     def list_expenses_for_export(
         self,
         user_id: int,
@@ -1577,6 +1854,27 @@ class ExpenseDataService:
                 params,
             )
             return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_recurring_total_due_in_range(
+        self, user_id: int, start_date: date, end_date: date
+    ) -> Decimal:
+        """Sum amount of recurring expenses whose next_due_date falls in [start_date, end_date] (one per recurring)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT COALESCE(SUM(amount), 0) AS total
+                FROM "{SCHEMA}"."{RECURRING_TABLE}"
+                WHERE user_id = %s AND is_active = true
+                  AND next_due_date >= %s AND next_due_date <= %s
+                """,
+                (user_id, start_date, end_date),
+            )
+            row = cur.fetchone()
+            return Decimal(str(row["total"])) if row and row.get("total") is not None else Decimal("0")
         finally:
             conn.close()
 
@@ -1703,6 +2001,20 @@ class ExpenseDataService:
                 return False
 
             conn.commit()
+            try:
+                from app.services.rule_engine_service import evaluate_rules
+                evaluate_rules(
+                    self,
+                    user_id,
+                    str(expense_id),
+                    expense_data.get("description"),
+                    expense_data.get("amount"),
+                    expense_data.get("category_code"),
+                    expense_data.get("date"),
+                    expense_data.get("source"),
+                )
+            except Exception:
+                pass
             return True
         except Exception:
             conn.rollback()
@@ -1972,6 +2284,20 @@ class ExpenseDataService:
                     self.recalc_balance_after(conn, user_id, date_val, created_at, str(expense_id), None)
                 data.setdefault("source", "import")
                 publish_expense_event("expense.created", expense_event_payload(data))
+                try:
+                    from app.services.rule_engine_service import evaluate_rules
+                    evaluate_rules(
+                        self,
+                        user_id,
+                        str(expense_id),
+                        data.get("description"),
+                        data.get("amount"),
+                        cat_code,
+                        date_val,
+                        "import",
+                    )
+                except Exception:
+                    pass
                 inserted += 1
             conn.commit()
         except Exception:
@@ -1984,3 +2310,177 @@ class ExpenseDataService:
         dup = sum(1 for r in rows if r.get("is_duplicate"))
         valid = len(rows) - invalid
         return {"total_rows": len(rows), "valid_rows": valid, "invalid_rows": invalid, "duplicate_rows": dup, "inserted_rows": inserted}
+
+    # --- User categorization rules ---
+    def list_active_rules_for_user(self, user_id: int) -> List[Dict]:
+        """Return active rules for user ordered by priority (lower first)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT rule_id, user_id, priority, condition_type, condition_value, '
+                f'set_category_code, set_tag_names, notify_on_match, is_active, created_at, updated_at '
+                f'FROM "{SCHEMA}"."{RULE_TABLE}" '
+                "WHERE user_id = %s AND is_active = TRUE ORDER BY priority ASC, created_at ASC",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+            return [_dict_row(r) for r in rows if r]
+        finally:
+            conn.close()
+
+    def list_rules_for_user(self, user_id: int) -> List[Dict]:
+        """Return all rules for user ordered by priority."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT rule_id, user_id, priority, condition_type, condition_value, '
+                f'set_category_code, set_tag_names, notify_on_match, is_active, created_at, updated_at '
+                f'FROM "{SCHEMA}"."{RULE_TABLE}" '
+                "WHERE user_id = %s ORDER BY priority ASC, created_at ASC",
+                (user_id,),
+            )
+            return [_dict_row(r) for r in cur.fetchall() if r]
+        finally:
+            conn.close()
+
+    def get_rule_by_id(self, rule_id: str, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{RULE_TABLE}" WHERE rule_id = %s::uuid AND user_id = %s',
+                (rule_id, user_id),
+            )
+            return _dict_row(cur.fetchone())
+        finally:
+            conn.close()
+
+    def create_rule(self, user_id: int, data: Dict[str, Any]) -> Dict:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{RULE_TABLE}" '
+                '(user_id, priority, condition_type, condition_value, set_category_code, set_tag_names, notify_on_match, is_active, created_at, updated_at) '
+                'VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s, %s, now(), now()) '
+                'RETURNING rule_id, user_id, priority, condition_type, condition_value, set_category_code, set_tag_names, notify_on_match, is_active, created_at, updated_at',
+                (
+                    user_id,
+                    data.get("priority", 100),
+                    data["condition_type"],
+                    Json(data.get("condition_value") or {}),
+                    data.get("set_category_code"),
+                    data.get("set_tag_names"),
+                    bool(data.get("notify_on_match", False)),
+                    bool(data.get("is_active", True)),
+                ),
+            )
+            row = cur.fetchone()
+            return _dict_row(row) if row else {}
+        finally:
+            conn.close()
+
+    def update_rule(self, rule_id: str, user_id: int, data: Dict[str, Any]) -> Optional[Dict]:
+        allowed = {"priority", "condition_type", "condition_value", "set_category_code", "set_tag_names", "notify_on_match", "is_active"}
+        updates = {k: v for k, v in data.items() if k in allowed}
+        if not updates:
+            return self.get_rule_by_id(rule_id, user_id)
+        sets = []
+        params = []
+        if "condition_value" in updates:
+            sets.append("condition_value = %s::jsonb")
+            params.append(Json(updates["condition_value"]))
+        for k in ("priority", "condition_type", "set_category_code", "set_tag_names", "notify_on_match", "is_active"):
+            if k in updates and updates[k] is not None:
+                if k == "set_tag_names":
+                    sets.append('set_tag_names = %s')
+                    params.append(updates[k])
+                else:
+                    sets.append(f'"{k}" = %s')
+                    params.append(updates[k])
+        if not sets:
+            return self.get_rule_by_id(rule_id, user_id)
+        sets.append("updated_at = now()")
+        params.extend([rule_id, user_id])
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{RULE_TABLE}" SET {", ".join(sets)} WHERE rule_id = %s::uuid AND user_id = %s',
+                params,
+            )
+            if cur.rowcount == 0:
+                return None
+            return self.get_rule_by_id(rule_id, user_id)
+        finally:
+            conn.close()
+
+    def delete_rule(self, rule_id: str, user_id: int) -> bool:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(f'DELETE FROM "{SCHEMA}"."{RULE_TABLE}" WHERE rule_id = %s::uuid AND user_id = %s', (rule_id, user_id))
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def record_no_income_sent_if_new(self, user_id: int, year_month: str) -> bool:
+        """Record that we sent no_income_logged for this user/month. Returns True if inserted (first time)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{NO_INCOME_SENT_TABLE}" (user_id, year_month) VALUES (%s, %s) ON CONFLICT (user_id, year_month) DO NOTHING RETURNING user_id',
+                (user_id, year_month),
+            )
+            return cur.fetchone() is not None
+        finally:
+            conn.close()
+
+    def get_alert_preference(self, user_id: int, alert_type: str) -> Optional[Dict[str, Any]]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT user_id, alert_type, threshold_value, created_at, updated_at FROM "{SCHEMA}"."{USER_ALERT_PREFERENCE_TABLE}" WHERE user_id = %s AND alert_type = %s',
+                (user_id, alert_type),
+            )
+            row = cur.fetchone()
+            return _dict_row(row) if row else None
+        finally:
+            conn.close()
+
+    def set_alert_preference(
+        self, user_id: int, alert_type: str, threshold_value: Optional[Decimal]
+    ) -> Dict[str, Any]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                INSERT INTO "{SCHEMA}"."{USER_ALERT_PREFERENCE_TABLE}" (user_id, alert_type, threshold_value, updated_at)
+                VALUES (%s, %s, %s, now())
+                ON CONFLICT (user_id, alert_type) DO UPDATE SET threshold_value = EXCLUDED.threshold_value, updated_at = now()
+                RETURNING user_id, alert_type, threshold_value, created_at, updated_at
+                """,
+                (user_id, alert_type, threshold_value),
+            )
+            row = cur.fetchone()
+            return _dict_row(row) or {}
+        finally:
+            conn.close()
+
+    def record_low_projected_balance_sent_if_new(self, user_id: int, sent_date: date) -> bool:
+        """Record that we sent low_projected_balance for this user/date. Returns True if inserted (first time today)."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'INSERT INTO "{SCHEMA}"."{LOW_PROJECTED_BALANCE_SENT_TABLE}" (user_id, sent_date) VALUES (%s, %s) ON CONFLICT (user_id, sent_date) DO NOTHING RETURNING user_id',
+                (user_id, sent_date),
+            )
+            return cur.fetchone() is not None
+        finally:
+            conn.close()

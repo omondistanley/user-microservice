@@ -1,25 +1,64 @@
 {% extends "layout.html" %}
-{% block body_class %}auth-page verify-email-pending-page{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 {% block title %}Verify your email — pocketii{% endblock %}
 {% block content %}
-<div class="container" style="max-width: 420px; margin: 2rem auto; padding: 2rem;">
-    <div class="card card-lg">
-        <h1 class="stat-value" style="font-size: 1.35rem; margin-bottom: 12px;">Check your inbox</h1>
-        <p class="form-hint" style="margin-bottom: 16px;">We sent a verification link to your email. Click the link to verify your account.</p>
+<div class="auth-centered-page">
+    <div class="auth-centered-card" style="text-align:center;">
+        <div style="width:64px;height:64px;background:var(--indigo-100);border-radius:18px;
+            display:flex;align-items:center;justify-content:center;font-size:30px;
+            margin:0 auto 20px;">📧</div>
+
+        <h1 style="font-size:22px;font-weight:800;color:var(--s900);margin:0 0 10px;">Check your inbox</h1>
+        <p style="font-size:14px;color:var(--s500);line-height:1.6;margin:0 0 16px;">
+            We sent a verification link to your email. Click the link to verify your account.
+        </p>
+
         {% if email %}
-        <p class="notif-body" style="margin-bottom: 20px;"><strong>{{ email }}</strong></p>
+        <div style="background:var(--s50);border:1px solid var(--s200);border-radius:10px;
+            padding:12px 16px;margin-bottom:24px;font-size:14px;font-weight:600;color:var(--s800);">
+            {{ email }}
+        </div>
         {% endif %}
-        <button type="button" id="resend-verification" class="btn btn-primary" style="margin-bottom: 12px;">Resend verification email</button>
-        <p id="resend-msg" class="form-hint" style="margin-top: 8px;"></p>
-        <hr style="border-color: var(--s200); margin: 20px 0;" />
-        <p class="form-hint" style="margin-bottom: 8px;">
-            <a href="/register">Wrong email? Change email</a>
-        </p>
-        <p class="form-hint">
-            <a href="/login">Sign in</a>
-        </p>
+
+        <button type="button" id="resend-verification" class="btn btn-primary"
+            style="width:100%;justify-content:center;padding:13px;margin-bottom:16px;">
+            Resend verification email
+        </button>
+        <p id="resend-msg" style="font-size:13px;color:var(--s500);min-height:18px;margin:0 0 24px;"></p>
+
+        <div style="border-top:1px solid var(--s200);padding-top:20px;display:flex;flex-direction:column;gap:10px;">
+            <a href="/register" style="font-size:13px;color:var(--indigo);font-weight:500;text-decoration:none;">
+                Wrong email? Register again
+            </a>
+            <a href="/login" style="font-size:13px;color:var(--s500);text-decoration:none;">
+                Already verified? Sign in →
+            </a>
+        </div>
     </div>
 </div>
+
+<style>
+.auth-centered-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: var(--s50);
+}
+.auth-centered-card {
+    width: 100%;
+    max-width: 400px;
+    background: #fff;
+    border-radius: 20px;
+    padding: 40px 32px;
+    border: 1px solid var(--s200);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+}
+@media (max-width: 480px) {
+    .auth-centered-card { padding: 32px 20px; border-radius: 16px; }
+}
+</style>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
@@ -29,23 +68,33 @@
         var btn = this;
         var msg = document.getElementById('resend-msg');
         btn.disabled = true;
-        msg.textContent = 'Sending…';
+        btn.textContent = 'Sending…';
+        msg.textContent = '';
         var email = {{ email | tojson if email else 'null' }};
         fetch(API + '/api/v1/users/resend-verification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: email ? JSON.stringify({ email: email }) : '{}'
-        }).then(function(r) {
+        })
+        .then(function(r) {
             if (r.ok || r.status === 204) {
-                msg.textContent = 'Verification email sent. Check your inbox.';
+                msg.style.color = '#065F46';
+                msg.textContent = '✓ Verification email sent. Check your inbox.';
             } else {
                 return r.json().then(function(d) {
-                    msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to send.';
+                    msg.style.color = '#BE123C';
+                    msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed to send.') : 'Failed to send.';
                 });
             }
-        }).catch(function() {
+        })
+        .catch(function() {
+            msg.style.color = '#BE123C';
             msg.textContent = 'Request failed. You can try again or sign in if already verified.';
-        }).finally(function() { btn.disabled = false; });
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Resend verification email';
+        });
     });
 })();
 </script>

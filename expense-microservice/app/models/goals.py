@@ -44,7 +44,7 @@ class GoalResponse(BaseModel):
 class ContributionCreate(BaseModel):
     amount: Decimal = Field(..., ge=0)
     contribution_date: date
-    source: str = Field(default="manual", pattern="^(manual|auto_cashflow)$")
+    source: str = Field(default="manual", pattern="^(manual|auto_cashflow|round_up)$")
 
 
 class ContributionResponse(BaseModel):
@@ -68,3 +68,5 @@ class GoalProgressResponse(BaseModel):
     days_remaining: Optional[int] = None
     start_amount: float
     contributions_total: float
+    suggested_monthly: Optional[float] = None
+    on_track: Optional[bool] = None

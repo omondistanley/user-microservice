@@ -11,9 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
 from app.routers import (
+    alert_preferences,
     apple_wallet_webhook,
     bank_connectors,
     categories,
+    categorization_rules,
     expense_import,
     expenses,
     goals,
@@ -190,6 +192,7 @@ app.include_router(expenses.router)
 app.include_router(income.router)
 app.include_router(recurring_expenses.router)
 app.include_router(categories.router)
+app.include_router(categorization_rules.router)
 app.include_router(tags.router)
 app.include_router(plaid.router)
 app.include_router(teller.router)
@@ -198,6 +201,7 @@ app.include_router(bank_connectors.router)
 app.include_router(receipts.router)
 app.include_router(expense_import.router)
 app.include_router(goals.router)
+app.include_router(alert_preferences.router)
 app.include_router(insights.router)
 app.include_router(export_portable.router)
 app.include_router(reminders.router)

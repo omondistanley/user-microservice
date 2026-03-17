@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -13,7 +14,7 @@ class ReceiptCreate(BaseModel):
 
 class ReceiptResponse(BaseModel):
     receipt_id: UUID
-    expense_id: UUID
+    expense_id: Optional[UUID] = None
     user_id: int
     file_name: str
     content_type: str

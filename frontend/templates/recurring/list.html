@@ -28,6 +28,9 @@
 <!-- Upcoming Bills -->
 <div class="card" style="margin-bottom:1.5rem;">
     <h2 style="margin:0 0 1rem;font-size:var(--text-base);font-weight:var(--fw-semi);">Upcoming Bills</h2>
+    <!-- Mobile upcoming list -->
+    <ul class="m-list" id="subscriptions-upcoming-mobile" style="display:none;"></ul>
+    <!-- Desktop table -->
     <div id="subscriptions-upcoming">
         <p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Loading…</p>
     </div>
@@ -74,7 +77,9 @@
         </form>
     </div>
 
-    <!-- Subscriptions List -->
+    <!-- Mobile subscriptions list -->
+    <ul class="m-list" id="subscriptions-manage-mobile" style="display:none;"></ul>
+    <!-- Desktop subscriptions list -->
     <div id="subscriptions-manage">
         <p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Loading…</p>
     </div>
@@ -272,8 +277,79 @@
     });
   }
 
+  // Mobile: show/hide lists
+  var isMobile = window.innerWidth <= 1023;
+  var mUpcoming = document.getElementById('subscriptions-upcoming-mobile');
+  var mManage   = document.getElementById('subscriptions-manage-mobile');
+  if (isMobile) {
+    if (upcomingEl) upcomingEl.style.display = 'none';
+    if (manageEl)   manageEl.style.display   = 'none';
+    if (mUpcoming)  mUpcoming.style.display  = '';
+    if (mManage)    mManage.style.display    = '';
+  }
+
+  // Patch load() to also render mobile lists
+  var _origLoad = load;
+  function loadWithMobile() {
+    _origLoad();
+    if (!isMobile || !window.RecurringExpenses || !window.RecurringExpenses.list) return;
+    window.RecurringExpenses.list({ active_only: false, page: 1, page_size: 100 }).then(function(data) {
+      var items = (data && data.items) || [];
+      var active = items.filter(function(i) { return !!i.is_active; });
+      var byDue = items.slice().sort(function(a,b) { return (a.next_due_date||'').localeCompare(b.next_due_date||''); });
+      var upcoming = byDue.filter(function(i) { return !!i.is_active; }).slice(0,5);
+
+      if (mUpcoming) {
+        if (!upcoming.length) {
+          mUpcoming.innerHTML = '<li style="padding:16px;text-align:center;color:var(--s400);font-size:13px;">No upcoming bills.</li>';
+        } else {
+          mUpcoming.innerHTML = upcoming.map(function(item) {
+            var name = (item.description||'').trim() || (item.category_name||'Subscription');
+            return '<li><div class="m-rec-item">' +
+              '<span class="m-txn-icon recurring">'+iconFor(name)+'</span>' +
+              '<div class="m-rec-body"><div class="m-rec-name">'+esc(name)+'</div>' +
+              '<div class="m-rec-meta">Next: '+fmtDate(item.next_due_date)+'</div></div>' +
+              '<div class="m-rec-right"><div class="m-rec-amount">$'+fmtAmount(item.amount)+'</div>' +
+              '<div class="m-rec-freq">'+recurrenceLabel(item.recurrence_rule)+'</div></div>' +
+              '</div></li>';
+          }).join('');
+        }
+      }
+      if (mManage) {
+        if (!items.length) {
+          mManage.innerHTML = '<li style="padding:16px;text-align:center;color:var(--s400);font-size:13px;">No subscriptions.</li>';
+        } else {
+          mManage.innerHTML = items.map(function(item) {
+            var name = (item.description||'').trim() || (item.category_name||'Subscription');
+            var isActive = !!item.is_active;
+            var id = esc(item.recurring_id);
+            return '<li><div class="m-rec-item" style="'+(isActive?'':'opacity:0.6;')+'">' +
+              '<span class="m-txn-icon recurring">'+iconFor(name)+'</span>' +
+              '<div class="m-rec-body"><div class="m-rec-name">'+esc(name)+'</div>' +
+              '<div class="m-rec-meta">'+recurrenceLabel(item.recurrence_rule)+' · '+(isActive?'Active':'Paused')+'</div></div>' +
+              '<div class="m-rec-right"><div class="m-rec-amount">$'+fmtAmount(item.amount)+'</div>' +
+              '<button type="button" class="btn btn-ghost btn-sm subscriptions-toggle-m" data-id="'+id+'" style="margin-top:4px;">'+(isActive?'Pause':'Resume')+'</button>' +
+              '</div></div></li>';
+          }).join('');
+          mManage.querySelectorAll('.subscriptions-toggle-m').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              var id = this.getAttribute('data-id');
+              if (!id) return;
+              var currentlyActive = this.textContent.trim() === 'Pause';
+              btn.disabled = true;
+              window.RecurringExpenses.update(id, { is_active: !currentlyActive }).then(function() {
+                loadWithMobile();
+              }).catch(function() { btn.disabled = false; });
+            });
+          });
+        }
+      }
+    }).catch(function() {});
+  }
+  load = loadWithMobile;
+
   if (window.RecurringExpenses) {
-    loadCategories().then(load);
+    loadCategories().then(loadWithMobile);
   } else {
     if (upcomingEl) upcomingEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Sign in to see subscriptions.</p>';
     if (manageEl) manageEl.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm);padding:0.5rem 0;">Sign in to see subscriptions.</p>';

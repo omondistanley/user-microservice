@@ -57,12 +57,12 @@ async def create_receipt(
             if isinstance(content_type, UploadFile):
                 content_type = "application/octet-stream"
             row = svc.create_receipt(
-                expense_id=expense_id,
                 user_id=user_id,
                 file_name=file_name,
                 content_type=content_type,
                 file_size_bytes=len(file_bytes),
                 file_bytes=file_bytes,
+                expense_id=expense_id,
             )
         else:
             file_name = form.get("file_name")
@@ -79,32 +79,157 @@ async def create_receipt(
             except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail="file_size_bytes must be integer")
             row = svc.create_receipt(
-                expense_id=expense_id,
                 user_id=user_id,
                 file_name=str(file_name),
                 content_type=str(content_type),
                 file_size_bytes=file_size_bytes,
                 storage_key=str(storage_key),
+                expense_id=expense_id,
             )
     else:
         body = await request.json()
         payload = ReceiptCreate.model_validate(body)
         row = svc.create_receipt(
-            expense_id=expense_id,
             user_id=user_id,
             file_name=payload.file_name,
             content_type=payload.content_type,
             file_size_bytes=payload.file_size_bytes,
             storage_key=payload.storage_key,
+            expense_id=expense_id,
         )
     return ReceiptResponse(
         receipt_id=row["receipt_id"],
-        expense_id=row["expense_id"],
+        expense_id=row.get("expense_id"),
         user_id=row["user_id"],
         file_name=row["file_name"],
         content_type=row["content_type"],
         file_size_bytes=row["file_size_bytes"],
         uploaded_at=row["uploaded_at"],
+    )
+
+
+@router.post("/receipts", response_model=ReceiptResponse)
+async def create_receipt_unmatched(
+    request: Request,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Upload a receipt without linking to an expense. Link later via PATCH /receipts/{id}/link."""
+    svc = _get_receipt_service()
+    content_type_header = request.headers.get("content-type") or ""
+    if "multipart/form-data" in content_type_header:
+        form = await request.form()
+        file: UploadFile | None = form.get("file")
+        if file is None or not getattr(file, "filename", None):
+            raise HTTPException(status_code=400, detail="Multipart must include a file")
+        file_bytes = await file.read()
+        file_name = form.get("file_name") or file.filename or "receipt"
+        if isinstance(file_name, UploadFile):
+            file_name = file_name.filename or "receipt"
+        content_type = form.get("content_type") or file.content_type or "application/octet-stream"
+        if isinstance(content_type, UploadFile):
+            content_type = "application/octet-stream"
+        row = svc.create_receipt(
+            user_id=user_id,
+            file_name=file_name,
+            content_type=content_type,
+            file_size_bytes=len(file_bytes),
+            file_bytes=file_bytes,
+            expense_id=None,
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Use multipart/form-data with a file to upload")
+    return ReceiptResponse(
+        receipt_id=row["receipt_id"],
+        expense_id=row.get("expense_id"),
+        user_id=row["user_id"],
+        file_name=row["file_name"],
+        content_type=row["content_type"],
+        file_size_bytes=row["file_size_bytes"],
+        uploaded_at=row["uploaded_at"],
+    )
+
+
+@router.get("/receipts/unmatched", response_model=dict)
+async def list_unmatched_receipts(
+    user_id: int = Depends(get_current_user_id),
+    limit: int = 50,
+):
+    """List receipts not yet linked to an expense."""
+    ds = _get_data_service()
+    rows = ds.list_unmatched_receipts(user_id, limit=limit)
+    return {
+        "items": [
+            ReceiptResponse(
+                receipt_id=r["receipt_id"],
+                expense_id=r.get("expense_id"),
+                user_id=r["user_id"],
+                file_name=r["file_name"],
+                content_type=r["content_type"],
+                file_size_bytes=r["file_size_bytes"],
+                uploaded_at=r["uploaded_at"],
+            )
+            for r in rows
+        ],
+    }
+
+
+@router.get("/receipts/{receipt_id}/suggest-expenses", response_model=dict)
+async def suggest_expenses_for_receipt(
+    receipt_id: str,
+    user_id: int = Depends(get_current_user_id),
+    limit: int = 15,
+):
+    """Suggest expenses to link to this receipt (by date ±3 days)."""
+    try:
+        UUID(receipt_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid receipt id")
+    ds = _get_data_service()
+    if not ds.get_receipt_by_id(receipt_id, user_id):
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    suggestions = ds.suggest_expenses_for_receipt(receipt_id, user_id, limit=limit)
+    return {"items": suggestions}
+
+
+@router.patch("/receipts/{receipt_id}/link", response_model=ReceiptResponse)
+async def link_receipt_to_expense(
+    receipt_id: str,
+    body: dict,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Link an unmatched receipt to an expense. Body: { "expense_id": "uuid" }. Optionally run OCR after link."""
+    expense_id = body.get("expense_id")
+    if not expense_id:
+        raise HTTPException(status_code=400, detail="expense_id required")
+    try:
+        UUID(receipt_id)
+        UUID(expense_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid id")
+    ds = _get_data_service()
+    _ensure_expense_exists(expense_id, user_id)
+    row = ds.link_receipt_to_expense(receipt_id, expense_id, user_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Receipt not found or already linked")
+    # Optionally run OCR after link (best-effort)
+    try:
+        svc = _get_receipt_service()
+        data, _, _ = svc.get_receipt_download(receipt_id, user_id)
+        from app.services.receipt_ocr import run_ocr
+        raw_text, extracted = run_ocr(data)
+        if raw_text or extracted:
+            ds.insert_receipt_ocr_result(receipt_id, raw_text, extracted)
+    except Exception:
+        pass
+    rec = ds.get_receipt_by_id(receipt_id, user_id)
+    return ReceiptResponse(
+        receipt_id=rec["receipt_id"],
+        expense_id=rec.get("expense_id"),
+        user_id=rec["user_id"],
+        file_name=rec["file_name"],
+        content_type=rec["content_type"],
+        file_size_bytes=rec["file_size_bytes"],
+        uploaded_at=rec["uploaded_at"],
     )
 
 
@@ -238,7 +363,9 @@ async def apply_receipt_extraction(
     receipt_row = ds.get_receipt_by_id(receipt_id, user_id)
     if not receipt_row:
         raise HTTPException(status_code=404, detail="Receipt not found")
-    expense_id = receipt_row["expense_id"]
+    expense_id = receipt_row.get("expense_id")
+    if not expense_id:
+        raise HTTPException(status_code=400, detail="Link receipt to an expense first (PATCH /receipts/{id}/link)")
     extracted = ocr.get("extracted_json") or {}
     updates = {}
     if "amount" in extracted and extracted["amount"] is not None:
