@@ -7,7 +7,7 @@ from typing import Optional
 
 import psycopg2
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +34,7 @@ from app.core.config import (
     RATE_LIMIT_API_PER_MINUTE,
     RATE_LIMIT_EXPENSIVE_PER_USER_PER_MINUTE,
 )
+from app.core.dependencies import get_current_user as get_current_user_dep
 from app.proxy import proxy_request
 from app.core.rate_limit import evaluate_rate_limit, get_client_ip
 from app.core.security import decode_token

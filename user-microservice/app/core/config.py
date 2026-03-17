@@ -94,6 +94,9 @@ APPLE_REDIRECT_URI: str = os.environ.get("APPLE_REDIRECT_URI", "").rstrip("/")  
 # Internal API key used by peer services (budget -> user notifications).
 INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")
 
+# Rapid Email Validator (AbstractAPI or RapidAPI) - optional
+RAPID_EMAIL_VALIDATOR_KEY: str = os.environ.get("RAPID_EMAIL_VALIDATOR_KEY", "")
+
 # Optional DB context (fallback to hardcoded values in service_factory if unset)
 DB_USER: Optional[str] = os.environ.get("DB_USER")
 DB_PASSWORD: Optional[str] = os.environ.get("DB_PASSWORD")

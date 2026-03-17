@@ -163,3 +163,27 @@ class UserScopeResponse(BaseModel):
     """Response for GET /internal/v1/users/me/scope (for expense/budget to resolve scope)."""
     user_id: int
     active_household_id: Optional[UUID] = None
+
+
+class UserMeResponse(BaseModel):
+    id: int
+    email: EmailStr
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    auth_provider: Optional[str] = None
+
+
+class UserMeUpdate(BaseModel):
+    first_name: Optional[str] = Field(None, max_length=255)
+    last_name: Optional[str] = Field(None, max_length=255)
+    email: Optional[EmailStr] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+
+class EmailValidateRequest(BaseModel):
+    email: EmailStr

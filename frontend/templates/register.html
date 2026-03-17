@@ -104,6 +104,68 @@
 (function() {
     var form = document.getElementById('register-form');
     var msg = document.getElementById('register-message');
+    var emailInput = document.getElementById('email');
+    var emailHint = null;
+    var emailTimer = null;
+
+    // Create email hint element
+    if (emailInput) {
+        emailHint = document.createElement('p');
+        emailHint.id = 'email-hint';
+        emailHint.style.cssText = 'font-size:12px;margin-top:4px;min-height:16px;';
+        emailInput.parentNode.insertBefore(emailHint, emailInput.nextSibling);
+
+        emailInput.addEventListener('blur', function() {
+            clearTimeout(emailTimer);
+            var val = emailInput.value.trim();
+            if (!val || val.indexOf('@') === -1) return;
+            emailHint.style.color = '';
+            emailHint.textContent = 'Checking email…';
+            emailTimer = setTimeout(function() { validateEmail(val); }, 300);
+        });
+        emailInput.addEventListener('input', function() {
+            clearTimeout(emailTimer);
+            if (emailHint) emailHint.textContent = '';
+        });
+    }
+
+    function validateEmail(email) {
+        fetch('/api/v1/validate-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email })
+        }).then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!emailHint) return;
+            if (!data.valid) {
+                emailHint.style.color = '#ef4444';
+                emailHint.textContent = '✗ Invalid email address or domain';
+                if (emailInput) emailInput.setCustomValidity('Invalid email address');
+            } else if (data.disposable) {
+                emailHint.style.color = '#f59e0b';
+                emailHint.textContent = '⚠ Disposable email addresses are not allowed';
+                if (emailInput) emailInput.setCustomValidity('Disposable email addresses are not allowed');
+            } else if (data.role_based) {
+                emailHint.style.color = '#f59e0b';
+                emailHint.textContent = '⚠ Please use a personal email address';
+                if (emailInput) emailInput.setCustomValidity('Please use a personal email address');
+            } else {
+                emailHint.style.color = '#10b981';
+                emailHint.textContent = '✓ Email looks good';
+                if (emailInput) emailInput.setCustomValidity('');
+            }
+        }).catch(function() {
+            if (emailHint) emailHint.textContent = '';
+            if (emailInput) emailInput.setCustomValidity('');
+        });
+    }
+
+    if (emailInput) {
+        emailInput.addEventListener('input', function() {
+            emailInput.setCustomValidity('');
+        });
+    }
+
     if (form && window.Auth) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -129,6 +191,7 @@
                 msg.textContent = err.message || 'Registration failed';
                 msg.className = 'auth-alert auth-alert--error';
                 msg.style.display = 'block';
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create account'; }
             });
         });
     }
