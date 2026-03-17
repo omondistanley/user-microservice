@@ -1,3 +1,4 @@
 # Expense Tracker
 
-Integrations (market data, news, AI explainer) and env vars are documented in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
+Deploying to **https://pocketii.com** (Google OAuth, Apple Sign-In, Apple Wallet webhook): see [docs/DEPLOYMENT_POCKETII.md](docs/DEPLOYMENT_POCKETII.md).

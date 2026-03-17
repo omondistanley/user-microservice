@@ -1,205 +1,209 @@
 {% extends "layout.html" %}
 {% block body_class %}settings-page{% endblock %}
-{% block title %}Settings — Expense Tracker{% endblock %}
+{% block title %}Settings — pocketii{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="page-header">
-        <a href="/dashboard" class="page-back-link">← Dashboard</a>
-        <h1 class="page-title">Settings</h1>
-    </div>
+<div class="page-header">
+    <h1 class="page-title">Settings</h1>
+</div>
 
-    <!-- Currency -->
-    <div class="card-section">
-        <h2 class="h4">Currency</h2>
-        <p class="text-muted">Choose the default currency for displaying amounts.</p>
-        <form id="currency-form" style="margin-top:.75rem;">
+<form id="settings-form" style="display: grid; gap: 24px; max-width: 680px;">
+
+    <!-- Preferences -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Preferences</h2>
+        <div style="display: grid; gap: 16px;">
             <div class="form-group">
-                <label class="form-label" for="currency-select">Default Currency</label>
-                <select id="currency-select" name="default_currency" class="form-input" style="max-width:220px;">
+                <label class="form-label" for="settings-currency">Default currency</label>
+                <select id="settings-currency" class="form-select" style="max-width: 140px;">
                     <option value="USD">USD — US Dollar</option>
                     <option value="EUR">EUR — Euro</option>
                     <option value="GBP">GBP — British Pound</option>
+                    <option value="KES">KES — Kenyan Shilling</option>
                     <option value="JPY">JPY — Japanese Yen</option>
                     <option value="CAD">CAD — Canadian Dollar</option>
                     <option value="AUD">AUD — Australian Dollar</option>
-                    <option value="CHF">CHF — Swiss Franc</option>
-                    <option value="CNY">CNY — Chinese Yuan</option>
-                    <option value="INR">INR — Indian Rupee</option>
-                    <option value="KES">KES — Kenyan Shilling</option>
-                    <option value="NGN">NGN — Nigerian Naira</option>
-                    <option value="ZAR">ZAR — South African Rand</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary">Save Currency</button>
-            <p id="currency-result" class="text-muted small" style="margin-top:.5rem;"></p>
-        </form>
+            <div class="form-group">
+                <label class="form-label" for="settings-date-format">Date format</label>
+                <select id="settings-date-format" class="form-select" style="max-width: 200px;">
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-timezone">Timezone</label>
+                <select id="settings-timezone" class="form-select" style="max-width: 280px;">
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">America/New_York (EST/EDT)</option>
+                    <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                    <option value="America/Denver">America/Denver (MST/MDT)</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                    <option value="Europe/London">Europe/London (GMT/BST)</option>
+                    <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                    <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                    <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                    <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+                </select>
+            </div>
+        </div>
     </div>
 
-    <!-- Theme -->
-    <div class="card-section">
-        <h2 class="h4">Appearance</h2>
-        <div class="form-group">
-            <label class="form-label" for="settings-theme-select">Theme</label>
-            <select id="settings-theme-select" class="form-input" style="max-width:220px;">
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-                <option value="system">System</option>
-            </select>
+    <!-- Household -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Household</h2>
+        <div style="display: grid; gap: 16px;">
+            <div class="form-group">
+                <label class="form-label" for="settings-household">Active household</label>
+                <select id="settings-household" class="form-select" style="max-width: 280px;">
+                    <option value="">Personal</option>
+                </select>
+                <p class="form-hint">Data scope used for the dashboard and reports.</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-household-name">Household name</label>
+                <input type="text" id="settings-household-name" class="form-input" style="max-width: 280px;"
+                    placeholder="e.g. Smith Family">
+                <p class="form-hint">Rename the currently active household.</p>
+            </div>
         </div>
     </div>
 
     <!-- Notifications -->
-    <div class="card-section">
-        <h2 class="h4">Notifications</h2>
-        <p class="text-muted">Manage notification preferences.</p>
-        <div id="notif-prefs" class="text-muted">Loading…</div>
-    </div>
-
-    <!-- Household scope -->
-    <div class="card-section" id="household-scope-section" style="display:none;">
-        <h2 class="h4">Household Scope</h2>
-        <p class="text-muted">Switch between personal and household view.</p>
-        <div class="form-group" style="margin-top:.75rem;">
-            <label class="form-label" for="scope-select">Active Scope</label>
-            <select id="scope-select" class="form-input" style="max-width:280px;">
-                <option value="">Personal</option>
-            </select>
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 18px;">Notifications</h2>
+        <div style="display: grid; gap: 16px;">
+            <div class="form-group">
+                <label class="form-label" for="settings-email-digest">Email digest</label>
+                <select id="settings-email-digest" class="form-select" style="max-width: 180px;">
+                    <option value="none">Off</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+                <p class="form-hint">Receive a summary of your spending by email.</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-budget-alert">Budget alert threshold (%)</label>
+                <input type="number" id="settings-budget-alert" class="form-input" min="1" max="100" value="80"
+                    style="max-width: 100px;">
+                <p class="form-hint">Get notified when spending reaches this percentage of any budget.</p>
+            </div>
         </div>
-        <button type="button" id="scope-save-btn" class="btn btn-primary">Apply Scope</button>
-        <p id="scope-result" class="text-muted small" style="margin-top:.5rem;"></p>
     </div>
 
-    <!-- Apple Wallet -->
-    <div class="card-section">
-        <h2 class="h4">Apple Wallet</h2>
-        <p class="text-muted">Add your FinTrack card to Apple Wallet to quickly view your spending summary.</p>
-        <button type="button" id="add-to-wallet-btn" class="btn btn-secondary btn-sm" style="margin-top:.75rem;">
-            <span>Add to Apple Wallet</span>
+    <!-- Danger zone -->
+    <div class="card" style="border-color: #f43f5e33;">
+        <h2 class="stat-label" style="margin-bottom: 14px; color: #f43f5e;">Danger zone</h2>
+        <p class="form-hint" style="margin-bottom: 14px;">
+            Permanently delete your account and all associated data. This action cannot be undone.
+        </p>
+        <button type="button" id="settings-delete-account"
+            style="background: transparent; border: 1px solid #f43f5e; color: #f43f5e; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
+            Delete account
         </button>
-        <p id="wallet-result" class="text-muted small" style="margin-top:.5rem;"></p>
     </div>
 
-    <!-- Quick links -->
-    <div class="card-section">
-        <h2 class="h4">More Settings</h2>
-        <ul class="summary-list">
-            <li class="summary-list-item"><a href="/settings/integrations" class="nav-link">Integrations (banks, webhooks, digest)</a></li>
-            <li class="summary-list-item"><a href="/profile" class="nav-link">Profile &amp; password</a></li>
-            <li class="summary-list-item"><a href="/sessions" class="nav-link">Active sessions</a></li>
-            <li class="summary-list-item"><a href="/household" class="nav-link">Household members</a></li>
-        </ul>
+    <!-- Save -->
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <button type="submit" class="btn btn-primary" id="settings-save-btn">Save settings</button>
+        <p id="settings-msg" class="form-hint"></p>
     </div>
-</div>
+
+</form>
 {% endblock %}
 {% block scripts %}
-<script nonce="{{ csp_nonce | default('') }}" src="/static/js/settings.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var API = window.API_BASE || '';
-
-    function headers(extra) {
-        return Object.assign({}, window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {}, extra || {});
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
     }
-
-    // Load and pre-fill current settings
-    function loadSettings() {
-        var fn = window.Auth && window.Auth.requestWithRefresh
-            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/settings', { headers: headers() }); }
-            : function() { return fetch(API + '/api/v1/settings', { headers: headers() }); };
-        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
-            .then(function(d) {
-                var sel = document.getElementById('currency-select');
-                if (sel && d.default_currency) {
-                    for (var i = 0; i < sel.options.length; i++) {
-                        if (sel.options[i].value === d.default_currency.toUpperCase()) {
-                            sel.selectedIndex = i; break;
-                        }
-                    }
-                }
-                var notifEl = document.getElementById('notif-prefs');
-                if (notifEl) {
-                    notifEl.innerHTML = '<p>Email digest: <strong>' + (d.digest_frequency || 'off') + '</strong></p>';
-                }
-                // Household scope
-                if (d.active_household_id) {
-                    var scopeSec = document.getElementById('household-scope-section');
-                    if (scopeSec) scopeSec.style.display = 'block';
+    function load() {
+        Promise.all([
+            fetch(API + '/api/v1/settings', { headers: authHeaders() }).then(function(r) { return r.json(); }),
+            fetch(API + '/api/v1/households', { headers: authHeaders() }).then(function(r) { return r.json(); })
+        ]).then(function(results) {
+            var settings = results[0];
+            var households = Array.isArray(results[1]) ? results[1] : (results[1].items || []);
+            if (settings && settings.default_currency) {
+                var cur = document.getElementById('settings-currency');
+                if (cur) cur.value = settings.default_currency;
+            }
+            var sel = document.getElementById('settings-household');
+            if (sel) {
+                sel.innerHTML = '<option value="">Personal</option>';
+                households.forEach(function(h) {
+                    sel.appendChild(new Option(h.name || 'Household', h.household_id || h.id || ''));
+                });
+                if (settings && settings.active_household_id) sel.value = settings.active_household_id;
+            }
+            if (settings && settings.date_format) {
+                var df = document.getElementById('settings-date-format');
+                if (df) df.value = settings.date_format;
+            }
+            if (settings && settings.timezone) {
+                var tz = document.getElementById('settings-timezone');
+                if (tz) tz.value = settings.timezone;
+            }
+            if (settings && settings.email_digest) {
+                var ed = document.getElementById('settings-email-digest');
+                if (ed) ed.value = settings.email_digest;
+            }
+            if (settings && settings.budget_alert_threshold != null) {
+                var ba = document.getElementById('settings-budget-alert');
+                if (ba) ba.value = settings.budget_alert_threshold;
+            }
+        }).catch(function() {});
+    }
+    document.getElementById('settings-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var currency = document.getElementById('settings-currency').value;
+        var householdId = document.getElementById('settings-household').value || null;
+        var dateFormat = document.getElementById('settings-date-format').value;
+        var timezone = document.getElementById('settings-timezone').value;
+        var emailDigest = document.getElementById('settings-email-digest').value;
+        var budgetAlert = parseInt(document.getElementById('settings-budget-alert').value, 10) || 80;
+        var msg = document.getElementById('settings-msg');
+        msg.textContent = 'Saving…';
+        Promise.all([
+            fetch(API + '/api/v1/settings', {
+                method: 'PATCH',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                body: JSON.stringify({
+                    default_currency: currency,
+                    date_format: dateFormat,
+                    timezone: timezone,
+                    email_digest: emailDigest,
+                    budget_alert_threshold: budgetAlert
+                })
+            }),
+            fetch(API + '/api/v1/settings/active-household', {
+                method: 'PATCH',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                body: JSON.stringify({ household_id: householdId })
+            })
+        ]).then(function(r) {
+            msg.textContent = r.every(function(x) { return x.ok; }) ? 'Settings saved.' : 'Some settings could not be saved.';
+        }).catch(function() { msg.textContent = 'Failed to save.'; });
+    });
+    document.getElementById('settings-delete-account').addEventListener('click', function() {
+        if (!confirm('Permanently delete your account and all data? This cannot be undone.')) return;
+        fetch(API + '/user/me', { method: 'DELETE', headers: authHeaders() })
+            .then(function(r) {
+                if (r.ok || r.status === 204) {
+                    if (window.Auth && window.Auth.logout) window.Auth.logout();
+                    else window.location.href = '/login';
+                } else {
+                    alert('Failed to delete account.');
                 }
             })
-            .catch(function() {});
-    }
-
-    // Currency save
-    var currencyForm = document.getElementById('currency-form');
-    if (currencyForm) {
-        currencyForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var val = document.getElementById('currency-select').value;
-            var h = headers({'Content-Type':'application/json'});
-            var fn = window.Auth && window.Auth.requestWithRefresh
-                ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/settings', { method:'PATCH', headers:h, body:JSON.stringify({default_currency:val}) }); }
-                : function() { return fetch(API + '/api/v1/settings', { method:'PATCH', headers:h, body:JSON.stringify({default_currency:val}) }); };
-            fn().then(function(r) {
-                var el = document.getElementById('currency-result');
-                if (r.ok) {
-                    try { localStorage.setItem('default_currency', val); } catch(ex) {}
-                    el.textContent = 'Currency updated to ' + val + '.';
-                } else { el.textContent = 'Error saving currency.'; }
-            }).catch(function() { document.getElementById('currency-result').textContent = 'Error.'; });
-        });
-    }
-
-    // Theme selector wired to existing theme.js
-    var themeSelect = document.getElementById('settings-theme-select');
-    if (themeSelect) {
-        try {
-            var stored = localStorage.getItem('expense_theme') || 'dark';
-            for (var i = 0; i < themeSelect.options.length; i++) {
-                if (themeSelect.options[i].value === stored) { themeSelect.selectedIndex = i; break; }
-            }
-        } catch(e) {}
-        themeSelect.addEventListener('change', function() {
-            var v = themeSelect.value;
-            try { localStorage.setItem('expense_theme', v); } catch(e) {}
-            // Mirror to the top-level theme selector used by theme.js
-            var topSel = document.getElementById('theme-select');
-            if (topSel) { topSel.value = v; topSel.dispatchEvent(new Event('change')); }
-        });
-    }
-
-    // Apple Wallet download
-    var walletBtn = document.getElementById('add-to-wallet-btn');
-    var walletResult = document.getElementById('wallet-result');
-    if (walletBtn) {
-        walletBtn.addEventListener('click', function() {
-            var h = headers();
-            walletResult.textContent = 'Generating pass…';
-            (window.Auth && window.Auth.requestWithRefresh
-                ? window.Auth.requestWithRefresh(window.API_BASE + '/api/v1/wallet/pass', { headers: h })
-                : fetch(window.API_BASE + '/api/v1/wallet/pass', { headers: h })
-            ).then(function(r) {
-                if (r.status === 503 || r.status === 500) {
-                    return r.json().then(function(d) {
-                        walletResult.textContent = d.detail || 'Apple Wallet is not configured on this server.';
-                    });
-                }
-                if (!r.ok) { walletResult.textContent = 'Could not generate pass.'; return; }
-                return r.blob().then(function(blob) {
-                    var url = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'fintrack.pkpass';
-                    a.click();
-                    setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
-                    walletResult.textContent = 'Pass downloaded! Open it to add to Apple Wallet.';
-                });
-            }).catch(function() { walletResult.textContent = 'Error downloading pass.'; });
-        });
-    }
-
-    if (window.Auth && window.Auth.getAuthHeaders) {
-        loadSettings();
-    }
+            .catch(function() { alert('Request failed.'); });
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
+    else load();
 })();
 </script>
 {% endblock %}

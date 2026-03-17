@@ -33,10 +33,32 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8)
 
-class UserInfo(Hatoas): # return the user information with id, email, and last_name
+class UserInfo(BaseModel): # return the user information with id, email, first_name, and last_name
     id: int
     email: EmailStr
-    last_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class UserMeResponse(BaseModel):
+    """Current user profile for GET /user/me."""
+    id: int
+    email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email_verified_at: Optional[datetime] = None
+
+
+class UserMeUpdate(BaseModel):
+    """Body for PATCH /user/me."""
+    first_name: Optional[str] = Field(None, max_length=255)
+    last_name: Optional[str] = Field(None, max_length=255)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Body for POST /user/me/change-password."""
+    current_password: str
+    new_password: str = Field(..., min_length=8)
 
 class User(BaseModel): # return the user information with id, email, last_name, first_name, created_at, and modified_at
     id: Optional[int] = None

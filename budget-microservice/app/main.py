@@ -1,7 +1,9 @@
+import asyncio
 import json
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import psycopg2
@@ -19,6 +21,7 @@ from starlette.responses import Response
 
 from app.routers import budgets, internal
 from app.core.config import (
+    REDIS_URL,
     get_cors_origins,
     SECRET_KEY,
     DB_HOST,
@@ -31,6 +34,7 @@ from app.core.config import (
     API_CSP_POLICY,
 )
 from app.core.security import decode_token
+from app.events.subscriber import run_subscriber
 
 logger = logging.getLogger("budget_microservice")
 
@@ -150,16 +154,26 @@ async def security_headers_middleware(request: Request, call_next):
     return response
 
 
-app = FastAPI(title="Budget Microservice")
-
-
-@app.on_event("startup")
-def _check_secret_key():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     if not (SECRET_KEY and SECRET_KEY.strip()):
         raise RuntimeError(
             "SECRET_KEY is empty. Copy .env from .env.example and set SECRET_KEY to match "
             "user-microservice, or budget API will return 401 Unauthorized."
         )
+    subscriber_task = None
+    if REDIS_URL and REDIS_URL.strip():
+        subscriber_task = asyncio.create_task(run_subscriber())
+    yield
+    if subscriber_task is not None:
+        subscriber_task.cancel()
+        try:
+            await subscriber_task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="Budget Microservice", lifespan=lifespan)
 
 
 app.add_middleware(

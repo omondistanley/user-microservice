@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.core.config import RECOMMENDATIONS_PAGE_SIZE
 from app.core.dependencies import get_current_user_id
 from app.services.analyst_universe import get_security_info
 from app.services.recommendation_data_service import RecommendationDataService
@@ -94,24 +95,60 @@ async def _fetch_bars_trend_safe(
         return None
 
 
+def _build_pagination_links(
+    page: int, page_size: int, total_pages: int
+) -> Dict[str, Optional[str]]:
+    """Build HATEOAS _links for list; query part only (client appends to path)."""
+    base = f"page={page}&page_size={page_size}"
+    links: Dict[str, Optional[str]] = {
+        "self": f"?page={page}&page_size={page_size}",
+        "first": "?page=1&page_size={}".format(page_size),
+        "last": f"?page={total_pages}&page_size={page_size}" if total_pages >= 1 else None,
+        "prev": f"?page={page - 1}&page_size={page_size}" if page > 1 else None,
+        "next": f"?page={page + 1}&page_size={page_size}" if page < total_pages else None,
+    }
+    return links
+
+
 @router.get("/recommendations/latest", response_model=dict)
 async def latest_recommendations(
     user_id: int = Depends(get_current_user_id),
     rec_svc: RecommendationDataService = Depends(_get_rec_data_service),
     market_router: MarketDataRouter = Depends(_get_market_router),
-    enrich: bool = Query(False, description="Fetch live quotes for each symbol (slower)"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(RECOMMENDATIONS_PAGE_SIZE, ge=1, le=100, description="Items per page"),
+    enrich: bool = Query(False, description="Fetch live quotes for current page (slower)"),
 ) -> Dict[str, Any]:
     run = rec_svc.get_latest_run(user_id)
     if not run:
-        return {"run": None, "items": []}
-    items = rec_svc.list_items_for_run(run["run_id"])
+        return {
+            "run": None,
+            "items": [],
+            "pagination": {"page": 1, "page_size": page_size, "total_items": 0, "total_pages": 0},
+            "_links": _build_pagination_links(1, page_size, 0),
+        }
+    items, total_items = rec_svc.list_items_for_run_paginated(
+        run["run_id"], limit=page_size, offset=(page - 1) * page_size
+    )
+    total_pages = (total_items + page_size - 1) // page_size if page_size else 0
+
     summary_items: List[Dict[str, Any]] = []
     for i in items:
         sym = i["symbol"]
+        try:
+            score_val = float(i["score"])
+            score_str = f"{score_val:.2f}"
+        except (TypeError, ValueError):
+            score_str = str(i["score"])
+        try:
+            conf_val = float(i.get("confidence") or "0")
+            conf_str = f"{conf_val:.2f}"
+        except (TypeError, ValueError):
+            conf_str = str(i.get("confidence") or "0")
         row: Dict[str, Any] = {
             "symbol": sym,
-            "score": str(i["score"]),
-            "confidence": str(i.get("confidence") or "0"),
+            "score": score_str,
+            "confidence": conf_str,
         }
         sec = get_security_info(sym)
         if sec:
@@ -120,6 +157,7 @@ async def latest_recommendations(
             row["description"] = sec["description"]
             row["asset_type"] = sec["asset_type"]
         summary_items.append(row)
+
     if enrich and summary_items:
         end_dt = datetime.now(timezone.utc)
         quote_tasks = [_fetch_quote_safe(market_router, it["symbol"]) for it in summary_items]
@@ -140,7 +178,18 @@ async def latest_recommendations(
         for idx, trend in enumerate(bar_results):
             if idx < len(summary_items) and isinstance(trend, (int, float)):
                 summary_items[idx]["trend_1m_pct"] = trend
-    return {"run": run, "items": summary_items}
+
+    return {
+        "run": run,
+        "items": summary_items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total_items": total_items,
+            "total_pages": total_pages,
+        },
+        "_links": _build_pagination_links(page, page_size, total_pages),
+    }
 
 
 @router.get("/recommendations/{run_id}/explain", response_model=dict)
@@ -232,10 +281,18 @@ async def explain_recommendations(
             except Exception:
                 pass
 
+        try:
+            out_score = f"{float(i['score']):.2f}"
+        except (TypeError, ValueError):
+            out_score = str(i["score"])
+        try:
+            out_conf = f"{float(i.get('confidence') or 0):.2f}"
+        except (TypeError, ValueError):
+            out_conf = str(i.get("confidence") or "0")
         out_items.append({
             "symbol": i["symbol"],
-            "score": str(i["score"]),
-            "confidence": str(i.get("confidence") or "0"),
+            "score": out_score,
+            "confidence": out_conf,
             "explanation": expl,
         })
 

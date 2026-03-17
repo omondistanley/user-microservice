@@ -41,10 +41,15 @@
                     window.Auth.logout();
                 };
             }
-            if (window.Notifications && window.Notifications.start) {
+            // Only start notifications/household on protected pages; avoid 401 → redirect on login/register
+            var publicPaths = ['/', '/landing', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/verify-email/pending', '/welcome'];
+            var isPublic = publicPaths.indexOf(path) !== -1;
+            if (!isPublic && window.Notifications && window.Notifications.start) {
                 window.Notifications.start();
             }
-            initHouseholdSwitcher();
+            if (!isPublic) {
+                initHouseholdSwitcher();
+            }
         } else {
             if (guest.length) {
                 guest.forEach(function(el) {
@@ -116,11 +121,11 @@
         '/investments/add',
         '/recommendations',
         '/net-worth',
+        '/notifications',
+        '/household',
+        '/sessions',
         '/profile',
         '/settings',
-        '/sessions',
-        '/household',
-        '/notifications',
         '/saved-views',
     ];
     var path = window.location.pathname;
@@ -131,6 +136,41 @@
         document.addEventListener('DOMContentLoaded', applyAuthState);
     } else {
         applyAuthState();
+    }
+
+    function initAppShell() {
+        var topbarDate = document.getElementById('topbar-date');
+        if (topbarDate) {
+            var d = new Date();
+            topbarDate.textContent = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        var greeting = document.getElementById('topbar-greeting');
+        if (greeting && window.Auth && window.Auth.isLoggedIn()) {
+            var hour = new Date().getHours();
+            greeting.textContent = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+        }
+        var sidebarAvatar = document.getElementById('sidebar-avatar');
+        var sidebarName = document.getElementById('sidebar-user-name');
+        var sidebarEmail = document.getElementById('sidebar-user-email');
+        if (window.Auth && window.Auth.getToken && sidebarName) {
+            try {
+                var token = window.Auth.getToken();
+                if (token) {
+                    var payload = JSON.parse(atob(token.split('.')[1] || '{}'));
+                    if (payload.email) sidebarEmail && (sidebarEmail.textContent = payload.email);
+                    if (payload.name) sidebarName.textContent = payload.name;
+                    else if (payload.email) sidebarName.textContent = (payload.email.split('@')[0] || 'User');
+                    if (sidebarAvatar && (payload.name || payload.email)) sidebarAvatar.textContent = (payload.name || payload.email).charAt(0).toUpperCase();
+                }
+            } catch (e) {}
+        }
+    }
+    if (document.body.classList.contains('app-shell-page')) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAppShell);
+        } else {
+            initAppShell();
+        }
     }
 
     var filtersToggle = document.getElementById('navbar-filters-toggle');

@@ -1,181 +1,257 @@
 {% extends "layout.html" %}
 {% block body_class %}profile-page{% endblock %}
-{% block title %}Profile — Expense Tracker{% endblock %}
+{% block title %}Profile — pocketii{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="page-header">
-        <a href="/dashboard" class="page-back-link">← Dashboard</a>
-        <h1 class="page-title">Profile</h1>
-    </div>
+<div class="page-header">
+    <h1 class="page-title">Profile</h1>
+</div>
 
-    <!-- User info -->
-    <div class="card-section">
-        <h2 class="h4">Your Information</h2>
-        <div id="profile-info" class="text-muted">Loading…</div>
-        <form id="profile-edit-form" style="margin-top:1rem;display:none;">
-            <div class="form-group">
-                <label class="form-label" for="profile-name">Display Name</label>
-                <input type="text" id="profile-name" name="name" class="form-input" placeholder="Your name">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="profile-email">Email</label>
-                <input type="email" id="profile-email" name="email" class="form-input" placeholder="you@example.com">
-            </div>
-            <div class="toolbar-actions">
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-                <button type="button" id="profile-edit-cancel" class="btn btn-secondary">Cancel</button>
-            </div>
-            <p id="profile-save-result" class="text-muted small" style="margin-top:.5rem;"></p>
-        </form>
-        <button type="button" id="profile-edit-btn" class="btn btn-secondary btn-sm" style="margin-top:1rem;">Edit Profile</button>
-    </div>
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
 
-    <!-- Change password -->
-    <div class="card-section">
-        <h2 class="h4">Change Password</h2>
-        <form id="change-password-form">
-            <div class="form-group">
-                <label class="form-label" for="cp-current">Current Password</label>
-                <input type="password" id="cp-current" name="current_password" class="form-input" autocomplete="current-password" required>
+    <!-- Left card: avatar + edit form -->
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 28px;">
+            <div id="profile-avatar" style="
+                width: 72px; height: 72px; border-radius: 50%;
+                background: var(--accent, #6366f1);
+                color: #fff; font-size: 1.75rem; font-weight: 700;
+                display: flex; align-items: center; justify-content: center;
+                flex-shrink: 0;">?</div>
+            <div>
+                <div class="stat-value" id="profile-name" style="font-size: 1.1rem;">User</div>
+                <div class="stat-label" id="profile-email">—</div>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="cp-new">New Password</label>
-                <input type="password" id="cp-new" name="new_password" class="form-input" autocomplete="new-password" required minlength="8">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="cp-confirm">Confirm New Password</label>
-                <input type="password" id="cp-confirm" name="confirm_password" class="form-input" autocomplete="new-password" required minlength="8">
-            </div>
-            <button type="submit" class="btn btn-primary">Update Password</button>
-            <p id="cp-result" class="text-muted small" style="margin-top:.5rem;"></p>
-        </form>
-    </div>
-
-    <!-- Export & delete -->
-    <div class="card-section">
-        <h2 class="h4">Data</h2>
-        <div class="toolbar-actions">
-            <a href="/user/me/export" class="btn btn-secondary btn-sm" id="export-data-btn">Export My Data</a>
-            <button type="button" id="delete-account-btn" class="btn btn-danger btn-sm">Delete Account</button>
         </div>
-        <p class="text-muted small" style="margin-top:.5rem;">Exporting creates a ZIP with all your expenses, income, budgets, and goals.</p>
-        <p id="delete-result" class="text-muted small" style="margin-top:.5rem;"></p>
+
+        <form id="profile-edit-form" style="display: grid; gap: 16px; max-width: 480px;">
+            <div class="form-group">
+                <label class="form-label" for="profile-first-name">First name</label>
+                <input type="text" id="profile-first-name" class="form-input" autocomplete="given-name" placeholder="First name">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="profile-last-name">Last name</label>
+                <input type="text" id="profile-last-name" class="form-input" autocomplete="family-name" placeholder="Last name">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="profile-email-field">Email</label>
+                <input type="email" id="profile-email-field" class="form-input" readonly autocomplete="email"
+                    style="opacity: 0.6; cursor: not-allowed;">
+                <p class="form-hint">Contact support to change your email address.</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="profile-bio">Bio</label>
+                <textarea id="profile-bio" class="form-input" rows="3"
+                    placeholder="A short description about yourself…"
+                    style="resize: vertical; min-height: 80px;"></textarea>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Save changes</button>
+                <p id="profile-edit-msg" class="form-hint" style="margin-top: 8px;"></p>
+            </div>
+        </form>
+
+        <hr style="border-color: var(--s200, #334155); margin: 28px 0;">
+
+        <h2 class="stat-label" style="margin-bottom: 14px;">Change password</h2>
+        <form id="profile-change-password" style="display: grid; gap: 12px; max-width: 360px;">
+            <div class="form-group">
+                <label class="form-label" for="current-password">Current password</label>
+                <input type="password" id="current-password" class="form-input" autocomplete="current-password">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="new-password">New password</label>
+                <input type="password" id="new-password" class="form-input" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="confirm-password">Confirm new password</label>
+                <input type="password" id="confirm-password" class="form-input" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: fit-content;">Update password</button>
+        </form>
+        <p id="profile-password-msg" class="form-hint" style="margin-top: 8px;"></p>
     </div>
+
+    <!-- Right card: account info -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 16px;">Account</h2>
+
+        <div class="stat-row" style="margin-bottom: 12px;">
+            <span class="stat-label">Member since</span>
+            <span class="stat-value" id="profile-member-since" style="font-size: 0.9rem;">—</span>
+        </div>
+        <div class="stat-row" style="margin-bottom: 20px;">
+            <span class="stat-label">Plan</span>
+            <span class="badge badge-emerald" id="profile-badge">Free</span>
+        </div>
+
+        <hr style="border-color: var(--s200, #334155); margin: 20px 0;">
+
+        <a href="#" id="profile-change-password-link" class="btn btn-ghost" style="width: 100%; text-align: center; margin-bottom: 12px;">
+            Change password
+        </a>
+
+        <hr style="border-color: var(--s200, #334155); margin: 20px 0;">
+
+        <h3 class="stat-label" style="margin-bottom: 12px; color: #f43f5e;">Danger zone</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" id="profile-export" class="btn btn-ghost">Export all data</button>
+            <button type="button" id="profile-delete" class="btn"
+                style="background: transparent; border: 1px solid #f43f5e; color: #f43f5e;">
+                Delete account
+            </button>
+        </div>
+        <p id="profile-export-msg" class="form-hint" style="margin-top: 8px;"></p>
+    </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var API = window.API_BASE || '';
-    var profileInfo = document.getElementById('profile-info');
-    var editForm = document.getElementById('profile-edit-form');
-    var editBtn = document.getElementById('profile-edit-btn');
-    var editCancel = document.getElementById('profile-edit-cancel');
-    var profileSaveResult = document.getElementById('profile-save-result');
-    var cpForm = document.getElementById('change-password-form');
-    var cpResult = document.getElementById('cp-result');
-    var deleteBtn = document.getElementById('delete-account-btn');
-    var deleteResult = document.getElementById('delete-result');
-
-    function headers(extra) {
-        return Object.assign({}, window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {}, extra || {});
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
     }
-
+    function setProfileFromToken() {
+        try {
+            var token = window.Auth && window.Auth.getToken && window.Auth.getToken();
+            if (token) {
+                var payload = JSON.parse(atob(token.split('.')[1] || '{}'));
+                var name = document.getElementById('profile-name');
+                var email = document.getElementById('profile-email');
+                var avatar = document.getElementById('profile-avatar');
+                if (payload.email && email) email.textContent = payload.email;
+                if (payload.name && name) name.textContent = payload.name;
+                else if (payload.email && name) name.textContent = payload.email.split('@')[0] || 'User';
+                if (avatar && (payload.name || payload.email)) avatar.textContent = (payload.name || payload.email).charAt(0).toUpperCase();
+            }
+        } catch (e) {}
+    }
     function loadProfile() {
-        var fn = window.Auth && window.Auth.requestWithRefresh
-            ? function() { return window.Auth.requestWithRefresh(API + '/user/me', { headers: headers() }); }
-            : function() { return fetch(API + '/user/me', { headers: headers() }); };
-        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
-            .then(function(d) {
-                var displayName = [d.first_name, d.last_name].filter(Boolean).join(' ') || '—';
-                profileInfo.innerHTML =
-                    '<p><strong>Name:</strong> ' + displayName.replace(/</g,'&lt;') + '</p>' +
-                    '<p><strong>Email:</strong> ' + (d.email || '—').replace(/</g,'&lt;') + '</p>' +
-                    '<p><strong>Joined:</strong> ' + (d.created_at ? new Date(d.created_at).toLocaleDateString() : '—') + '</p>';
-                if (editForm) {
-                    var nameInput = document.getElementById('profile-name');
-                    var emailInput = document.getElementById('profile-email');
-                    if (nameInput) nameInput.value = [d.first_name, d.last_name].filter(Boolean).join(' ');
-                    if (emailInput) emailInput.value = d.email || '';
+        fetch(API + '/user/me', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(me) {
+                if (me) {
+                    var name = document.getElementById('profile-name');
+                    var email = document.getElementById('profile-email');
+                    var emailField = document.getElementById('profile-email-field');
+                    var avatar = document.getElementById('profile-avatar');
+                    var firstName = document.getElementById('profile-first-name');
+                    var lastName = document.getElementById('profile-last-name');
+                    var bio = document.getElementById('profile-bio');
+                    var memberSince = document.getElementById('profile-member-since');
+                    if (email) email.textContent = me.email || '—';
+                    if (emailField) emailField.value = me.email || '';
+                    var fullName = [me.first_name, me.last_name].filter(Boolean).join(' ') || me.email || 'User';
+                    if (name) name.textContent = fullName;
+                    if (avatar) avatar.textContent = (me.first_name || me.email || '?').charAt(0).toUpperCase();
+                    if (firstName) firstName.value = me.first_name || '';
+                    if (lastName) lastName.value = me.last_name || '';
+                    if (bio) bio.value = me.bio || '';
+                    if (memberSince && me.created_at) {
+                        memberSince.textContent = new Date(me.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                    }
+                } else {
+                    setProfileFromToken();
                 }
             })
-            .catch(function() { profileInfo.textContent = 'Could not load profile.'; });
+            .catch(function() { setProfileFromToken(); });
     }
+    loadProfile();
 
-    if (editBtn) {
-        editBtn.addEventListener('click', function() {
-            editForm.style.display = 'block';
-            editBtn.style.display = 'none';
-        });
-    }
-    if (editCancel) {
-        editCancel.addEventListener('click', function() {
-            editForm.style.display = 'none';
-            editBtn.style.display = '';
-            profileSaveResult.textContent = '';
-        });
-    }
-    if (editForm) {
-        editForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var name = document.getElementById('profile-name').value;
-            var email = document.getElementById('profile-email').value;
-            var h = headers({'Content-Type':'application/json'});
-            var nameParts = name.trim().split(' ');
-            var firstName = nameParts[0] || '';
-            var lastName = nameParts.slice(1).join(' ') || '';
-            var patchBody = { email: email };
-            if (firstName) patchBody.first_name = firstName;
-            if (lastName) patchBody.last_name = lastName;
-            var fn = window.Auth && window.Auth.requestWithRefresh
-                ? function() { return window.Auth.requestWithRefresh(API + '/user/me', { method:'PATCH', headers:h, body:JSON.stringify(patchBody) }); }
-                : function() { return fetch(API + '/user/me', { method:'PATCH', headers:h, body:JSON.stringify(patchBody) }); };
-            fn().then(function(r) {
-                if (r.ok) { profileSaveResult.textContent = 'Profile updated.'; loadProfile(); editForm.style.display='none'; editBtn.style.display=''; }
-                else { return r.json().then(function(e2){ profileSaveResult.textContent = e2.detail || 'Error saving.'; }); }
-            }).catch(function() { profileSaveResult.textContent = 'Error saving profile.'; });
-        });
-    }
+    document.getElementById('profile-edit-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var msg = document.getElementById('profile-edit-msg');
+        var payload = {
+            first_name: document.getElementById('profile-first-name').value.trim(),
+            last_name: document.getElementById('profile-last-name').value.trim(),
+            bio: document.getElementById('profile-bio').value.trim()
+        };
+        msg.textContent = 'Saving…';
+        fetch(API + '/user/me', {
+            method: 'PATCH',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify(payload)
+        })
+            .then(function(r) {
+                if (r.ok) {
+                    msg.textContent = 'Changes saved.';
+                    loadProfile();
+                } else {
+                    return r.json().then(function(d) {
+                        msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to save.';
+                    });
+                }
+            })
+            .catch(function() { msg.textContent = 'Request failed.'; });
+    });
 
-    if (cpForm) {
-        cpForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var cur = document.getElementById('cp-current').value;
-            var nw = document.getElementById('cp-new').value;
-            var conf = document.getElementById('cp-confirm').value;
-            if (nw !== conf) { cpResult.textContent = 'Passwords do not match.'; return; }
-            var h = headers({'Content-Type':'application/json'});
-            var fn = window.Auth && window.Auth.requestWithRefresh
-                ? function() { return window.Auth.requestWithRefresh(API + '/user/me/password', { method:'POST', headers:h, body:JSON.stringify({current_password:cur,new_password:nw}) }); }
-                : function() { return fetch(API + '/user/me/password', { method:'POST', headers:h, body:JSON.stringify({current_password:cur,new_password:nw}) }); };
-            fn().then(function(r) {
-                if (r.ok) { cpResult.textContent = 'Password updated successfully.'; cpForm.reset(); }
-                else { return r.json().then(function(e2){ cpResult.textContent = e2.detail || 'Error changing password.'; }); }
-            }).catch(function() { cpResult.textContent = 'Error changing password.'; });
-        });
-    }
-
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', function() {
-            if (!confirm('Permanently delete your account and all data? This cannot be undone.')) return;
-            var h = headers({'Content-Type':'application/json'});
-            fetch(API + '/user/me', { method:'DELETE', headers:h })
-                .then(function(r) {
-                    if (r.ok || r.status === 204) {
-                        try { localStorage.clear(); } catch(e) {}
-                        window.location.href = '/landing';
-                    } else {
-                        deleteResult.textContent = 'Could not delete account.';
-                    }
-                }).catch(function() { deleteResult.textContent = 'Error deleting account.'; });
-        });
-    }
-
-    if (window.Auth && window.Auth.getAuthHeaders) {
-        loadProfile();
-    } else {
-        profileInfo.textContent = 'Sign in to view your profile.';
-    }
+    document.getElementById('profile-change-password').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var cur = document.getElementById('current-password').value;
+        var newP = document.getElementById('new-password').value;
+        var conf = document.getElementById('confirm-password').value;
+        var msg = document.getElementById('profile-password-msg');
+        if (newP !== conf) {
+            msg.textContent = 'New password and confirm do not match.';
+            return;
+        }
+        if (newP.length < 8) {
+            msg.textContent = 'New password must be at least 8 characters.';
+            return;
+        }
+        msg.textContent = 'Updating…';
+        fetch(API + '/user/me/change-password', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ current_password: cur, new_password: newP })
+        })
+            .then(function(r) {
+                if (r.ok || r.status === 204) {
+                    msg.textContent = 'Password updated. You may need to sign in again.';
+                    document.getElementById('current-password').value = '';
+                    document.getElementById('new-password').value = '';
+                    document.getElementById('confirm-password').value = '';
+                } else {
+                    return r.json().then(function(d) {
+                        msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to update password.';
+                    });
+                }
+            })
+            .catch(function() { msg.textContent = 'Request failed.'; });
+    });
+    document.getElementById('profile-export').addEventListener('click', function() {
+        var msg = document.getElementById('profile-export-msg');
+        msg.textContent = 'Preparing export…';
+        fetch(API + '/user/me/export', { headers: authHeaders() })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Export failed');
+                return r.blob();
+            })
+            .then(function(blob) {
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'my_data_export.zip';
+                a.click();
+                URL.revokeObjectURL(a.href);
+                msg.textContent = 'Export downloaded.';
+            })
+            .catch(function() { msg.textContent = 'Export failed. Try again later.'; });
+    });
+    document.getElementById('profile-delete').addEventListener('click', function() {
+        if (!confirm('Permanently delete your account and all data? This cannot be undone.')) return;
+        fetch(API + '/user/me', { method: 'DELETE', headers: authHeaders() })
+            .then(function(r) {
+                if (r.ok || r.status === 204) {
+                    if (window.Auth && window.Auth.logout) window.Auth.logout();
+                    else window.location.href = '/login';
+                } else {
+                    alert('Failed to delete account.');
+                }
+            })
+            .catch(function() { alert('Request failed.'); });
+    });
 })();
 </script>
 {% endblock %}

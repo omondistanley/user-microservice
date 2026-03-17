@@ -1,50 +1,45 @@
 {% extends "layout.html" %}
 {% block body_class %}savings-goals-page{% endblock %}
 {% block title %}Savings Goals — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = { theme: { extend: { colors: { "primary": "#135bec", "income": "#10b981" }, fontFamily: { "display": ["Manrope", "sans-serif"] } } } };
-</script>
-{% endblock %}
 {% block content %}
-<div class="relative flex min-h-screen w-full flex-col max-w-[430px] mx-auto bg-white dark:bg-slate-900 shadow-2xl overflow-x-hidden font-display text-slate-900 dark:text-slate-100 antialiased">
-  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
-  <div class="flex items-center bg-white dark:bg-slate-900 p-4 pb-2 justify-between sticky top-0 z-10">
-    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Back">
-      <span class="material-symbols-outlined">arrow_back</span>
-    </a>
-    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Savings Goals</h2>
-    <button type="button" class="flex size-10 items-center justify-center rounded-full bg-transparent text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="More">
-      <span class="material-symbols-outlined">more_vert</span>
-    </button>
+<div class="container">
+
+  <div class="page-header">
+    <h1 class="page-title">Savings Goals</h1>
+    <a href="/goals/add" class="btn btn-primary">+ New goal</a>
   </div>
 
-  <div class="flex flex-col gap-6 p-4 pb-24">
-    <section class="bg-white dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
-      <h3 class="text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Progress</h3>
-      <p class="text-2xl font-extrabold text-slate-900 dark:text-slate-100" id="goals-total-saved">$0</p>
-      <p class="text-sm text-income font-semibold mt-1" id="goals-trend">+0%</p>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" id="goals-subtitle">Saved across 0 active goals</p>
-      <div class="mt-3 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-        <div class="h-full rounded-full bg-primary transition-all" id="goals-global-progress" style="width: 0%;"></div>
-      </div>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mt-2" id="goals-target-label">of $0 target</p>
-    </section>
-
-    <section>
-      <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold mb-4">Active Goals</h3>
-      <div id="goals-list" class="flex flex-col gap-4">
-        <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
-      </div>
-    </section>
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Saved</div>
+      <div class="stat-value" id="goals-total-saved">$0</div>
+      <div class="stat-change up" id="goals-trend" style="display:none;"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Goals</div>
+      <div class="stat-value" id="goals-count">0</div>
+      <div class="stat-label" id="goals-subtitle">Saved across 0 active goals</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Overall %</div>
+      <div class="stat-value" id="goals-pct">0%</div>
+      <div class="stat-label" id="goals-target-label">of $0 target</div>
+    </div>
   </div>
 
-  <a href="#" class="fixed bottom-20 right-6 size-14 rounded-full bg-primary text-white flex items-center justify-center shadow-lg hover:opacity-90 z-20" aria-label="Add goal">
-    <span class="material-symbols-outlined text-3xl">add</span>
-  </a>
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="stat-label" style="margin-bottom: 0.5rem;">Overall Progress</div>
+    <div class="progress-bar">
+      <div class="progress-fill green" id="goals-global-progress" style="width: 0%;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="goals-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+      <p style="color: var(--text-muted);">Loading&hellip;</p>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
@@ -59,22 +54,26 @@
     var elSaved = document.getElementById('goals-total-saved');
     var elTrend = document.getElementById('goals-trend');
     var elSub = document.getElementById('goals-subtitle');
+    var elCount = document.getElementById('goals-count');
+    var elPct = document.getElementById('goals-pct');
     var elBar = document.getElementById('goals-global-progress');
     var elLabel = document.getElementById('goals-target-label');
     if (elSaved) elSaved.textContent = '$' + totalSaved.toLocaleString();
     if (elTrend) { elTrend.textContent = ''; elTrend.style.display = 'none'; }
     if (elSub) elSub.textContent = 'Saved across ' + count + ' active goal' + (count === 1 ? '' : 's');
+    if (elCount) elCount.textContent = count;
+    if (elPct) elPct.textContent = pct + '%';
     if (elBar) elBar.style.width = pct + '%';
     if (elLabel) elLabel.textContent = 'of $' + totalTarget.toLocaleString() + ' target';
   }
   if (window.Goals && window.Goals.renderList) {
     window.Goals.renderList('goals-list', { onTotals: updateTotals });
   } else {
-    document.getElementById('goals-list').innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No goals yet.</p>';
+    document.getElementById('goals-list').innerHTML = '<p style="color: var(--text-muted);">No goals yet.</p>';
     updateTotals({ totalSaved: 0, totalTarget: 0, count: 0 });
   }
   var addBtn = document.querySelector('a[aria-label="Add goal"]');
-  if (addBtn) addBtn.href = '/goals/add';  // Ensure route exists in user-microservice
+  if (addBtn) addBtn.href = '/goals/add';
 })();
 </script>
 {% endblock %}

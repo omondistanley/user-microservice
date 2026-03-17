@@ -3,6 +3,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
+from typing import Optional
 
 import psycopg2
 import uvicorn
@@ -21,6 +22,7 @@ from app.core.config import (
     INVESTMENT_SERVICE_URL,
     EXPENSE_API_BASE_FRONTEND,
     BUDGET_API_BASE_FRONTEND,
+    GATEWAY_PUBLIC_URL,
     DB_HOST,
     DB_PORT,
     DB_USER,
@@ -56,6 +58,23 @@ app.add_middleware(
     allow_origins=get_cors_origins(),
 )
 
+
+@app.middleware("http")
+async def redirect_to_gateway_if_configured(request: Request, call_next):
+    """When GATEWAY_PUBLIC_URL is set, redirect direct hits to user service (port 8000) to the gateway so auth and API bases are consistent."""
+    if GATEWAY_PUBLIC_URL:
+        host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").strip().lower()
+        if request.method == "GET" and host in ("localhost:8000", "127.0.0.1:8000"):
+            base = GATEWAY_PUBLIC_URL.rstrip("/")
+            path = request.url.path or "/"
+            if not path.startswith("/"):
+                path = "/" + path
+            query = request.url.query
+            redirect_url = f"{base}{path}" + (f"?{query}" if query else "")
+            return RedirectResponse(redirect_url, status_code=307)
+    return await call_next(request)
+
+
 # Frontend: expense_tracker/frontend (sibling of user-microservice)
 # __file__ = .../user-microservice/app/main.py -> parent.parent = user-microservice -> parent.parent.parent = expense_tracker
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
@@ -78,9 +97,8 @@ app.include_router(sessions.router)
 app.include_router(integrations.router)
 app.include_router(net_worth.router)
 
-# Proxy /api/v1/expenses, /api/v1/income, /api/v1/cashflow, /api/v1/recurring-expenses,
-# /api/v1/categories, /api/v1/tags, /api/v1/receipts, /api/v1/plaid, and /api/v1/budgets when service URLs are set
-if EXPENSE_SERVICE_URL:
+# Proxy /api/v1/* to backends only when gateway is not used (frontend then uses same-origin and we proxy)
+if EXPENSE_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/expenses", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_expenses_root(request: Request):
         return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/expenses", "")
@@ -201,7 +219,7 @@ if EXPENSE_SERVICE_URL:
     async def proxy_export_path(request: Request, path: str):
         return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/export", path)
 
-if BUDGET_SERVICE_URL:
+if BUDGET_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/budgets", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_budgets_root(request: Request):
         return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/budgets", "")
@@ -210,7 +228,7 @@ if BUDGET_SERVICE_URL:
     async def proxy_budgets_path(request: Request, path: str):
         return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/budgets", path)
 
-if INVESTMENT_SERVICE_URL:
+if INVESTMENT_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/holdings", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_holdings_root(request: Request):
         return await proxy_request(request, INVESTMENT_SERVICE_URL, "/api/v1/holdings", "")
@@ -256,10 +274,16 @@ def _render(page: str, request: Request, **context):
     if templates is None:
         raise HTTPException(status_code=503, detail="Frontend not found")
     csp_nonce = str(getattr(request.state, "csp_nonce", "") or "")
+    # When using the gateway, pass empty string so the frontend uses same-origin (relative) for all
+    # API calls. That way the app works whether the user opened localhost:8080 or 127.0.0.1:8080,
+    # and tokens in localStorage apply to the same origin they're actually using.
+    expense_api_base = "" if GATEWAY_PUBLIC_URL else EXPENSE_API_BASE_FRONTEND
+    budget_api_base = "" if GATEWAY_PUBLIC_URL else BUDGET_API_BASE_FRONTEND
     base_context = {
         "request": request,
-        "expense_api_base": EXPENSE_API_BASE_FRONTEND,
-        "budget_api_base": BUDGET_API_BASE_FRONTEND,
+        "expense_api_base": expense_api_base,
+        "budget_api_base": budget_api_base,
+        "gateway_public_url": "",  # always use relative paths; gateway is same-origin when accessed via port 8080
         "csp_nonce": csp_nonce,
     }
     base_context.update(context)
@@ -640,106 +664,9 @@ async def saved_views_page(request: Request):
     return _render("saved_views.html", request)
 
 
-@app.get("/api/v1/wallet/pass", include_in_schema=False)
-async def apple_wallet_pass(
-    request: Request,
-    current_user: dict = Depends(get_current_user_dep),
-):
-    """
-    Generate an Apple Wallet (.pkpass) file for the user's recent transactions.
-    Requires APPLE_WALLET_PASS_TYPE_ID, APPLE_WALLET_TEAM_ID, APPLE_WALLET_CERT_PEM,
-    and APPLE_WALLET_KEY_PEM environment variables.
-    Returns the .pkpass file as application/vnd.apple.pkpass.
-    """
-    import os, io, json, zipfile, hashlib
-    from fastapi.responses import Response as FastAPIResponse
-
-    pass_type_id = os.environ.get("APPLE_WALLET_PASS_TYPE_ID", "")
-    team_id = os.environ.get("APPLE_WALLET_TEAM_ID", "")
-    cert_pem = os.environ.get("APPLE_WALLET_CERT_PEM", "")
-    key_pem = os.environ.get("APPLE_WALLET_KEY_PEM", "")
-
-    if not all([pass_type_id, team_id, cert_pem, key_pem]):
-        return FastAPIResponse(
-            content=json.dumps({
-                "error": "Apple Wallet not configured",
-                "detail": "Set APPLE_WALLET_PASS_TYPE_ID, APPLE_WALLET_TEAM_ID, APPLE_WALLET_CERT_PEM, APPLE_WALLET_KEY_PEM environment variables.",
-            }),
-            status_code=503,
-            media_type="application/json",
-        )
-
-    user_email = current_user.get("email", "")
-    user_id = int(current_user["id"])
-
-    pass_json = {
-        "formatVersion": 1,
-        "passTypeIdentifier": pass_type_id,
-        "serialNumber": f"fintrack-{user_id}",
-        "teamIdentifier": team_id,
-        "webServiceURL": f"{os.environ.get('APP_BASE_URL', '').rstrip('/')}/api/v1/wallet/",
-        "authenticationToken": "",
-        "organizationName": "FinTrack",
-        "description": "FinTrack Wallet Card",
-        "foregroundColor": "rgb(255, 255, 255)",
-        "backgroundColor": "rgb(99, 102, 241)",
-        "labelColor": "rgb(200, 200, 255)",
-        "generic": {
-            "primaryFields": [
-                {"key": "balance", "label": "Account", "value": user_email}
-            ],
-            "secondaryFields": [
-                {"key": "app", "label": "App", "value": "FinTrack"},
-            ],
-            "auxiliaryFields": [
-                {"key": "synced", "label": "Transactions", "value": "Open app to view"}
-            ],
-        },
-    }
-
-    pass_json_bytes = json.dumps(pass_json, separators=(",", ":")).encode("utf-8")
-
-    # Build manifest with SHA1 hashes
-    manifest = {
-        "pass.json": hashlib.sha1(pass_json_bytes).hexdigest(),
-    }
-    manifest_bytes = json.dumps(manifest).encode("utf-8")
-
-    # Sign manifest with PKCS7
-    try:
-        from cryptography.hazmat.primitives.serialization import load_pem_private_key
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.serialization.pkcs7 import PKCS7SignatureBuilder, PKCS7Options
-        from cryptography.x509 import load_pem_x509_certificate
-
-        cert = load_pem_x509_certificate(cert_pem.encode())
-        key = load_pem_private_key(key_pem.encode(), password=None)
-        signature = (
-            PKCS7SignatureBuilder()
-            .set_data(manifest_bytes)
-            .add_signer(cert, key, hashes.SHA256())
-            .sign(encoding=None, options=[PKCS7Options.DetachedSignature, PKCS7Options.NoCerts])
-        )
-    except Exception as e:
-        return FastAPIResponse(
-            content=json.dumps({"error": "Signing failed", "detail": str(e)}),
-            status_code=500,
-            media_type="application/json",
-        )
-
-    # Build .pkpass ZIP
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("pass.json", pass_json_bytes)
-        zf.writestr("manifest.json", manifest_bytes)
-        zf.writestr("signature", signature)
-    buf.seek(0)
-
-    return FastAPIResponse(
-        content=buf.read(),
-        media_type="application/vnd.apple.pkpass",
-        headers={"Content-Disposition": "attachment; filename=fintrack.pkpass"},
-    )
+@app.get("/verify-email/pending", include_in_schema=False)
+async def verify_email_pending_page(request: Request, email: Optional[str] = None):
+    return _render("verify_email_pending.html", request, email=email or "")
 
 
 app.middleware("http")(security_headers_middleware)

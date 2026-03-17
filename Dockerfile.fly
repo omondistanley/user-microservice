@@ -1,0 +1,67 @@
+# Single-image Fly.io deployment: gateway + user + expense + budget + investment.
+# Build from repo root: docker build -f Dockerfile.fly -t pocketii .
+# Run with env pointing to pocketii-db.internal for DB_*.
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# System deps: Postgres client, Tesseract for expense receipt OCR
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq5 tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
+# Layout expected by each service
+WORKDIR /opt
+
+# Gateway (only needs app/ and requirements)
+COPY api-gateway/requirements.txt /opt/gateway/requirements.txt
+COPY api-gateway/app /opt/gateway/app
+
+# User service + frontend (user main.py resolves frontend via parent.parent.parent / "frontend")
+COPY user-microservice/requirements.txt /opt/expense_tracker/user-microservice/requirements.txt
+COPY user-microservice /opt/expense_tracker/user-microservice
+COPY frontend /opt/expense_tracker/frontend
+
+# Expense
+COPY expense-microservice/requirements.txt /opt/expense/requirements.txt
+COPY expense-microservice/app /opt/expense/app
+COPY expense-microservice/framework /opt/expense/framework
+COPY expense-microservice/migrations /opt/expense/migrations
+COPY expense-microservice/run_migration.py /opt/expense/run_migration.py
+
+# Budget
+COPY budget-microservice/requirements.txt /opt/budget/requirements.txt
+COPY budget-microservice/app /opt/budget/app
+COPY budget-microservice/framework /opt/budget/framework
+COPY budget-microservice/migrations /opt/budget/migrations
+COPY budget-microservice/run_migration.py /opt/budget/run_migration.py
+
+# Investment
+COPY investments-microservice/requirements.txt /opt/investment/requirements.txt
+COPY investments-microservice/app /opt/investment/app
+COPY investments-microservice/framework /opt/investment/framework
+COPY investments-microservice/migrations /opt/investment/migrations
+COPY investments-microservice/run_migration.py /opt/investment/run_migration.py
+
+# Install all Python deps in one layer (order can matter for version resolution)
+RUN pip install --upgrade pip \
+    && pip install -r /opt/expense_tracker/user-microservice/requirements.txt \
+    && pip install -r /opt/gateway/requirements.txt \
+    && pip install -r /opt/expense/requirements.txt \
+    && pip install -r /opt/budget/requirements.txt \
+    && pip install -r /opt/investment/requirements.txt
+
+# Start script: backends on localhost, then gateway in foreground
+COPY deploy/start.sh /opt/start.sh
+# Release: create DBs + run migrations before deploy (tracked so re-runs skip applied)
+COPY deploy/create_dbs.py /opt/create_dbs.py
+COPY deploy/run_migration_tracked.py /opt/run_migration_tracked.py
+COPY deploy/release.sh /opt/release.sh
+RUN chmod +x /opt/start.sh /opt/release.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["/opt/start.sh"]

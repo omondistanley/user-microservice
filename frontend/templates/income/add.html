@@ -1,45 +1,108 @@
 {% extends "layout.html" %}
-{% block title %}Add Income — Expense Tracker{% endblock %}
+{% block title %}Add Income — pocketii{% endblock %}
+{% block body_class %}income-add-page{% endblock %}
+{% block head_extra %}{% endblock %}
 {% block content %}
-<div class="container">
-    <section class="card-section">
-        <h2>Add income</h2>
+<div class="page-header">
+    <h1 class="page-title">Add Income</h1>
+    <a href="/income" class="btn btn-ghost">← Back to Income</a>
+</div>
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;">
+
+    <!-- Left: Add Income Form -->
+    <div class="card">
+        <h2 style="margin:0 0 1.25rem;font-size:var(--text-lg);font-weight:var(--fw-semi);">Add Income</h2>
         <form id="income-add-form">
             <div class="form-group">
-                <label for="income-amount">Amount</label>
-                <input id="income-amount" class="form-control" type="number" min="0" step="0.01" required>
+                <label class="form-label" for="income-amount">Amount</label>
+                <input id="income-amount" class="form-input" type="number" min="0" step="0.01" required
+                    style="font-size:var(--text-xl);font-weight:var(--fw-semi);padding:0.75rem 1rem;">
             </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                <div class="form-group">
+                    <label class="form-label" for="income-date">Date</label>
+                    <input id="income-date" class="form-input" type="date" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="income-type">Type</label>
+                    <select id="income-type" class="form-select" required>
+                        <option value="salary">Salary</option>
+                        <option value="freelance">Freelance</option>
+                        <option value="dividend">Dividend</option>
+                        <option value="interest">Interest</option>
+                        <option value="other" selected>Other</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="form-group">
-                <label for="income-date">Date</label>
-                <input id="income-date" class="form-control" type="date" required>
+                <label class="form-label" for="income-source">Source (optional)</label>
+                <input id="income-source" class="form-input" type="text" maxlength="255" placeholder="e.g. Employer, Client name">
             </div>
+
             <div class="form-group">
-                <label for="income-currency">Currency</label>
-                <input id="income-currency" class="form-control" type="text" maxlength="3" value="USD" required>
+                <label class="form-label" for="income-description">Description (optional)</label>
+                <textarea id="income-description" class="form-input" maxlength="2000" rows="3"
+                    style="resize:vertical;" placeholder="Any additional notes…"></textarea>
             </div>
+
             <div class="form-group">
-                <label for="income-type">Type</label>
-                <select id="income-type" class="form-control" required>
-                    <option value="salary">Salary</option>
-                    <option value="freelance">Freelance</option>
-                    <option value="dividend">Dividend</option>
-                    <option value="interest">Interest</option>
-                    <option value="other" selected>Other</option>
-                </select>
+                <label class="form-label" for="income-currency">Currency</label>
+                <input id="income-currency" class="form-input" type="text" maxlength="3" value="USD" required
+                    style="width:80px;">
             </div>
-            <div class="form-group">
-                <label for="income-source">Source (optional)</label>
-                <input id="income-source" class="form-control" type="text" maxlength="255">
+
+            <div style="margin-top:1.5rem;">
+                <button type="submit" class="btn btn-primary">Save income</button>
             </div>
-            <div class="form-group">
-                <label for="income-description">Description (optional)</label>
-                <textarea id="income-description" class="form-control" maxlength="2000"></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary">Save income</button>
-            <a href="/income" class="btn btn-secondary">Back to income</a>
         </form>
         <p id="income-form-message" class="note" style="display:none;margin-top:1rem;"></p>
-    </section>
+    </div>
+
+    <!-- Right: Income Types Reference -->
+    <div class="card">
+        <h2 style="margin:0 0 1rem;font-size:var(--text-base);font-weight:var(--fw-semi);color:var(--text-secondary);">Income types</h2>
+        <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.875rem;">
+            <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+                <span style="font-size:1.1rem;line-height:1.4;">💼</span>
+                <div>
+                    <div style="font-weight:var(--fw-medium);font-size:var(--text-sm);">Salary</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted);">Regular employment income, wages, payroll</div>
+                </div>
+            </li>
+            <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+                <span style="font-size:1.1rem;line-height:1.4;">🧑‍💻</span>
+                <div>
+                    <div style="font-weight:var(--fw-medium);font-size:var(--text-sm);">Freelance</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted);">Contract work, consulting, gig income</div>
+                </div>
+            </li>
+            <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+                <span style="font-size:1.1rem;line-height:1.4;">📈</span>
+                <div>
+                    <div style="font-weight:var(--fw-medium);font-size:var(--text-sm);">Dividend</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted);">Stock dividends, investment distributions</div>
+                </div>
+            </li>
+            <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+                <span style="font-size:1.1rem;line-height:1.4;">🏦</span>
+                <div>
+                    <div style="font-weight:var(--fw-medium);font-size:var(--text-sm);">Interest</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted);">Savings account, bonds, lending interest</div>
+                </div>
+            </li>
+            <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+                <span style="font-size:1.1rem;line-height:1.4;">💡</span>
+                <div>
+                    <div style="font-weight:var(--fw-medium);font-size:var(--text-sm);">Other</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted);">Rental income, gifts, tax refunds, misc</div>
+                </div>
+            </li>
+        </ul>
+    </div>
+
 </div>
 {% endblock %}
 {% block scripts %}

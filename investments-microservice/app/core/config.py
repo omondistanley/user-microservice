@@ -43,6 +43,9 @@ ALPHAVANTAGE_BASE_URL: str = os.environ.get("ALPHAVANTAGE_BASE_URL", "https://ww
 
 # Portfolio analytics / recommendation tunables
 RISK_FREE_RATE_ANNUAL: float = float(os.environ.get("RISK_FREE_RATE_ANNUAL", "0.02"))
+# Max recommendations per run (holdings + universe suggestions); page size for list API
+MAX_RECOMMENDATIONS: int = int(os.environ.get("MAX_RECOMMENDATIONS", "100"))
+RECOMMENDATIONS_PAGE_SIZE: int = int(os.environ.get("RECOMMENDATIONS_PAGE_SIZE", "20"))
 MARKET_DATA_PROVIDER_ORDER: str = os.environ.get(
     "MARKET_DATA_PROVIDER_ORDER", "alpaca,finnhub,twelvedata,alphavantage"
 )
@@ -75,12 +78,31 @@ BRAVE_TIMEOUT_SECONDS: int = int(os.environ.get("BRAVE_TIMEOUT_SECONDS", "8"))
 AI_EXPLAINER_TIMEOUT_SECONDS: int = int(os.environ.get("AI_EXPLAINER_TIMEOUT_SECONDS", "10"))
 AI_EXPLAINER_MAX_NARRATIVE_CHARS: int = int(os.environ.get("AI_EXPLAINER_MAX_NARRATIVE_CHARS", "500"))
 
+# Sector exposure (6.1): cache TTL and concentration warning threshold
+SECTOR_CACHE_TTL_HOURS: int = int(os.environ.get("SECTOR_CACHE_TTL_HOURS", "24"))
+SECTOR_CONCENTRATION_THRESHOLD_PCT: float = float(
+    os.environ.get("SECTOR_CONCENTRATION_THRESHOLD_PCT", "35")
+)
+
+# Tax-loss harvesting (6.4): minimum $ loss to suggest harvesting; Redis for events
+TAX_LOSS_THRESHOLD_DOLLARS: float = float(os.environ.get("TAX_LOSS_THRESHOLD_DOLLARS", "200"))
+REDIS_URL: Optional[str] = os.environ.get("REDIS_URL")
+
+# ETF look-through (6.2): composition file URLs per symbol (JSON: {"SPY":"https://...", "IVV":"https://..."})
+ETF_COMPOSITION_URLS: str = os.environ.get("ETF_COMPOSITION_URLS", "{}")
+# Comma-separated ETF symbols to sync when no URL map; job also syncs symbols from user holdings
+ETF_SYMBOLS_TO_SYNC: str = os.environ.get("ETF_SYMBOLS_TO_SYNC", "SPY,IVV,VOO,QQQ")
+
 # News pipeline (Benzinga primary, Finnhub/Alpha Vantage supplement)
 BENZINGA_API_KEY: str = os.environ.get("BENZINGA_API_KEY", "")
 BENZINGA_BASE_URL: str = os.environ.get("BENZINGA_BASE_URL", "https://api.benzinga.com").rstrip("/")
 NEWS_PROVIDER_ORDER: str = os.environ.get("NEWS_PROVIDER_ORDER", "benzinga,finnhub,alphavantage")
 NEWS_TIMEOUT_SECONDS: int = int(os.environ.get("NEWS_TIMEOUT_SECONDS", "8"))
 NEWS_PAGE_SIZE: int = int(os.environ.get("NEWS_PAGE_SIZE", "20"))
+
+# FinBERT sentiment (6.7): alert when 7d rolling avg below threshold for 2 consecutive days
+SENTIMENT_THRESHOLD: float = float(os.environ.get("SENTIMENT_THRESHOLD", "-0.3"))
+SENTIMENT_LOOKBACK_DAYS: int = int(os.environ.get("SENTIMENT_LOOKBACK_DAYS", "7"))
 
 
 def get_cors_origins() -> list:

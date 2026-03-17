@@ -1,10 +1,11 @@
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import asyncio
+import concurrent.futures
 import logging
 
-from app.core.config import RISK_FREE_RATE_ANNUAL
+from app.core.config import MAX_RECOMMENDATIONS, RISK_FREE_RATE_ANNUAL
 from app.services.analytics_math import (
     concentration_metrics,
     compute_returns,
@@ -19,6 +20,16 @@ from app.services.risk_profile_service import RiskProfileDataService
 from app.services.service_factory import ServiceFactory
 from app.services.ai_explainer import generate_narrative, is_enabled as ai_explainer_enabled
 from app.services.analyst_universe import get_analyst_universe, get_security_info
+
+
+def _run_narrative_sync(explanation: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """Run async generate_narrative from sync code in a thread to avoid blocking/corrupting the main event loop."""
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(asyncio.run, generate_narrative(explanation))
+            return future.result(timeout=30)
+    except Exception:
+        return None, None
 
 
 def _get_holdings_service() -> HoldingsDataService:
@@ -49,12 +60,20 @@ def _score_universe_candidate(
     candidate: Dict[str, Any],
     risk: Dict[str, Any],
 ) -> Decimal:
+    """Score a universe candidate; see _score_universe_candidate_breakdown for breakdown."""
+    score, _ = _score_universe_candidate_breakdown(candidate, risk)
+    return score
+
+
+def _score_universe_candidate_breakdown(
+    candidate: Dict[str, Any],
+    risk: Dict[str, Any],
+) -> tuple:
     """
-    Score a universe candidate (symbol, sector, risk_band) against user preferences.
-    Higher = better fit for making/saving money and avoiding losses given risk_tolerance,
-    industry_preferences, sharpe_objective, loss_aversion.
+    Score a universe candidate and return (score, breakdown_dict) for transparency.
+    breakdown_dict has: base, risk_band_match, industry_match, loss_aversion_bonus, total.
     """
-    score = Decimal("1.0")
+    base = Decimal("1.0")
     risk_tolerance = (risk.get("risk_tolerance") or "balanced").lower()
     industries = risk.get("industry_preferences") or []
     if isinstance(industries, str):
@@ -67,37 +86,45 @@ def _score_universe_candidate(
     candidate_band = (candidate.get("risk_band") or "balanced").lower()
     candidate_sector = (candidate.get("sector") or "broad_market").lower().replace(" ", "_")
 
-    # Risk band alignment: conservative user prefers conservative symbols, etc.
+    risk_band_match = Decimal("0")
     band_order = ("conservative", "balanced", "aggressive")
     try:
         user_idx = band_order.index(risk_tolerance)
         cand_idx = band_order.index(candidate_band)
-        # Prefer same or adjacent; penalize large gap (e.g. conservative user + aggressive symbol)
         gap = abs(user_idx - cand_idx)
         if gap == 0:
-            score += Decimal("0.5")
+            risk_band_match = Decimal("0.5")
         elif gap == 1:
-            score += Decimal("0.2")
+            risk_band_match = Decimal("0.2")
         else:
-            score -= Decimal("0.4")
+            risk_band_match = Decimal("-0.4")
     except ValueError:
         pass
 
-    # Industry/sector match: bonus if user prefers this sector
+    industry_match = Decimal("0")
     if industries and candidate_sector in industries:
-        score += Decimal("0.6")
+        industry_match = Decimal("0.6")
     elif industries and candidate_sector == "broad_market":
-        score += Decimal("0.3")
+        industry_match = Decimal("0.3")
     elif not industries and candidate_sector == "broad_market":
-        score += Decimal("0.2")
+        industry_match = Decimal("0.2")
 
-    # Loss aversion: high loss_aversion -> favor conservative symbols more
+    loss_aversion_bonus = Decimal("0")
     if loss_aversion == "high" and candidate_band == "conservative":
-        score += Decimal("0.4")
+        loss_aversion_bonus = Decimal("0.4")
     elif loss_aversion == "low" and candidate_band == "aggressive":
-        score += Decimal("0.2")
+        loss_aversion_bonus = Decimal("0.2")
 
-    return max(Decimal("0"), score)
+    total = max(Decimal("0"), base + risk_band_match + industry_match + loss_aversion_bonus)
+    breakdown = {
+        "base": str(base),
+        "risk_band_match": str(risk_band_match),
+        "industry_match": str(industry_match),
+        "loss_aversion_bonus": str(loss_aversion_bonus),
+        "total": str(total),
+        "description": "Universe score from risk band alignment, sector preference, and loss aversion.",
+    }
+    return total, breakdown
 
 
 class RecommendationEngine:
@@ -133,14 +160,14 @@ class RecommendationEngine:
             sym = (c.get("symbol") or "").strip().upper()
             if not sym:
                 continue
-            s = _score_universe_candidate(c, risk)
-            scored.append((s, c))
+            s, breakdown = _score_universe_candidate_breakdown(c, risk)
+            scored.append((s, c, breakdown))
         scored.sort(key=lambda x: x[0], reverse=True)
-        top_n = 12
-        chosen = [item for _, item in scored[:top_n]]
+        top_n = min(MAX_RECOMMENDATIONS, len(scored))
+        chosen = [(item, breakdown) for _, item, breakdown in scored[:top_n]]
 
         items_with_scores: List[Dict[str, Any]] = []
-        for rank, c in enumerate(chosen, 1):
+        for rank, (c, score_breakdown) in enumerate(chosen, 1):
             sym = (c.get("symbol") or "").strip().upper()
             sector = (c.get("sector") or "broad_market").replace("_", " ").title()
             risk_band = (c.get("risk_band") or "balanced").lower()
@@ -170,6 +197,7 @@ class RecommendationEngine:
             explanation: Dict[str, Any] = {
                 "security": security,
                 "why_selected": why,
+                "score_breakdown": score_breakdown,
                 "key_risk_contributors": [
                     f"risk_band={risk_band}",
                     f"sector={sector}",
@@ -192,8 +220,7 @@ class RecommendationEngine:
 
             if ai_explainer_enabled():
                 try:
-                    loop = asyncio.get_event_loop()
-                    narrative, narrative_provider = loop.run_until_complete(generate_narrative(explanation))
+                    narrative, narrative_provider = _run_narrative_sync(explanation)
                     if narrative:
                         explanation["narrative"] = narrative
                         if narrative_provider:
@@ -289,37 +316,38 @@ class RecommendationEngine:
         sharpe = sharpe_ratio(returns, Decimal(str(RISK_FREE_RATE_ANNUAL)))
 
         # Heuristic scoring per holding (stage 1)
+        held_symbols = set()
         heuristic_items: List[Dict[str, Any]] = []
         for row, w in zip(holdings_rows, weights or [Decimal("0")] * len(holdings_rows)):
             symbol = str(row.get("symbol") or "").upper()
-            # Simple risk-return ratio based on portfolio Sharpe and weight
+            held_symbols.add(symbol)
             risk_tolerance = (risk.get("risk_tolerance") or "balanced").lower()
             base_score = sharpe if sharpe > 0 else Decimal("0")
-            # Penalize very large weights
-            penalty = Decimal("0")
+            weight_penalty = Decimal("0")
             if w > Decimal("0.2"):
-                penalty += (w - Decimal("0.2")) * Decimal("2")
+                weight_penalty += (w - Decimal("0.2")) * Decimal("2")
+            vol_penalty = Decimal("0")
             if risk_tolerance == "conservative" and vol_annual > (risk.get("target_volatility") or Decimal("0.15")):
-                penalty += Decimal("0.5")
-            heuristic_score = max(Decimal("0"), base_score - penalty)
+                vol_penalty += Decimal("0.5")
+            heuristic_score = max(Decimal("0"), base_score - weight_penalty - vol_penalty)
             heuristic_items.append(
                 {
                     "symbol": symbol,
                     "weight": w,
                     "heuristic_score": heuristic_score,
+                    "base_score": base_score,
+                    "weight_penalty": weight_penalty,
+                    "vol_penalty": vol_penalty,
                 }
             )
 
-        # Stage 2: "predictive" reranker (for now, minor non-linear transform)
+        # Stage 2: "predictive" reranker + build holdings items with score_breakdown
         items_with_scores: List[Dict[str, Any]] = []
         for item in heuristic_items:
             h_score = Decimal(str(item["heuristic_score"]))
-            # Treat this as risk-adjusted performance; compress via logistic-style map
             model_score = h_score / (Decimal("1") + abs(h_score))
             combined = (h_score * Decimal("0.7")) + (model_score * Decimal("0.3"))
 
-            # Confidence index based on volatility and concentration
-            # Higher volatility and HHI reduce confidence.
             conf = Decimal("1.0")
             conf -= vol_annual * Decimal("0.5")
             conf -= hhi * Decimal("0.2")
@@ -327,6 +355,17 @@ class RecommendationEngine:
                 conf = Decimal("0")
             if conf > Decimal("1"):
                 conf = Decimal("1")
+
+            score_breakdown = {
+                "type": "holding",
+                "sharpe_contribution": str(item["base_score"]),
+                "weight_penalty": str(item["weight_penalty"]),
+                "volatility_penalty": str(item["vol_penalty"]),
+                "heuristic_score": str(h_score),
+                "model_score": str(model_score),
+                "combined": str(combined),
+                "description": "Holding score from portfolio Sharpe, position weight, and volatility vs risk tolerance.",
+            }
 
             why_selected = [
                 "Risk-adjusted score based on portfolio Sharpe ratio and current position weight.",
@@ -358,6 +397,7 @@ class RecommendationEngine:
             explanation: Dict[str, Any] = {
                 "security": security,
                 "why_selected": why_selected,
+                "score_breakdown": score_breakdown,
                 "key_risk_contributors": [
                     f"portfolio_volatility_annual={str(vol_annual)}",
                     f"portfolio_max_drawdown={str(mdd)}",
@@ -383,12 +423,9 @@ class RecommendationEngine:
                 },
             }
 
-            # Optional AI-generated narrative (tri-provider: groq, brave, generic).
-            # Best-effort; on failure run continues without narrative.
             if ai_explainer_enabled():
                 try:
-                    loop = asyncio.get_event_loop()
-                    narrative, narrative_provider = loop.run_until_complete(generate_narrative(explanation))
+                    narrative, narrative_provider = _run_narrative_sync(explanation)
                     if narrative:
                         explanation["narrative"] = narrative
                         if narrative_provider:
@@ -404,6 +441,64 @@ class RecommendationEngine:
                     "explanation_json": explanation,
                 }
             )
+
+        # Universe suggestions: score candidates not already held, take top (MAX - holdings), merge and sort
+        universe = get_analyst_universe()
+        universe_scored: List[tuple] = []
+        for c in universe:
+            sym = (c.get("symbol") or "").strip().upper()
+            if not sym or sym in held_symbols:
+                continue
+            s, breakdown = _score_universe_candidate_breakdown(c, risk)
+            universe_scored.append((s, c, breakdown))
+        universe_scored.sort(key=lambda x: x[0], reverse=True)
+        slots = max(0, MAX_RECOMMENDATIONS - len(items_with_scores))
+        for s, c, score_breakdown in universe_scored[:slots]:
+            sym = (c.get("symbol") or "").strip().upper()
+            sector = (c.get("sector") or "broad_market").replace("_", " ").title()
+            risk_band = (c.get("risk_band") or "balanced").lower()
+            desc = c.get("description") or sym
+            # Normalize for display: map raw score to 0-1 range (universe scores are typically 0.8-2.x)
+            combined = min(Decimal("1"), max(Decimal("0"), (s - Decimal("0.5")) / Decimal("2")))
+            conf = Decimal("0.75")
+
+            why = [
+                "Suggested to diversify or add exposure aligned with your risk profile.",
+                f"Sector: {sector}. Fits goal of risk-adjusted return.",
+            ]
+            if risk.get("industry_preferences"):
+                why.append("Matches or complements your stated industry/sector preferences.")
+            why.append("Add to Holdings when ready.")
+
+            sec = get_security_info(sym) or {}
+            security = {
+                "full_name": sec.get("full_name") or c.get("full_name") or c.get("description") or sym,
+                "sector": sec.get("sector") or sector,
+                "description": sec.get("description") or desc,
+                "asset_type": sec.get("asset_type") or c.get("asset_type") or "etf",
+                "why_it_matters": desc + ". Diversification or new idea; fits risk profile.",
+            }
+            explanation = {
+                "security": security,
+                "why_selected": why,
+                "score_breakdown": score_breakdown,
+                "key_risk_contributors": [f"risk_band={risk_band}", f"sector={sector}", "suggestion=True"],
+                "risk_metrics": {"sharpe": "N/A", "volatility_annual": "N/A", "max_drawdown": "N/A", "weight": "0"},
+                "data_freshness": {"provider": "analyst_universe", "stale_seconds": None},
+                "confidence": {"value": float(conf), "reason": "Based on risk and sector fit."},
+                "news_factors": {"sentiment_score_7d": None, "event_flags": []},
+                "analyst_note": f"{desc}. Suggested to diversify or add exposure.",
+            }
+            items_with_scores.append({
+                "symbol": sym,
+                "score": combined,
+                "confidence": conf,
+                "explanation_json": explanation,
+            })
+
+        # Sort all by score descending and cap at MAX_RECOMMENDATIONS
+        items_with_scores.sort(key=lambda x: (x["score"], x["symbol"]), reverse=True)
+        items_with_scores = items_with_scores[:MAX_RECOMMENDATIONS]
 
         # Persist run + items
         run = self.rec_svc.create_run(

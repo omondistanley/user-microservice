@@ -1,23 +1,35 @@
 """
-FastAPI dependencies: JWT decode and return user_id from token.
+FastAPI dependencies: JWT decode or trusted X-User-Id from gateway.
+When X-User-Id header is present (set by API gateway), use it; else decode Bearer token.
 """
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
 from app.core.security import decode_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=True)
+http_bearer = HTTPBearer(auto_error=False)
+
+credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
 
 
-def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+def get_current_user_id(
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer),
+) -> int:
+    if x_user_id is not None and x_user_id.strip():
+        try:
+            return int(x_user_id.strip())
+        except ValueError:
+            pass
+    if not credentials:
+        raise credentials_exception
     try:
-        payload = decode_token(token)
+        payload = decode_token(credentials.credentials)
         sub = payload.get("sub")
         if sub is None:
             raise credentials_exception

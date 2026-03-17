@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
+from app.events import expense_event_payload, publish_expense_event
 from app.models.expenses import (
     BalanceHistoryItem,
     BalanceHistoryResponse,
@@ -135,6 +136,7 @@ class ExpenseResource(BaseResource):
                 conn, user_id, date_val, created_at, str(expense_id), balance_before
             )
             conn.commit()
+            publish_expense_event("expense.created", expense_event_payload(data))
         except HTTPException:
             conn.rollback()
             raise
@@ -248,6 +250,9 @@ class ExpenseResource(BaseResource):
                     tag_names=payload.tags,
                 )
             conn.commit()
+            row = self.data_service.get_expense_by_id(expense_id, user_id)
+            if row:
+                publish_expense_event("expense.updated", expense_event_payload(row))
         except HTTPException:
             conn.rollback()
             raise
@@ -288,6 +293,7 @@ class ExpenseResource(BaseResource):
                 conn, user_id, date_val, created_at, str(expense_id), balance_before
             )
             conn.commit()
+            publish_expense_event("expense.deleted", expense_event_payload(existing))
         except HTTPException:
             conn.rollback()
             raise

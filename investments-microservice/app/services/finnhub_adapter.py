@@ -1,7 +1,7 @@
 """Finnhub market data adapter. Implements MarketDataAdapter for Finnhub API."""
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -138,6 +138,40 @@ class FinnhubAdapter(MarketDataAdapter):
 
     async def search_symbol(self, query: str) -> list[dict]:
         return []
+
+    async def list_stock_symbols(self, exchange: str = "US") -> List[Dict[str, Any]]:
+        """Fetch symbol list for exchange (e.g. US). Returns list of { symbol, description, type }."""
+        if not self._configured():
+            return []
+        url = f"{self._base_url}/stock/symbol"
+        params = {"exchange": exchange, "token": FINNHUB_API_KEY}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list):
+                return [{"symbol": x.get("symbol"), "description": x.get("description"), "type": x.get("type")} for x in data if x.get("symbol")]
+            return []
+        except Exception:
+            return []
+
+    async def get_company_profile(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch company profile (name, finnhubIndustry, marketCapitalization, etc.) for symbol."""
+        if not self._configured():
+            return None
+        url = f"{self._base_url}/stock/profile2"
+        params = {"symbol": symbol.upper(), "token": FINNHUB_API_KEY}
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict) and (data.get("name") or data.get("ticker")):
+                return data
+            return None
+        except Exception:
+            return None
 
     async def status(self) -> ProviderStatus:
         status = "healthy" if self._configured() else "down"

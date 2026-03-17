@@ -55,9 +55,12 @@ def _redirect_with_tokens(access_token: str, refresh_token: str, next_url: str =
 # --- Google ---
 
 def _google_redirect_uri(request: Request) -> str:
-    """Use request host so cookie and callback URL match (fixes localhost vs 127.0.0.1)."""
-    base = str(request.base_url).rstrip("/")
-    return f"{base}/auth/google/callback"
+    """Use APP_BASE_URL when set (production), else request host so cookie and callback URL match."""
+    base = (APP_BASE_URL or "").strip().rstrip("/")
+    if base and not base.startswith("http://localhost") and not base.startswith("http://127.0.0.1"):
+        return f"{base}/auth/google/callback"
+    fallback = str(request.base_url).rstrip("/")
+    return f"{fallback}/auth/google/callback"
 
 
 @router.get("/auth/google", include_in_schema=False)

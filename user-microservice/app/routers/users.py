@@ -6,13 +6,17 @@ from datetime import datetime
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.models.users import (
     NewUser,
     UserInfo,
+    UserMeResponse,
+    UserMeUpdate,
+    ChangePasswordRequest,
     TokenResponse,
     RefreshRequest,
     ForgotPasswordRequest,
@@ -41,10 +45,11 @@ from app.services.password_reset_service import (
     set_password,
 )
 from app.services.email_verification_service import create_verification_token
+from app.services.password_reset_service import set_password
 from app.services.audit_log_service import write_audit_log
 from app.services.account_service import delete_user_account
 from app.core.security import verify_password, create_access_token
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_user_optional
 from app.core.rate_limit import rate_limit_dep
 from app.core.config import (
     RATE_LIMIT_LOGIN_PER_MINUTE,
@@ -297,112 +302,110 @@ async def newuser(
 
 @router.get("/user/me", tags=["users"], response_model=UserMeResponse)
 async def get_me(current_user: dict = Depends(get_current_user)):
-    """Return full profile of the currently authenticated user."""
-    user_id = int(current_user["id"])
-    data_svc = ServiceFactory.get_service("UserResourceDataService")
-    if not data_svc:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    row = data_svc.get_data_object("users_db", "user", key_field="id", key_value=user_id)
-    if not row:
+    """Return current user profile (id, email, first_name, last_name, email_verified_at)."""
+    data_service = ServiceFactory.get_service("UserResourceDataService")
+    if data_service is None:
+        raise HTTPException(status_code=503, detail="Service unavailable")
+    row = data_service.get_data_object(
+        "users_db", "user", key_field="id", key_value=int(current_user["id"])
+    )
+    if row is None:
         raise HTTPException(status_code=404, detail="User not found")
     return UserMeResponse(
-        id=int(row["id"]),
+        id=row["id"],
         email=row["email"],
         first_name=row.get("first_name"),
         last_name=row.get("last_name"),
-        created_at=row.get("created_at"),
-        auth_provider=row.get("auth_provider"),
+        email_verified_at=row.get("email_verified_at"),
     )
 
 
 @router.patch("/user/me", tags=["users"], response_model=UserMeResponse)
 async def patch_me(
-    body: UserMeUpdate,
-    request: Request,
+    payload: UserMeUpdate,
     current_user: dict = Depends(get_current_user),
 ):
-    """Update name and/or email of the current user."""
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    from app.core.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
-
+    """Update current user first_name and/or last_name."""
+    data_service = ServiceFactory.get_service("UserResourceDataService")
+    if data_service is None:
+        raise HTTPException(status_code=503, detail="Service unavailable")
     user_id = int(current_user["id"])
-    updates: dict = {}
-    if body.first_name is not None:
-        updates["first_name"] = body.first_name.strip()
-    if body.last_name is not None:
-        updates["last_name"] = body.last_name.strip()
-    if body.email is not None:
-        updates["email"] = str(body.email).strip().lower()
-    if not updates:
-        # Nothing to update — return current profile
-        return await get_me(current_user)
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    values = list(updates.values()) + [user_id]
-    conn = psycopg2.connect(
-        host=DB_HOST or "localhost",
-        port=int(DB_PORT) if DB_PORT else 5432,
-        user=DB_USER or "postgres",
-        password=DB_PASSWORD or "postgres",
-        dbname=DB_NAME or "users_db",
-        cursor_factory=RealDictCursor,
-    )
-    try:
-        conn.autocommit = True
-        cur = conn.cursor()
-        cur.execute(
-            f'UPDATE users_db."user" SET {set_clause} WHERE id = %s RETURNING id, email, first_name, last_name, created_at, auth_provider',
-            values,
-        )
-        row = cur.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="User not found")
-        write_audit_log(
-            action="profile_update",
-            user_id=user_id,
-            ip_address=_client_ip(request),
-            request_id=_request_id(request),
-            details={"fields": list(updates.keys())},
-        )
-        return UserMeResponse(
-            id=int(row["id"]),
-            email=row["email"],
-            first_name=row.get("first_name"),
-            last_name=row.get("last_name"),
-            created_at=row.get("created_at"),
-            auth_provider=row.get("auth_provider"),
-        )
-    finally:
-        conn.close()
-
-
-@router.post("/user/me/password", tags=["users"])
-async def change_my_password(
-    body: ChangePasswordRequest,
-    request: Request,
-    current_user: dict = Depends(get_current_user),
-):
-    """Change password: verify current password then hash and store new one."""
-    res = ServiceFactory.get_service("UserResource")
-    if not res:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    row = res.get_raw_by_email(current_user["email"])
-    if not row:
+    row = data_service.get_data_object("users_db", "user", key_field="id", key_value=user_id)
+    if row is None:
         raise HTTPException(status_code=404, detail="User not found")
-    if not row.get("password_hash"):
-        raise HTTPException(status_code=400, detail="Account uses social login; password cannot be changed here.")
-    if not verify_password(body.current_password, row["password_hash"]):
-        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    updates = {}
+    if payload.first_name is not None:
+        updates["first_name"] = payload.first_name.strip()
+    if payload.last_name is not None:
+        updates["last_name"] = payload.last_name.strip()
+    if updates:
+        from datetime import datetime, timezone
+        updates["modified_at"] = datetime.now(timezone.utc)
+        data_service.update_data_object("users_db", "user", user_id, updates)
+    row = data_service.get_data_object("users_db", "user", key_field="id", key_value=user_id)
+    return UserMeResponse(
+        id=row["id"],
+        email=row["email"],
+        first_name=row.get("first_name"),
+        last_name=row.get("last_name"),
+        email_verified_at=row.get("email_verified_at"),
+    )
+
+
+@router.post("/user/me/change-password", tags=["users"], status_code=204)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Change password for current user. Requires current_password and new_password."""
+    data_service = ServiceFactory.get_service("UserResourceDataService")
+    if data_service is None:
+        raise HTTPException(status_code=503, detail="Service unavailable")
     user_id = int(current_user["id"])
+    row = data_service.get_data_object("users_db", "user", key_field="id", key_value=user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    password_hash = row.get("password_hash")
+    if not password_hash or not verify_password(body.current_password, password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
     set_password(user_id, body.new_password)
     revoke_all_refresh_tokens(user_id)
-    write_audit_log(
-        action="password_change",
-        user_id=user_id,
-        ip_address=_client_ip(request),
-        request_id=_request_id(request),
-    )
-    return {"message": "Password updated. Please sign in again on all devices."}
+    return None
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str | None = None
+
+
+@router.post("/api/v1/users/resend-verification", tags=["users"], status_code=204)
+async def resend_verification(
+    current_user: dict | None = Depends(get_current_user_optional),
+    body: ResendVerificationRequest | None = Body(None),
+) -> None:
+    """Send a new verification email. Authenticated: current user. Unauthenticated: body with email required."""
+    email = None
+    user_id = None
+    if current_user:
+        user_id = int(current_user["id"])
+        email = current_user.get("email")
+    if not email and body and body.email:
+        res = ServiceFactory.get_service("UserResource")
+        if res is None:
+            raise HTTPException(status_code=503, detail="Service unavailable")
+        raw = res.get_raw_by_email(body.email.strip())
+        if raw and not raw.get("email_verified_at"):
+            user_id = raw["id"]
+            email = raw["email"]
+        else:
+            # Don't reveal whether user exists; just succeed to avoid enumeration
+            return None
+    if not email or user_id is None:
+        raise HTTPException(status_code=400, detail="Email required when not signed in")
+    try:
+        create_verification_token(user_id, email)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to send verification email")
+    return None
 
 
 @router.delete("/user/me", tags=["users"], status_code=204)

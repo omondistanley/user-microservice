@@ -73,6 +73,9 @@ TRUELAYER_CLIENT_SECRET: str = os.environ.get("TRUELAYER_CLIENT_SECRET", "")
 # User service base URL for household membership check (e.g. http://user:8000). Empty = skip validation.
 USER_SERVICE_INTERNAL_URL: str = os.environ.get("USER_SERVICE_INTERNAL_URL", "").rstrip("/")
 
+# Redis URL for event publishing (events:expense). Empty = no-op publish.
+REDIS_URL: str = os.environ.get("REDIS_URL", "").rstrip("/")
+
 # Apple Wallet (Shortcuts) webhook: secret for X-Webhook-Secret header. If set, requests without matching header get 401.
 APPLE_WALLET_WEBHOOK_SECRET: str = os.environ.get("APPLE_WALLET_WEBHOOK_SECRET", "")
 # Optional: single-user mode; use this user_id when user_token is not provided in the webhook body.

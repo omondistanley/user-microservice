@@ -1,55 +1,90 @@
 {% extends "layout.html" %}
-{% block body_class %}settings-page{% endblock %}
-{% block title %}Integrations — Expense Tracker{% endblock %}
+{% block body_class %}settings-page integrations-page{% endblock %}
+{% block title %}Integrations — pocketii{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="page-header">
-        <a href="/dashboard" class="page-back-link">← Dashboard</a>
-        <h1 class="page-title">Integrations</h1>
-    </div>
-    <div class="card-section">
-        <h2 class="h4">Bank accounts</h2>
-        <p class="text-muted">Link bank accounts to sync transactions.</p>
-        <a href="/link-bank" class="btn btn-primary">Link bank account</a>
-        <div id="bank-status" class="text-muted small" style="margin-top: 0.75rem;">Checking provider status...</div>
-        <ul id="bank-items" class="summary-list" style="margin-top: 0.75rem;"></ul>
-    </div>
-    <div class="card-section">
-        <h2 class="h4">Calendar reminders</h2>
-        <p class="text-muted">Subscribe via revocable tokenized ICS URL (works in calendar apps without Bearer auth).</p>
-        <div class="toolbar-actions">
-            <button id="calendar-generate-btn" class="btn btn-secondary btn-sm" type="button">Generate / rotate token</button>
-            <button id="calendar-revoke-btn" class="btn btn-secondary btn-sm" type="button">Revoke token</button>
+<div class="page-header">
+    <h1 class="page-title">Integrations</h1>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+
+    <!-- Left column -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Bank accounts -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">🏦 Bank Accounts</h2>
+                <a href="/link-bank" class="btn btn-primary" style="font-size:13px;">Link account</a>
+            </div>
+            <p id="bank-status" style="font-size:13px;color:var(--s500);margin-bottom:12px;">Checking provider status…</p>
+            <ul id="bank-items" style="list-style:none;display:flex;flex-direction:column;gap:8px;"></ul>
         </div>
-        <p class="text-muted small">ICS URL: <code id="calendar-url">Generate a token first</code></p>
-    </div>
-    <div class="card-section">
-        <h2 class="h4">Digest</h2>
-        <p class="text-muted">Configure weekly/monthly digest delivery.</p>
-        <div class="toolbar-actions">
-            <select id="digest-frequency" class="form-input" style="max-width: 220px;">
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-            </select>
-            <select id="digest-channel" class="form-input" style="max-width: 220px;">
-                <option value="email">Email</option>
-                <option value="slack_webhook">Slack webhook</option>
-            </select>
-            <input id="digest-target" class="form-input" style="max-width: 320px;" placeholder="Channel target (optional)"/>
-            <button id="digest-save-btn" class="btn btn-primary btn-sm" type="button">Save</button>
-            <button id="digest-test-btn" class="btn btn-secondary btn-sm" type="button">Send test</button>
+
+        <!-- Digest -->
+        <div class="card">
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">📬 Digest</h2>
+            <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Configure weekly or monthly digest delivery.</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div class="form-group">
+                    <label class="form-label" for="digest-frequency">Frequency</label>
+                    <select id="digest-frequency" class="form-select" style="max-width:180px;">
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="digest-channel">Channel</label>
+                    <select id="digest-channel" class="form-select" style="max-width:180px;">
+                        <option value="email">Email</option>
+                        <option value="slack_webhook">Slack webhook</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="digest-target">Channel target <span style="font-weight:400;color:var(--s400);">(optional)</span></label>
+                    <input id="digest-target" class="form-input" style="max-width:300px;" placeholder="email or webhook URL">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button id="digest-save-btn" class="btn btn-primary" type="button">Save</button>
+                    <button id="digest-test-btn" class="btn btn-ghost" type="button">Send test</button>
+                </div>
+                <p id="digest-status" style="font-size:13px;color:var(--s500);">No digest config loaded yet.</p>
+            </div>
         </div>
-        <p id="digest-status" class="text-muted small">No digest config loaded yet.</p>
+
     </div>
-    <div class="card-section">
-        <h2 class="h4">Webhook processing</h2>
-        <p class="text-muted">Provider webhook signatures and retries are enabled through background workers.</p>
-        <p class="text-muted small">Configure `WEBHOOK_SECRETS_JSON` to enforce signature validation in non-dev environments.</p>
-    </div>
-    <div class="card-section">
-        <h2 class="h4">Export</h2>
-        <p class="text-muted">Portable JSON export for backup or migration.</p>
-        <a href="#" id="export-portable-btn" class="btn btn-secondary">Download portable export</a>
+
+    <!-- Right column -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Calendar reminders -->
+        <div class="card">
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">📅 Calendar Reminders</h2>
+            <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Subscribe via tokenized ICS URL for recurring bill reminders in any calendar app.</p>
+            <div style="display:flex;gap:10px;margin-bottom:12px;">
+                <button id="calendar-generate-btn" class="btn btn-primary" type="button">Generate token</button>
+                <button id="calendar-revoke-btn" class="btn btn-ghost" type="button">Revoke</button>
+                <button id="calendar-copy-btn" class="btn btn-ghost" type="button">Copy URL</button>
+            </div>
+            <div style="background:var(--s50);border-radius:8px;padding:12px;font-size:13px;color:var(--s600);">
+                ICS URL: <code id="calendar-url" style="font-size:12px;word-break:break-all;color:var(--indigo);">Generate a token first</code>
+            </div>
+        </div>
+
+        <!-- Webhook -->
+        <div class="card" style="background:var(--s50);">
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:8px;">🔗 Webhook Processing</h2>
+            <p style="font-size:13px;color:var(--s600);line-height:1.5;">Provider webhook signatures and retries are enabled through background workers.</p>
+            <p style="font-size:12px;color:var(--s400);margin-top:8px;">Configure <code>WEBHOOK_SECRETS_JSON</code> to enforce signature validation in non-dev environments.</p>
+        </div>
+
+        <!-- Export -->
+        <div class="card">
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">📦 Data Export</h2>
+            <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Portable JSON export for backup or migration to another service.</p>
+            <a href="#" id="export-portable-btn" class="btn btn-primary">Download export</a>
+        </div>
+
     </div>
 </div>
 {% endblock %}
@@ -57,6 +92,7 @@
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
     var API = window.API_BASE || '';
+    var calendarUrlValue = null;
     var cal = document.getElementById('calendar-url');
     var btn = document.getElementById('export-portable-btn');
     var bankStatus = document.getElementById('bank-status');
@@ -69,6 +105,7 @@
     var digestTestBtn = document.getElementById('digest-test-btn');
     var calendarGenerateBtn = document.getElementById('calendar-generate-btn');
     var calendarRevokeBtn = document.getElementById('calendar-revoke-btn');
+    var calendarCopyBtn = document.getElementById('calendar-copy-btn');
 
     function authHeaders() {
         return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
@@ -93,25 +130,26 @@
         fetchJson('/api/v1/bank/status').then(function(data) {
             var p = data.providers || {};
             bankStatus.textContent =
-                'Providers: Plaid ' + (p.plaid && p.plaid.configured ? 'configured' : 'not configured') +
-                ' | Teller ' + (p.teller && p.teller.configured ? 'configured' : 'not configured') +
-                ' | TrueLayer ' + (p.truelayer && p.truelayer.configured ? 'configured' : 'not configured');
+                'Plaid: ' + (p.plaid && p.plaid.configured ? '✓ configured' : '✗ not configured') +
+                ' | Teller: ' + (p.teller && p.teller.configured ? '✓ configured' : '✗ not configured') +
+                ' | TrueLayer: ' + (p.truelayer && p.truelayer.configured ? '✓ configured' : '✗ not configured');
         }).catch(function() {
             bankStatus.textContent = 'Could not load provider status.';
         });
         fetchJson('/api/v1/bank/items').then(function(data) {
             var items = data.items || [];
             if (!items.length) {
-                bankItems.innerHTML = '<li><span class="summary-label">No linked items yet</span></li>';
+                bankItems.innerHTML = '<li style="font-size:13px;color:var(--s400);">No linked accounts yet</li>';
                 return;
             }
             bankItems.innerHTML = items.map(function(i) {
-                return '<li><span class="summary-label">' +
-                    (i.name || 'Linked account') + ' (' + i.provider + ')' +
-                    '</span></li>';
+                return '<li style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--s50);border-radius:8px;">' +
+                    '<span style="font-size:14px;font-weight:500;color:var(--s900);">' + (i.name || 'Linked account') + '</span>' +
+                    '<span class="badge-slate">' + i.provider + '</span>' +
+                    '</li>';
             }).join('');
         }).catch(function() {
-            bankItems.innerHTML = '<li><span class="summary-label">Failed to load linked items</span></li>';
+            bankItems.innerHTML = '<li style="font-size:13px;color:var(--s400);">Failed to load linked items</li>';
         });
     }
 
@@ -124,7 +162,7 @@
             digestFrequency.value = data.frequency || 'weekly';
             digestChannel.value = data.channel || 'email';
             digestTarget.value = data.channel_target || '';
-            digestStatus.textContent = 'Digest config loaded. Last sent: ' + (data.last_sent_at || 'never');
+            digestStatus.textContent = 'Config loaded. Last sent: ' + (data.last_sent_at || 'never');
         }).catch(function() {
             digestStatus.textContent = 'Could not load digest config.';
         });
@@ -151,7 +189,7 @@
     if (digestTestBtn) {
         digestTestBtn.addEventListener('click', function() {
             fetchJson('/api/v1/integrations/digest-test', { method: 'POST' })
-                .then(function() { digestStatus.textContent = 'Digest test notification created.'; })
+                .then(function() { digestStatus.textContent = 'Test notification sent.'; })
                 .catch(function() { digestStatus.textContent = 'Failed to trigger digest test.'; });
         });
     }
@@ -160,18 +198,41 @@
         calendarGenerateBtn.addEventListener('click', function() {
             fetchJson('/api/v1/integrations/calendar/token', { method: 'POST' })
                 .then(function(data) {
-                    cal.textContent = data.calendar_url || 'Token created.';
+                    calendarUrlValue = data.calendar_url || null;
+                    cal.textContent = calendarUrlValue || 'Token created.';
                 })
-                .catch(function() {
-                    cal.textContent = 'Failed to generate token.';
-                });
+                .catch(function() { cal.textContent = 'Failed to generate token.'; });
+        });
+    }
+
+    if (calendarCopyBtn) {
+        calendarCopyBtn.addEventListener('click', function() {
+            var text = calendarUrlValue || (cal && cal.textContent) || '';
+            if (!text || (text.indexOf('http') !== 0 && text.indexOf('webcal') !== 0)) {
+                alert('No calendar URL to copy yet. Generate a token first.');
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() { alert('Calendar URL copied to clipboard.'); }).catch(function() { alert('Failed to copy.'); });
+            } else {
+                var tmp = document.createElement('textarea');
+                tmp.value = text;
+                document.body.appendChild(tmp);
+                tmp.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                document.body.removeChild(tmp);
+                alert('Calendar URL copied to clipboard.');
+            }
         });
     }
 
     if (calendarRevokeBtn) {
         calendarRevokeBtn.addEventListener('click', function() {
             fetchJson('/api/v1/integrations/calendar/token', { method: 'DELETE' })
-                .then(function() { cal.textContent = 'Token revoked. Generate a new one to subscribe again.'; })
+                .then(function() {
+                    calendarUrlValue = null;
+                    cal.textContent = 'Token revoked. Generate a new one to subscribe again.';
+                })
                 .catch(function() { cal.textContent = 'Failed to revoke token.'; });
         });
     }

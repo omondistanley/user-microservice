@@ -3,145 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#6c63ff">
+    <meta name="theme-color" content="#6366F1">
     <meta name="expense-api-base" content="{{ expense_api_base | default('') }}">
     <meta name="budget-api-base" content="{{ budget_api_base | default('') }}">
-    <title>{% block title %}Expense Tracker{% endblock %}</title>
+    <meta name="gateway-public-url" content="{{ gateway_public_url | default('') }}">
+    <title>{% block title %}pocketii{% endblock %}</title>
     <link rel="manifest" href="/static/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/main.css">
     {% block head_extra %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" id="app-body">
+{% set _public_paths = ['/', '/landing', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/verify-email/pending', '/welcome'] %}
+{% set _use_app_shell = request.url.path not in _public_paths %}
+<body class="{% if _use_app_shell %}app-shell-page {% endif %}{% block body_class %}{% endblock %}" id="app-body">
     <a href="#main-content" class="skip-to-content">Skip to main content</a>
-    <nav class="navbar" aria-label="Main navigation">
+
+    <!-- ===== APP SHELL ===== -->
+    <div class="app-shell" id="app-shell" aria-hidden="{{ 'false' if _use_app_shell else 'true' }}" style="{% if not _use_app_shell %}display:none;{% endif %}">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar" aria-label="App navigation">
+            <div class="sb-logo">
+                <a href="/dashboard" class="sb-logo-text" style="text-decoration:none;">pocketii</a>
+                <div class="sb-logo-sub">Personal · March 2026</div>
+            </div>
+
+            <nav class="sb-nav">
+                <div class="sb-section">Overview</div>
+                <a href="/dashboard" class="sb-link {% if request.url.path == '/dashboard' %}active{% endif %}">
+                    <span class="icon">📊</span> Dashboard
+                </a>
+                <a href="/net-worth" class="sb-link {% if request.url.path == '/net-worth' %}active{% endif %}">
+                    <span class="icon">💎</span> Net Worth
+                </a>
+
+                <div class="sb-section">Money</div>
+                <a href="/expenses" class="sb-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
+                    <span class="icon">💸</span> Expenses
+                </a>
+                <a href="/income" class="sb-link {% if request.url.path.startswith('/income') %}active{% endif %}">
+                    <span class="icon">💰</span> Income
+                </a>
+                <a href="/recurring" class="sb-link {% if request.url.path.startswith('/recurring') %}active{% endif %}">
+                    <span class="icon">🔄</span> Recurring
+                </a>
+                <a href="/budgets" class="sb-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
+                    <span class="icon">🎯</span> Budgets
+                    <span id="sidebar-budgets-badge" class="sb-badge" style="display:none;">!</span>
+                </a>
+                <a href="/goals" class="sb-link {% if request.url.path.startswith('/goals') %}active{% endif %}">
+                    <span class="icon">⭐</span> Goals
+                </a>
+
+                <div class="sb-section">Analytics</div>
+                <a href="/reports" class="sb-link {% if request.url.path == '/reports' or request.url.path.startswith('/reports/') %}active{% endif %}">
+                    <span class="icon">📋</span> Reports
+                </a>
+                <a href="/insights" class="sb-link {% if request.url.path == '/insights' %}active{% endif %}">
+                    <span class="icon">✨</span> Insights
+                </a>
+                <a href="/investments" class="sb-link {% if request.url.path.startswith('/investments') %}active{% endif %}">
+                    <span class="icon">📈</span> Investments
+                </a>
+                <a href="/recommendations" class="sb-link {% if request.url.path.startswith('/recommendations') %}active{% endif %}">
+                    <span class="icon">🤖</span> Recommendations
+                </a>
+
+                <div class="sb-section">Account</div>
+                <a href="/notifications" class="sb-link {% if request.url.path == '/notifications' %}active{% endif %}">
+                    <span class="icon">🔔</span> Notifications
+                    <span id="sidebar-notif-badge" class="sb-badge" style="display:none;">0</span>
+                </a>
+                <a href="/household" class="sb-link {% if request.url.path == '/household' %}active{% endif %}">
+                    <span class="icon">👥</span> Household
+                </a>
+                <a href="/sessions" class="sb-link {% if request.url.path == '/sessions' %}active{% endif %}">
+                    <span class="icon">🔐</span> Sessions
+                </a>
+                <a href="/profile" class="sb-link {% if request.url.path == '/profile' %}active{% endif %}">
+                    <span class="icon">👤</span> Profile
+                </a>
+                <a href="/settings" class="sb-link {% if request.url.path == '/settings' or request.url.path.startswith('/settings/') %}active{% endif %}">
+                    <span class="icon">⚙️</span> Settings
+                </a>
+
+                <div class="sb-section">Integrations</div>
+                <a href="/saved-views" class="sb-link {% if request.url.path == '/saved-views' %}active{% endif %}">
+                    <span class="icon">📌</span> Saved Views
+                </a>
+                <a href="/settings/integrations" class="sb-link {% if request.url.path == '/settings/integrations' %}active{% endif %}">
+                    <span class="icon">🔌</span> Integrations
+                </a>
+                <a href="/link-bank" class="sb-link {% if request.url.path.startswith('/link-bank') %}active{% endif %}">
+                    <span class="icon">🏦</span> Link Bank
+                </a>
+            </nav>
+
+            <div class="sb-user" id="sidebar-user-block">
+                <div class="sb-avatar" id="sidebar-avatar">?</div>
+                <div>
+                    <div class="sb-user-name" id="sidebar-user-name">User</div>
+                    <div class="sb-user-email" id="sidebar-user-email">—</div>
+                </div>
+                <a href="/profile" class="sb-user-icon" aria-label="Profile">⋯</a>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="app-main" id="app-main-area">
+            <header class="topbar">
+                <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
+                <span class="topbar-date" id="topbar-date"></span>
+                <a href="/notifications" class="topbar-bell" aria-label="Notifications" style="text-decoration:none;color:inherit;">
+                    🔔
+                    <span id="topbar-notif-badge" class="topbar-badge" style="display:none;"></span>
+                </a>
+                <a href="/expenses/add" class="btn btn-primary btn-sm" style="margin-left:8px;">+ Add Expense</a>
+            </header>
+            <div class="content-area" id="main-content" tabindex="-1">
+                {% if _use_app_shell %}
+                {% block back_link %}{% endblock %}
+                {% block content %}{% endblock %}
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== PUBLIC / AUTH TOP NAV ===== -->
+    <nav class="navbar navbar-public" id="navbar-public" aria-label="Main navigation" style="{% if _use_app_shell %}display:none;{% endif %}">
         <div class="container navbar-inner">
             <div class="navbar-left">
-                <a href="/dashboard" class="navbar-brand" id="navbar-brand">Expense<span class="brand-dot">.</span></a>
-                <button type="button" id="navbar-filters-toggle" class="navbar-hamburger" aria-label="Menu" style="display: none;">
+                <a href="/landing" class="navbar-brand" id="navbar-brand">pocketii</a>
+                <button type="button" id="navbar-filters-toggle" class="navbar-hamburger" aria-label="Menu" style="display:none;">
                     <span class="hamburger-icon" aria-hidden="true"></span>
                 </button>
             </div>
             <ul class="navbar-nav">
                 <li id="nav-login" class="nav-guest"><a href="/login" class="nav-link {% if request.url.path == '/login' %}active{% endif %}">Login</a></li>
                 <li id="nav-register" class="nav-guest"><a href="/register" class="nav-link {% if request.url.path == '/register' %}active{% endif %}">Register</a></li>
-                <li id="nav-notifications" class="nav-auth" style="display: none; position: relative;">
+                <li id="nav-notifications" class="nav-auth" style="display:none;position:relative;">
                     <button type="button" id="notifications-toggle" class="nav-link btn-link-reset">
-                        Alerts <span id="notifications-unread-count" class="notification-count" style="display: none;">0</span>
+                        Alerts <span id="notifications-unread-count" class="notification-count" style="display:none;">0</span>
                     </button>
-                    <div id="notifications-dropdown" class="notifications-dropdown" style="display: none;">
+                    <div id="notifications-dropdown" class="notifications-dropdown" style="display:none;">
                         <div class="notifications-header">
                             <strong>Notifications</strong>
-                            <button type="button" id="notifications-mark-all" class="btn btn-secondary btn-sm">Mark all read</button>
+                            <button type="button" id="notifications-mark-all" class="btn btn-ghost btn-sm">Mark all read</button>
                         </div>
                         <div id="notifications-list" class="notifications-list">No notifications yet.</div>
                     </div>
                 </li>
-                <li id="nav-logout" class="nav-auth" style="display: none;"><a href="#" class="nav-link" id="nav-logout-link">Log out</a></li>
+                <li id="nav-logout" class="nav-auth" style="display:none;"><a href="#" class="nav-link" id="nav-logout-link">Log out</a></li>
             </ul>
-        </div>
-        <div id="navbar-filters-panel" class="navbar-filters-panel" style="display: none;">
-            <div class="container">
-                <div class="navbar-panel-section navbar-panel-nav">
-                    <ul class="navbar-panel-links">
-                        <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
-                        <li><a href="/expenses" class="nav-link">Expenses</a></li>
-                        <li><a href="/expenses/import" class="nav-link">Import CSV</a></li>
-                        <li><a href="/income" class="nav-link">Income</a></li>
-                        <li><a href="/recurring" class="nav-link">Recurring</a></li>
-                        <li><a href="/link-bank" class="nav-link">Link bank</a></li>
-                        <li><a href="/reports" class="nav-link">Reports</a></li>
-                        <li><a href="/insights" class="nav-link">Insights</a></li>
-                        <li><a href="/goals" class="nav-link">Goals</a></li>
-                        <li><a href="/budgets" class="nav-link">Budgets</a></li>
-                        <li><a href="/investments" class="nav-link">Investments</a></li>
-                        <li><a href="/recommendations" class="nav-link">Recommendations</a></li>
-                        <li><a href="/settings/integrations" class="nav-link">Integrations</a></li>
-                    </ul>
-                    <div class="navbar-panel-section navbar-panel-household" id="household-switcher-wrap" style="display: none;">
-                        <h2 class="navbar-panel-heading">Scope</h2>
-                        <select id="household-switcher" class="form-control" aria-label="Household scope">
-                            <option value="">Personal</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="navbar-panel-section navbar-panel-filters" id="navbar-filters-section" style="display: none;">
-                    <h2 class="navbar-panel-heading">Filters</h2>
-                    <form id="filter-form" class="navbar-filter-form">
-                        <div class="form-group">
-                            <label for="filter-date-from">Date from</label>
-                            <input type="date" id="filter-date-from" name="date_from" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-date-to">Date to</label>
-                            <input type="date" id="filter-date-to" name="date_to" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-category">Category</label>
-                            <select id="filter-category" name="category" class="form-control">
-                                <option value="">All</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-tag">Tag</label>
-                            <input type="text" id="filter-tag" name="tag" class="form-control" list="filter-tag-suggestions" placeholder="Any tag">
-                            <datalist id="filter-tag-suggestions"></datalist>
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-min-amount">Min amount</label>
-                            <input type="number" id="filter-min-amount" name="min_amount" class="form-control" step="0.01" min="0" placeholder="0">
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-max-amount">Max amount</label>
-                            <input type="number" id="filter-max-amount" name="max_amount" class="form-control" step="0.01" min="0" placeholder="—">
-                        </div>
-                        <div class="form-group">
-                            <label for="filter-page-size">Per page</label>
-                            <select id="filter-page-size" name="page_size" class="form-control">
-                                <option value="10">10</option>
-                                <option value="20" selected>20</option>
-                                <option value="50">50</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Apply</button>
-                    </form>
-                </div>
-                <div id="expenses-summary-wrap" class="navbar-panel-section" style="display: none;">
-                <div id="expenses-summary" class="expenses-summary">
-                    <h2 class="navbar-panel-heading">Summary</h2>
-                    <div class="summary-tabs" style="margin-bottom: 0.75rem;">
-                        <button type="button" class="btn btn-secondary btn-sm summary-tab active" data-group="category">By category</button>
-                        <button type="button" class="btn btn-secondary btn-sm summary-tab" data-group="month">By month</button>
-                    </div>
-                    <div id="summary-by-category" class="summary-content"></div>
-                    <div id="summary-by-month" class="summary-content" style="display: none;"></div>
-                </div>
-                </div>
-                    <div class="navbar-panel-section navbar-panel-theme" style="margin-top: 0.5rem;">
-                        <label for="theme-select" class="navbar-panel-heading">Theme</label>
-                        <select id="theme-select" class="form-control" aria-label="Theme preference">
-                            <option value="dark">Dark</option>
-                            <option value="light">Light</option>
-                            <option value="system">System</option>
-                        </select>
-                    </div>
-            </div>
         </div>
     </nav>
 
-    <div id="onboarding-banner" class="onboarding-banner" role="region" aria-label="Onboarding" style="display: none;">
-        <p>Welcome! Add your first expense or link a bank to get started.</p>
-        <button type="button" id="onboarding-dismiss" class="btn btn-secondary btn-sm" aria-label="Dismiss">Dismiss</button>
+    <!-- HAMBURGER / MORE PANEL -->
+    <div id="navbar-filters-panel" class="navbar-filters-panel" style="display:none;">
+        <div class="container">
+            <div class="navbar-panel-section navbar-panel-nav">
+                <ul class="navbar-panel-links">
+                    <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
+                    <li><a href="/expenses" class="nav-link">Expenses</a></li>
+                    <li><a href="/expenses/add" class="nav-link">Add expense</a></li>
+                    <li><a href="/expenses/import" class="nav-link">Import CSV</a></li>
+                    <li><a href="/income" class="nav-link">Income</a></li>
+                    <li><a href="/recurring" class="nav-link">Recurring</a></li>
+                    <li><a href="/link-bank" class="nav-link">Link bank</a></li>
+                    <li><a href="/reports" class="nav-link">Reports</a></li>
+                    <li><a href="/insights" class="nav-link">Insights</a></li>
+                    <li><a href="/goals" class="nav-link">Goals</a></li>
+                    <li><a href="/budgets" class="nav-link">Budgets</a></li>
+                    <li><a href="/investments" class="nav-link">Investments</a></li>
+                    <li><a href="/recommendations" class="nav-link">Recommendations</a></li>
+                    <li><a href="/notifications" class="nav-link">Notifications</a></li>
+                    <li><a href="/household" class="nav-link">Household</a></li>
+                    <li><a href="/sessions" class="nav-link">Sessions</a></li>
+                    <li><a href="/profile" class="nav-link">Profile</a></li>
+                    <li><a href="/settings" class="nav-link">Settings</a></li>
+                    <li><a href="/saved-views" class="nav-link">Saved Views</a></li>
+                    <li><a href="/settings/integrations" class="nav-link">Integrations</a></li>
+                </ul>
+                <div class="navbar-panel-section navbar-panel-household" id="household-switcher-wrap" style="display:none;">
+                    <h2 class="navbar-panel-heading">Scope</h2>
+                    <select id="household-switcher" class="form-select" aria-label="Household scope">
+                        <option value="">Personal</option>
+                    </select>
+                </div>
+            </div>
+            <div class="navbar-panel-section navbar-panel-filters" id="navbar-filters-section" style="display:none;">
+                <h2 class="navbar-panel-heading">Filters</h2>
+                <form id="filter-form" class="navbar-filter-form">
+                    <div class="form-group">
+                        <label for="filter-date-from" class="form-label">Date from</label>
+                        <input type="date" id="filter-date-from" name="date_from" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-date-to" class="form-label">Date to</label>
+                        <input type="date" id="filter-date-to" name="date_to" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-category" class="form-label">Category</label>
+                        <select id="filter-category" name="category" class="form-select">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-tag" class="form-label">Tag</label>
+                        <input type="text" id="filter-tag" name="tag" class="form-input" list="filter-tag-suggestions" placeholder="Any tag">
+                        <datalist id="filter-tag-suggestions"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-min-amount" class="form-label">Min amount</label>
+                        <input type="number" id="filter-min-amount" name="min_amount" class="form-input" step="0.01" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-max-amount" class="form-label">Max amount</label>
+                        <input type="number" id="filter-max-amount" name="max_amount" class="form-input" step="0.01" min="0" placeholder="—">
+                    </div>
+                    <div class="form-group">
+                        <label for="filter-page-size" class="form-label">Per page</label>
+                        <select id="filter-page-size" name="page_size" class="form-select">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                </form>
+            </div>
+            <div id="expenses-summary-wrap" class="navbar-panel-section" style="display:none;">
+                <div id="expenses-summary" class="expenses-summary">
+                    <h2 class="navbar-panel-heading">Summary</h2>
+                    <div class="summary-tabs" style="margin-bottom:0.75rem;">
+                        <button type="button" class="btn btn-ghost btn-sm summary-tab active" data-group="category">By category</button>
+                        <button type="button" class="btn btn-ghost btn-sm summary-tab" data-group="month">By month</button>
+                    </div>
+                    <div id="summary-by-category" class="summary-content"></div>
+                    <div id="summary-by-month" class="summary-content" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="navbar-panel-section navbar-panel-theme" style="margin-top:0.5rem;">
+                <label for="theme-select" class="navbar-panel-heading">Theme</label>
+                <select id="theme-select" class="form-select" aria-label="Theme preference">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="system">System</option>
+                </select>
+            </div>
+        </div>
     </div>
 
-    <main class="main-content" id="main-content" tabindex="-1">
-        {% block content %}{% endblock %}
+    <!-- ONBOARDING BANNER -->
+    <div id="onboarding-banner" class="onboarding-banner" role="region" aria-label="Onboarding" style="display:none;">
+        <p>Welcome! Add your first expense or link a bank to get started.</p>
+        <button type="button" id="onboarding-dismiss" class="btn btn-ghost btn-sm" aria-label="Dismiss">Dismiss</button>
+    </div>
+
+    <!-- PUBLIC MAIN CONTENT -->
+    <main class="main-content main-content-public" id="main-content" tabindex="-1" style="{% if _use_app_shell %}display:none;{% endif %}">
+        {{ self.back_link() }}
+        {{ self.content() }}
     </main>
 
-    <!-- Mobile bottom navigation (hidden on desktop via CSS) -->
-    <nav class="bottom-nav" id="bottom-nav" aria-label="Mobile navigation">
+    <!-- MOBILE BOTTOM NAV -->
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Mobile navigation" style="{% if not _use_app_shell %}display:none;{% endif %}">
         <ul class="bottom-nav-items">
             <li class="bottom-nav-item">
                 <a href="/dashboard" class="bottom-nav-link {% if request.url.path == '/dashboard' %}active{% endif %}">
@@ -155,8 +283,17 @@
                     <span>Expenses</span>
                 </a>
             </li>
-            <!-- FAB placeholder (keeps items balanced) -->
-            <li class="bottom-nav-item bottom-nav-fab-slot" aria-hidden="true"></li>
+            <li class="bottom-nav-item bottom-nav-item-fab">
+                <div class="fab-wrapper">
+                    <button type="button" class="bottom-nav-fab m-fab" id="fab-toggle" aria-label="Add expense, budget, or link bank" aria-haspopup="true" aria-expanded="false">+</button>
+                    <div id="fab-menu" class="fab-menu" role="menu" aria-hidden="true">
+                        <a href="/expenses/add" class="fab-menu-item" role="menuitem">Add Expense</a>
+                        <a href="/budgets/add" class="fab-menu-item" role="menuitem">Add Budget</a>
+                        <a href="/link-bank" class="fab-menu-item" role="menuitem">Link Bank</a>
+                    </div>
+                </div>
+                <div id="fab-backdrop" class="fab-backdrop" aria-hidden="true" style="display:none;"></div>
+            </li>
             <li class="bottom-nav-item">
                 <a href="/budgets" class="bottom-nav-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
                     <span class="bottom-nav-icon">🎯</span>
@@ -164,8 +301,8 @@
                 </a>
             </li>
             <li class="bottom-nav-item">
-                <button type="button" class="bottom-nav-link {% set more_paths = ['/profile', '/settings', '/sessions', '/household', '/notifications', '/net-worth', '/investments', '/recommendations', '/insights', '/reports', '/saved-views', '/settings/integrations', '/goals', '/income', '/recurring'] %}{% if request.url.path in more_paths or request.url.path.startswith('/settings') or request.url.path.startswith('/goals') %}active{% endif %}" id="bottom-nav-more-btn" aria-label="More navigation">
-                    <span class="bottom-nav-icon">⋯</span>
+                <a href="#" class="bottom-nav-link" id="bottom-nav-menu-toggle">
+                    <span class="bottom-nav-icon">☰</span>
                     <span>More</span>
                 </button>
             </li>
@@ -305,7 +442,6 @@
 
     <script nonce="{{ csp_nonce | default('') }}">
     (function() {
-        // Hide bottom nav on auth / welcome pages
         var bodyClass = document.body.className;
         if (bodyClass.indexOf('auth-page') !== -1 || bodyClass.indexOf('welcome-page') !== -1) {
             var bn = document.getElementById('bottom-nav');
@@ -342,19 +478,7 @@
             closeSheet('fab-sheet', 'fab-overlay');
             closeSheet('more-sheet', 'more-overlay');
         }
-
-        // FAB button
-        var fab = document.getElementById('bottom-nav-fab');
-        if (fab) {
-            fab.addEventListener('click', function() {
-                var isOpen = document.getElementById('fab-sheet').classList.contains('active');
-                closeAllSheets();
-                if (!isOpen) openSheet('fab-sheet', 'fab-overlay');
-            });
-        }
-
-        // More button
-        var moreBtn = document.getElementById('bottom-nav-more-btn');
+        var moreBtn = document.getElementById('bottom-nav-menu-toggle');
         if (moreBtn) {
             moreBtn.addEventListener('click', function() {
                 var isOpen = document.getElementById('more-sheet').classList.contains('active');
@@ -362,31 +486,53 @@
                 if (!isOpen) openSheet('more-sheet', 'more-overlay');
             });
         }
-
-        // Cancel / overlay close
-        ['fab-sheet-cancel', 'more-sheet-cancel'].forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.addEventListener('click', closeAllSheets);
-        });
-
-        var fabOverlay = document.getElementById('fab-overlay');
-        var moreOverlay = document.getElementById('more-overlay');
-        if (fabOverlay) fabOverlay.addEventListener('click', closeAllSheets);
-        if (moreOverlay) moreOverlay.addEventListener('click', closeAllSheets);
-
-        // Keyboard: Escape closes sheets
+        // FAB menu: open/close, outside click, Escape
+        var fabToggle = document.getElementById('fab-toggle');
+        var fabMenu = document.getElementById('fab-menu');
+        var fabBackdrop = document.getElementById('fab-backdrop');
+        function closeFabMenu() {
+            if (fabMenu) { fabMenu.classList.remove('fab-menu-open'); fabMenu.setAttribute('aria-hidden', 'true'); }
+            if (fabToggle) fabToggle.setAttribute('aria-expanded', 'false');
+            if (fabBackdrop) { fabBackdrop.style.display = 'none'; fabBackdrop.setAttribute('aria-hidden', 'true'); }
+        }
+        function openFabMenu() {
+            if (fabMenu) { fabMenu.classList.add('fab-menu-open'); fabMenu.setAttribute('aria-hidden', 'false'); }
+            if (fabToggle) fabToggle.setAttribute('aria-expanded', 'true');
+            if (fabBackdrop) { fabBackdrop.style.display = 'block'; fabBackdrop.setAttribute('aria-hidden', 'false'); }
+        }
+        if (fabToggle && fabMenu) {
+            fabToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                var isOpen = fabMenu.classList.contains('fab-menu-open');
+                if (isOpen) closeFabMenu(); else openFabMenu();
+            });
+        }
+        if (fabBackdrop) fabBackdrop.addEventListener('click', closeFabMenu);
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeAllSheets();
+            if (e.key === 'Escape' && fabMenu && fabMenu.classList.contains('fab-menu-open')) closeFabMenu();
         });
+        if (fabMenu) {
+            fabMenu.querySelectorAll('.fab-menu-item').forEach(function(link) {
+                link.addEventListener('click', closeFabMenu);
+            });
+        }
+        // Set topbar date
+        var dateEl = document.getElementById('topbar-date');
+        if (dateEl) {
+            var d = new Date();
+            var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            dateEl.textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+        }
     })();
     </script>
+    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/app.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/auth.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/theme.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/offline_queue.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/onboarding.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/settings.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/notifications.js"></script>
-    <script nonce="{{ csp_nonce | default('') }}" src="/static/js/app.js"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/layout.js"></script>
     <script nonce="{{ csp_nonce | default('') }}">
     if ('serviceWorker' in navigator) {

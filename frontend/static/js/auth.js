@@ -108,8 +108,9 @@
         },
         /** POST /login — form body: username (email), password. Returns { access_token, token_type, refresh_token? }. */
         login: function(email, password) {
+            var base = (typeof window !== 'undefined' && window.API_BASE !== undefined) ? window.API_BASE : API;
             var body = new URLSearchParams({ username: email, password: password });
-            return fetch(API + '/login', {
+            return fetch((base || '') + '/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body.toString()
@@ -122,7 +123,8 @@
         },
         /** POST /user — JSON: email, first_name, last_name, password (min 8). Returns UserInfo. */
         register: function(email, first_name, last_name, password) {
-            return fetch(API + '/user', {
+            var base = (typeof window !== 'undefined' && window.API_BASE !== undefined) ? window.API_BASE : API;
+            return fetch((base || '') + '/user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

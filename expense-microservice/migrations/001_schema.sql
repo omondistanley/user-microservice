@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_expense_user_created ON expenses_db.expense (user
 CREATE INDEX IF NOT EXISTS idx_expense_user_date_created_id ON expenses_db.expense (user_id, date, created_at, expense_id);
 CREATE INDEX IF NOT EXISTS idx_expense_user_deleted ON expenses_db.expense (user_id) WHERE deleted_at IS NULL;
 
--- Receipt table (metadata only; files in object storage)
+-- Receipt table (metadata only, files in object storage)
 CREATE TABLE IF NOT EXISTS expenses_db.receipt (
     receipt_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     expense_id UUID NOT NULL,

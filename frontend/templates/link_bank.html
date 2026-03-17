@@ -1,132 +1,118 @@
 {% extends "layout.html" %}
 {% block body_class %}link-bank-page{% endblock %}
-{% block title %}Link Bank Account — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#135bec",
-          "background-light": "#f6f6f8",
-          "background-dark": "#101622",
-        },
-        fontFamily: { "display": ["Manrope", "sans-serif"] },
-        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
-<style>
-  body { min-height: max(884px, 100dvh); }
-</style>
-{% endblock %}
+{% block title %}Link Bank Account — pocketii{% endblock %}
 {% block content %}
-<div class="relative flex h-screen max-w-md mx-auto flex-col bg-background-light dark:bg-background-dark overflow-hidden font-display antialiased text-slate-900 dark:text-slate-100">
-  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
-  <!-- Top Navigation -->
-  <div class="flex items-center p-4 justify-between">
-    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-start" aria-label="Back">
-      <span class="material-symbols-outlined">arrow_back_ios</span>
-    </a>
-    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Link Bank Account</h2>
-  </div>
-  <!-- Error message -->
-  <div id="link-error" class="mx-4 mb-2 text-sm text-red-600 dark:text-red-400" style="display: none;"></div>
-  <!-- Not configured: show when neither Plaid nor Teller is available -->
-  <div id="bank-not-configured-wrap" class="mx-4 mb-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200" style="display: none;">
-    <p class="font-semibold mb-2">Bank linking is not set up.</p>
-    <p class="text-sm mb-3">You can add transactions manually or import from CSV.</p>
-    <a href="/expenses/import" class="inline-block text-sm font-medium text-primary hover:underline">Import CSV</a>
-    <span class="text-slate-500 dark:text-slate-400 mx-2">|</span>
-    <a href="/expenses/add" class="inline-block text-sm font-medium text-primary hover:underline">Add expense</a>
-  </div>
-  <!-- Illustration Section -->
-  <div class="flex-1 overflow-y-auto">
-    <div class="px-6 py-4">
-      <div class="aspect-square w-full max-w-[280px] mx-auto bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center relative mb-8">
-        <div class="absolute inset-0 flex items-center justify-center">
-          <div class="w-48 h-48 bg-primary/10 rounded-full animate-pulse"></div>
-        </div>
-        <div class="relative z-10 flex flex-col items-center">
-          <div class="bg-primary p-6 rounded-2xl shadow-xl shadow-primary/30 mb-4">
-            <span class="material-symbols-outlined text-white text-6xl">account_balance</span>
-          </div>
-          <div class="absolute -bottom-2 -right-2 bg-emerald-500 p-3 rounded-full border-4 border-background-dark dark:border-background-dark shadow-lg">
-            <span class="material-symbols-outlined text-white text-2xl">shield_with_heart</span>
-          </div>
-        </div>
-      </div>
-      <div class="text-center mb-8">
-        <h2 class="text-slate-900 dark:text-white text-3xl font-extrabold leading-tight tracking-tight mb-3">Securely link your bank</h2>
-        <p class="text-slate-600 dark:text-slate-400 text-base font-medium px-4">Connect your accounts to unlock automated expense tracking and smart insights.</p>
-      </div>
-      <!-- Features List -->
-      <div class="space-y-4 px-2 mb-8">
-        <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="bg-primary/10 p-2 rounded-lg"><span class="material-symbols-outlined text-primary">sync</span></div>
-          <div>
-            <p class="text-slate-900 dark:text-white font-bold">Automatic transaction syncing</p>
-            <p class="text-slate-500 dark:text-slate-400 text-sm">Every purchase is categorized instantly</p>
-          </div>
-        </div>
-        <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="bg-primary/10 p-2 rounded-lg"><span class="material-symbols-outlined text-primary">speed</span></div>
-          <div>
-            <p class="text-slate-900 dark:text-white font-bold">Real-time balance updates</p>
-            <p class="text-slate-500 dark:text-slate-400 text-sm">Always know exactly how much you have</p>
-          </div>
-        </div>
-        <div class="flex items-start gap-4 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div class="bg-primary/10 p-2 rounded-lg"><span class="material-symbols-outlined text-primary">lock</span></div>
-          <div>
-            <p class="text-slate-900 dark:text-white font-bold">Bank-level security</p>
-            <p class="text-slate-500 dark:text-slate-400 text-sm">256-bit encryption for your data</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Provider Picker (hidden when no provider configured) -->
-      <div id="bank-provider-section" class="px-2 mb-6">
-        <p class="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3 text-center">Choose your connection method</p>
-        <div class="grid grid-cols-2 gap-3">
-          <button type="button" id="choose-plaid"
-            class="provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 transition-all">
-            <div class="flex items-center font-black italic tracking-tighter text-lg text-primary">PLAID</div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 text-center">5,000+ banks &amp; credit unions</p>
-          </button>
-          <button type="button" id="choose-teller"
-            class="provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 transition-all hover:border-primary/50">
-            <div class="flex items-center font-black tracking-tighter text-lg text-slate-700 dark:text-slate-200">TELLER</div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 text-center">Direct bank connections</p>
-          </button>
-        </div>
-      </div>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Link Bank Account</h1>
+        <p style="color:var(--s500);font-size:13px;margin-top:4px;">Connect your accounts for automated transaction syncing</p>
     </div>
-  </div>
+</div>
 
-  <!-- Footer / Action Area (hidden when no provider configured) -->
-  <div id="bank-footer-section" class="p-6 bg-background-light dark:bg-background-dark border-t border-slate-200 dark:border-slate-800">
-    <button type="button" id="link-bank-btn" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-colors mb-3 shadow-lg shadow-primary/20">
-      Continue with Plaid
-    </button>
-    <p class="text-center mb-4">
-      <a href="/link-bank/select" class="text-primary text-sm font-medium hover:underline">Or choose your bank</a>
-    </p>
-    <div id="link-provider-badge" class="flex flex-col items-center gap-2 opacity-60">
-      <div class="flex items-center gap-1.5">
-        <span class="material-symbols-outlined text-xs">encrypted</span>
-        <span class="text-[10px] uppercase tracking-widest font-bold">Powered by</span>
-        <div id="badge-label" class="flex items-center font-black italic tracking-tighter text-sm">PLAID</div>
-      </div>
-      <p id="badge-legal" class="text-[11px] text-center text-slate-500">By continuing, you agree to Plaid's Privacy Policy and Terms of Use.</p>
+<div id="link-error" class="message-error" style="display:none;margin-bottom:16px;"></div>
+
+<div id="bank-not-configured-wrap" style="display:none;margin-bottom:20px;">
+    <div class="card" style="border-left:4px solid var(--amber);background:var(--s50);">
+        <h3 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:8px;">Bank linking is not configured</h3>
+        <p style="color:var(--s600);font-size:14px;margin-bottom:16px;">You can still track expenses manually or import from CSV.</p>
+        <div style="display:flex;gap:12px;">
+            <a href="/expenses/import" class="btn btn-primary">Import CSV</a>
+            <a href="/expenses/add" class="btn btn-ghost">Add expense manually</a>
+        </div>
     </div>
-  </div>
-  <div class="h-6 w-full"></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+
+    <!-- Left: provider selection -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <div class="card">
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">Choose connection method</h2>
+            <p style="color:var(--s500);font-size:13px;margin-bottom:20px;">Read-only OAuth. We never store credentials.</p>
+
+            <div id="bank-provider-section" style="display:flex;flex-direction:column;gap:12px;">
+                <button type="button" id="choose-plaid"
+                    style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:10px;border:2px solid var(--indigo);background:rgba(99,102,241,.06);cursor:pointer;text-align:left;width:100%;">
+                    <div style="width:48px;height:48px;background:var(--indigo);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;letter-spacing:-.5px;flex-shrink:0;">P</div>
+                    <div>
+                        <div style="font-weight:700;font-size:14px;color:var(--s900);">Plaid</div>
+                        <div style="font-size:12px;color:var(--s500);">5,000+ banks &amp; credit unions</div>
+                    </div>
+                    <span id="plaid-check" style="margin-left:auto;color:var(--indigo);font-size:18px;">✓</span>
+                </button>
+
+                <button type="button" id="choose-teller"
+                    style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:10px;border:2px solid var(--s200);background:var(--s50);cursor:pointer;text-align:left;width:100%;">
+                    <div style="width:48px;height:48px;background:var(--s800);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;flex-shrink:0;">T</div>
+                    <div>
+                        <div style="font-weight:700;font-size:14px;color:var(--s900);">Teller</div>
+                        <div style="font-size:12px;color:var(--s500);">Direct bank connections</div>
+                    </div>
+                    <span id="teller-check" style="margin-left:auto;color:var(--indigo);font-size:18px;display:none;">✓</span>
+                </button>
+            </div>
+
+            <div id="bank-footer-section" style="margin-top:20px;">
+                <button type="button" id="link-bank-btn" class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;">
+                    Continue with Plaid
+                </button>
+                <p id="badge-legal" style="font-size:11px;color:var(--s400);text-align:center;margin-top:12px;">
+                    By continuing, you agree to Plaid's Privacy Policy and Terms of Use.
+                </p>
+            </div>
+        </div>
+
+        <div class="card" style="background:var(--s50);">
+            <p style="font-size:13px;color:var(--s500);margin-bottom:8px;">Not ready to link?</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <a href="/expenses/import" class="btn btn-ghost" style="font-size:13px;">Import CSV</a>
+                <a href="/expenses/add" class="btn btn-ghost" style="font-size:13px;">Add manually</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: feature highlights -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="card">
+            <h3 style="font-size:14px;font-weight:700;color:var(--s900);margin-bottom:16px;">What you get</h3>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                    <div style="width:36px;height:36px;background:rgba(99,102,241,.1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">🔄</div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px;color:var(--s900);">Automatic syncing</div>
+                        <div style="font-size:13px;color:var(--s500);">Transactions categorized instantly</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                    <div style="width:36px;height:36px;background:rgba(16,185,129,.1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">⚡</div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px;color:var(--s900);">Real-time balances</div>
+                        <div style="font-size:13px;color:var(--s500);">Always know exactly how much you have</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                    <div style="width:36px;height:36px;background:rgba(244,63,94,.1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">🔒</div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px;color:var(--s900);">Bank-level security</div>
+                        <div style="font-size:13px;color:var(--s500);">256-bit encryption, read-only access</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                    <div style="width:36px;height:36px;background:rgba(245,158,11,.1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">📊</div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px;color:var(--s900);">Smart insights</div>
+                        <div style="font-size:13px;color:var(--s500);">Automatic anomaly detection</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="border-left:4px solid var(--emerald);">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--s400);margin-bottom:8px;">Security note</div>
+            <p style="font-size:13px;color:var(--s600);line-height:1.5;">We use OAuth read-only connections. We never see or store your banking credentials. You can disconnect at any time from <a href="/settings/integrations" style="color:var(--indigo);">Settings → Integrations</a>.</p>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -139,7 +125,6 @@
   var selectedProvider = 'plaid';
   var btn = document.getElementById('link-bank-btn');
   var errorEl = document.getElementById('link-error');
-  var badgeLabel = document.getElementById('badge-label');
   var badgeLegal = document.getElementById('badge-legal');
   var notConfiguredWrap = document.getElementById('bank-not-configured-wrap');
   var providerSection = document.getElementById('bank-provider-section');
@@ -189,17 +174,25 @@
     selectedProvider = p;
     var plaidBtn = document.getElementById('choose-plaid');
     var tellerBtn = document.getElementById('choose-teller');
+    var plaidCheck = document.getElementById('plaid-check');
+    var tellerCheck = document.getElementById('teller-check');
     if (p === 'plaid') {
-      plaidBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 transition-all';
-      tellerBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 transition-all hover:border-primary/50';
+      plaidBtn.style.borderColor = 'var(--indigo)';
+      plaidBtn.style.background = 'rgba(99,102,241,.06)';
+      tellerBtn.style.borderColor = 'var(--s200)';
+      tellerBtn.style.background = 'var(--s50)';
+      if (plaidCheck) plaidCheck.style.display = 'inline';
+      if (tellerCheck) tellerCheck.style.display = 'none';
       btn.textContent = 'Continue with Plaid';
-      badgeLabel.textContent = 'PLAID';
       badgeLegal.textContent = "By continuing, you agree to Plaid's Privacy Policy and Terms of Use.";
     } else {
-      tellerBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 transition-all';
-      plaidBtn.className = 'provider-btn flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 transition-all hover:border-primary/50';
+      tellerBtn.style.borderColor = 'var(--indigo)';
+      tellerBtn.style.background = 'rgba(99,102,241,.06)';
+      plaidBtn.style.borderColor = 'var(--s200)';
+      plaidBtn.style.background = 'var(--s50)';
+      if (tellerCheck) tellerCheck.style.display = 'inline';
+      if (plaidCheck) plaidCheck.style.display = 'none';
       btn.textContent = 'Continue with Teller';
-      badgeLabel.textContent = 'TELLER';
       badgeLegal.textContent = "By continuing, you agree to Teller's Privacy Policy and Terms of Use.";
     }
   }

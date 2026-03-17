@@ -32,7 +32,7 @@ SMTP_PASSWORD: Optional[str] = os.environ.get("SMTP_PASSWORD")
 SMTP_FROM: Optional[str] = os.environ.get("SMTP_FROM")
 
 # Require email verification before login (set to false for local dev to allow unverified logins)
-REQUIRE_EMAIL_VERIFICATION: bool = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "true").lower() in ("1", "true", "yes")
+REQUIRE_EMAIL_VERIFICATION: bool = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "false").lower() in ("1", "true", "yes")
 
 # Rate limiting (requests per minute per IP)
 RATE_LIMIT_LOGIN_PER_MINUTE: int = int(os.environ.get("RATE_LIMIT_LOGIN_PER_MINUTE", "10"))
@@ -72,6 +72,9 @@ INVESTMENT_SERVICE_URL: str = os.environ.get("INVESTMENT_SERVICE_URL", "http://l
 # Frontend API base URLs (empty when proxy is used; e.g. http://localhost:3001 for non-proxy dev)
 EXPENSE_API_BASE_FRONTEND: str = os.environ.get("EXPENSE_API_BASE_FRONTEND", "")
 BUDGET_API_BASE_FRONTEND: str = os.environ.get("BUDGET_API_BASE_FRONTEND", "")
+
+# When set (e.g. http://localhost:8080), frontend uses gateway for all API calls; proxy routes are disabled
+GATEWAY_PUBLIC_URL: str = os.environ.get("GATEWAY_PUBLIC_URL", "").rstrip("/")
 
 # JWT issuer/audience for downstream services
 JWT_ISSUER: str = os.environ.get("JWT_ISSUER", "user-microservice")
