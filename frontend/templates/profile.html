@@ -87,14 +87,15 @@
             : function() { return fetch(API + '/user/me', { headers: headers() }); };
         fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
             .then(function(d) {
+                var displayName = [d.first_name, d.last_name].filter(Boolean).join(' ') || '—';
                 profileInfo.innerHTML =
-                    '<p><strong>Name:</strong> ' + (d.name || d.username || '—').replace(/</g,'&lt;') + '</p>' +
+                    '<p><strong>Name:</strong> ' + displayName.replace(/</g,'&lt;') + '</p>' +
                     '<p><strong>Email:</strong> ' + (d.email || '—').replace(/</g,'&lt;') + '</p>' +
                     '<p><strong>Joined:</strong> ' + (d.created_at ? new Date(d.created_at).toLocaleDateString() : '—') + '</p>';
                 if (editForm) {
                     var nameInput = document.getElementById('profile-name');
                     var emailInput = document.getElementById('profile-email');
-                    if (nameInput) nameInput.value = d.name || d.username || '';
+                    if (nameInput) nameInput.value = [d.first_name, d.last_name].filter(Boolean).join(' ');
                     if (emailInput) emailInput.value = d.email || '';
                 }
             })
@@ -120,9 +121,15 @@
             var name = document.getElementById('profile-name').value;
             var email = document.getElementById('profile-email').value;
             var h = headers({'Content-Type':'application/json'});
+            var nameParts = name.trim().split(' ');
+            var firstName = nameParts[0] || '';
+            var lastName = nameParts.slice(1).join(' ') || '';
+            var patchBody = { email: email };
+            if (firstName) patchBody.first_name = firstName;
+            if (lastName) patchBody.last_name = lastName;
             var fn = window.Auth && window.Auth.requestWithRefresh
-                ? function() { return window.Auth.requestWithRefresh(API + '/user/me', { method:'PATCH', headers:h, body:JSON.stringify({name:name,email:email}) }); }
-                : function() { return fetch(API + '/user/me', { method:'PATCH', headers:h, body:JSON.stringify({name:name,email:email}) }); };
+                ? function() { return window.Auth.requestWithRefresh(API + '/user/me', { method:'PATCH', headers:h, body:JSON.stringify(patchBody) }); }
+                : function() { return fetch(API + '/user/me', { method:'PATCH', headers:h, body:JSON.stringify(patchBody) }); };
             fn().then(function(r) {
                 if (r.ok) { profileSaveResult.textContent = 'Profile updated.'; loadProfile(); editForm.style.display='none'; editBtn.style.display=''; }
                 else { return r.json().then(function(e2){ profileSaveResult.textContent = e2.detail || 'Error saving.'; }); }

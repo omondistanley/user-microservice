@@ -115,9 +115,16 @@
         '/investments',
         '/investments/add',
         '/recommendations',
+        '/net-worth',
+        '/profile',
+        '/settings',
+        '/sessions',
+        '/household',
+        '/notifications',
+        '/saved-views',
     ];
     var path = window.location.pathname;
-    var isProtected = protectedPaths.indexOf(path) !== -1 || path.startsWith('/expenses/') || path.startsWith('/budgets/') || path.startsWith('/goals/') || path.startsWith('/investments/');
+    var isProtected = protectedPaths.indexOf(path) !== -1 || path.startsWith('/expenses/') || path.startsWith('/budgets/') || path.startsWith('/goals/') || path.startsWith('/investments/') || path.startsWith('/settings/');
     if (isProtected && window.Auth && !window.Auth.isLoggedIn()) {
         window.location.href = '/login?next=' + encodeURIComponent(path);
     } else if (document.readyState === 'loading') {

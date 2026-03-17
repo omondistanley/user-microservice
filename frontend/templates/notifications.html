@@ -72,7 +72,7 @@
     function markRead(id) {
         var headers = Object.assign({ 'Content-Type': 'application/json' },
             window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {});
-        fetch(API + '/api/v1/notifications/' + id + '/read', { method: 'POST', headers: headers })
+        fetch(API + '/api/v1/notifications/' + id + '/read', { method: 'PATCH', headers: headers })
             .then(function() { loadNotifications(); })
             .catch(function() {});
     }
@@ -81,7 +81,7 @@
         markAllBtn.addEventListener('click', function() {
             var headers = Object.assign({ 'Content-Type': 'application/json' },
                 window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {});
-            fetch(API + '/api/v1/notifications/read-all', { method: 'POST', headers: headers })
+            fetch(API + '/api/v1/notifications/read-all', { method: 'PATCH', headers: headers })
                 .then(function() { loadNotifications(); })
                 .catch(function() {});
         });

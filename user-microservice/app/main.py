@@ -6,7 +6,7 @@ from pathlib import Path
 
 import psycopg2
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,6 +32,7 @@ from app.core.config import (
     RATE_LIMIT_API_PER_MINUTE,
     RATE_LIMIT_EXPENSIVE_PER_USER_PER_MINUTE,
 )
+from app.core.dependencies import get_current_user as get_current_user_dep
 from app.proxy import proxy_request
 from app.core.rate_limit import evaluate_rate_limit, get_client_ip
 from app.core.security import decode_token
@@ -637,6 +638,108 @@ async def settings_page(request: Request):
 @app.get("/saved-views", include_in_schema=False)
 async def saved_views_page(request: Request):
     return _render("saved_views.html", request)
+
+
+@app.get("/api/v1/wallet/pass", include_in_schema=False)
+async def apple_wallet_pass(
+    request: Request,
+    current_user: dict = Depends(get_current_user_dep),
+):
+    """
+    Generate an Apple Wallet (.pkpass) file for the user's recent transactions.
+    Requires APPLE_WALLET_PASS_TYPE_ID, APPLE_WALLET_TEAM_ID, APPLE_WALLET_CERT_PEM,
+    and APPLE_WALLET_KEY_PEM environment variables.
+    Returns the .pkpass file as application/vnd.apple.pkpass.
+    """
+    import os, io, json, zipfile, hashlib
+    from fastapi.responses import Response as FastAPIResponse
+
+    pass_type_id = os.environ.get("APPLE_WALLET_PASS_TYPE_ID", "")
+    team_id = os.environ.get("APPLE_WALLET_TEAM_ID", "")
+    cert_pem = os.environ.get("APPLE_WALLET_CERT_PEM", "")
+    key_pem = os.environ.get("APPLE_WALLET_KEY_PEM", "")
+
+    if not all([pass_type_id, team_id, cert_pem, key_pem]):
+        return FastAPIResponse(
+            content=json.dumps({
+                "error": "Apple Wallet not configured",
+                "detail": "Set APPLE_WALLET_PASS_TYPE_ID, APPLE_WALLET_TEAM_ID, APPLE_WALLET_CERT_PEM, APPLE_WALLET_KEY_PEM environment variables.",
+            }),
+            status_code=503,
+            media_type="application/json",
+        )
+
+    user_email = current_user.get("email", "")
+    user_id = int(current_user["id"])
+
+    pass_json = {
+        "formatVersion": 1,
+        "passTypeIdentifier": pass_type_id,
+        "serialNumber": f"fintrack-{user_id}",
+        "teamIdentifier": team_id,
+        "webServiceURL": f"{os.environ.get('APP_BASE_URL', '').rstrip('/')}/api/v1/wallet/",
+        "authenticationToken": "",
+        "organizationName": "FinTrack",
+        "description": "FinTrack Wallet Card",
+        "foregroundColor": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(99, 102, 241)",
+        "labelColor": "rgb(200, 200, 255)",
+        "generic": {
+            "primaryFields": [
+                {"key": "balance", "label": "Account", "value": user_email}
+            ],
+            "secondaryFields": [
+                {"key": "app", "label": "App", "value": "FinTrack"},
+            ],
+            "auxiliaryFields": [
+                {"key": "synced", "label": "Transactions", "value": "Open app to view"}
+            ],
+        },
+    }
+
+    pass_json_bytes = json.dumps(pass_json, separators=(",", ":")).encode("utf-8")
+
+    # Build manifest with SHA1 hashes
+    manifest = {
+        "pass.json": hashlib.sha1(pass_json_bytes).hexdigest(),
+    }
+    manifest_bytes = json.dumps(manifest).encode("utf-8")
+
+    # Sign manifest with PKCS7
+    try:
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.serialization.pkcs7 import PKCS7SignatureBuilder, PKCS7Options
+        from cryptography.x509 import load_pem_x509_certificate
+
+        cert = load_pem_x509_certificate(cert_pem.encode())
+        key = load_pem_private_key(key_pem.encode(), password=None)
+        signature = (
+            PKCS7SignatureBuilder()
+            .set_data(manifest_bytes)
+            .add_signer(cert, key, hashes.SHA256())
+            .sign(encoding=None, options=[PKCS7Options.DetachedSignature, PKCS7Options.NoCerts])
+        )
+    except Exception as e:
+        return FastAPIResponse(
+            content=json.dumps({"error": "Signing failed", "detail": str(e)}),
+            status_code=500,
+            media_type="application/json",
+        )
+
+    # Build .pkpass ZIP
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("pass.json", pass_json_bytes)
+        zf.writestr("manifest.json", manifest_bytes)
+        zf.writestr("signature", signature)
+    buf.seek(0)
+
+    return FastAPIResponse(
+        content=buf.read(),
+        media_type="application/vnd.apple.pkpass",
+        headers={"Content-Disposition": "attachment; filename=fintrack.pkpass"},
+    )
 
 
 app.middleware("http")(security_headers_middleware)

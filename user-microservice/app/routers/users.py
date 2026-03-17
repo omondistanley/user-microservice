@@ -17,6 +17,10 @@ from app.models.users import (
     RefreshRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    UserMeResponse,
+    UserMeUpdate,
+    ChangePasswordRequest,
+    EmailValidateRequest,
 )
 from app.services.service_factory import ServiceFactory
 from app.services.refresh_token_service import (
@@ -291,6 +295,116 @@ async def newuser(
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
+@router.get("/user/me", tags=["users"], response_model=UserMeResponse)
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Return full profile of the currently authenticated user."""
+    user_id = int(current_user["id"])
+    data_svc = ServiceFactory.get_service("UserResourceDataService")
+    if not data_svc:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    row = data_svc.get_data_object("users_db", "user", key_field="id", key_value=user_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserMeResponse(
+        id=int(row["id"]),
+        email=row["email"],
+        first_name=row.get("first_name"),
+        last_name=row.get("last_name"),
+        created_at=row.get("created_at"),
+        auth_provider=row.get("auth_provider"),
+    )
+
+
+@router.patch("/user/me", tags=["users"], response_model=UserMeResponse)
+async def patch_me(
+    body: UserMeUpdate,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update name and/or email of the current user."""
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    from app.core.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+
+    user_id = int(current_user["id"])
+    updates: dict = {}
+    if body.first_name is not None:
+        updates["first_name"] = body.first_name.strip()
+    if body.last_name is not None:
+        updates["last_name"] = body.last_name.strip()
+    if body.email is not None:
+        updates["email"] = str(body.email).strip().lower()
+    if not updates:
+        # Nothing to update — return current profile
+        return await get_me(current_user)
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [user_id]
+    conn = psycopg2.connect(
+        host=DB_HOST or "localhost",
+        port=int(DB_PORT) if DB_PORT else 5432,
+        user=DB_USER or "postgres",
+        password=DB_PASSWORD or "postgres",
+        dbname=DB_NAME or "users_db",
+        cursor_factory=RealDictCursor,
+    )
+    try:
+        conn.autocommit = True
+        cur = conn.cursor()
+        cur.execute(
+            f'UPDATE users_db."user" SET {set_clause} WHERE id = %s RETURNING id, email, first_name, last_name, created_at, auth_provider',
+            values,
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        write_audit_log(
+            action="profile_update",
+            user_id=user_id,
+            ip_address=_client_ip(request),
+            request_id=_request_id(request),
+            details={"fields": list(updates.keys())},
+        )
+        return UserMeResponse(
+            id=int(row["id"]),
+            email=row["email"],
+            first_name=row.get("first_name"),
+            last_name=row.get("last_name"),
+            created_at=row.get("created_at"),
+            auth_provider=row.get("auth_provider"),
+        )
+    finally:
+        conn.close()
+
+
+@router.post("/user/me/password", tags=["users"])
+async def change_my_password(
+    body: ChangePasswordRequest,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Change password: verify current password then hash and store new one."""
+    res = ServiceFactory.get_service("UserResource")
+    if not res:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    row = res.get_raw_by_email(current_user["email"])
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not row.get("password_hash"):
+        raise HTTPException(status_code=400, detail="Account uses social login; password cannot be changed here.")
+    if not verify_password(body.current_password, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    user_id = int(current_user["id"])
+    set_password(user_id, body.new_password)
+    revoke_all_refresh_tokens(user_id)
+    write_audit_log(
+        action="password_change",
+        user_id=user_id,
+        ip_address=_client_ip(request),
+        request_id=_request_id(request),
+    )
+    return {"message": "Password updated. Please sign in again on all devices."}
+
+
 @router.delete("/user/me", tags=["users"], status_code=204)
 async def delete_me(request: Request, current_user: dict = Depends(get_current_user)):
     user_id = int(current_user["id"])
@@ -431,3 +545,64 @@ async def export_me(
         media_type="application/zip",
         headers={"Content-Disposition": 'attachment; filename="my_data_export.zip"'},
     )
+
+
+@router.post("/api/v1/validate-email", tags=["auth"])
+async def validate_email_address(body: EmailValidateRequest):
+    """
+    Proxy to Rapid Email Validator API. Validates email syntax, MX records,
+    disposable domain detection, and role-based address checks.
+    Configure via RAPID_EMAIL_VALIDATOR_KEY env var (RapidAPI key).
+    Returns { valid: bool, disposable: bool, role_based: bool, reason: str }.
+    """
+    import os
+    api_key = os.environ.get("RAPID_EMAIL_VALIDATOR_KEY", "")
+    email = str(body.email).strip().lower()
+
+    if not api_key:
+        # No API key configured — do basic syntax + domain validation only
+        import re
+        valid_syntax = bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email))
+        return {
+            "valid": valid_syntax,
+            "disposable": False,
+            "role_based": False,
+            "reason": "basic_check" if valid_syntax else "invalid_syntax",
+            "configured": False,
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                "https://emailvalidation.abstractapi.com/v1/",
+                params={"api_key": api_key, "email": email},
+            )
+        if resp.status_code != 200:
+            return {"valid": True, "disposable": False, "role_based": False, "reason": "api_error", "configured": True}
+        data = resp.json()
+        is_valid_format = data.get("is_valid_format", {})
+        is_disposable = data.get("is_disposable_email", {})
+        is_role = data.get("is_role_email", {})
+        deliverability = (data.get("deliverability") or "").upper()
+        valid = (
+            (isinstance(is_valid_format, dict) and is_valid_format.get("value", True))
+            and deliverability in ("DELIVERABLE", "UNKNOWN", "")
+        )
+        disposable = isinstance(is_disposable, dict) and bool(is_disposable.get("value", False))
+        role_based = isinstance(is_role, dict) and bool(is_role.get("value", False))
+        reason = "ok"
+        if not valid:
+            reason = "undeliverable"
+        elif disposable:
+            reason = "disposable"
+        elif role_based:
+            reason = "role_based"
+        return {
+            "valid": valid,
+            "disposable": disposable,
+            "role_based": role_based,
+            "reason": reason,
+            "configured": True,
+        }
+    except Exception:
+        return {"valid": True, "disposable": False, "role_based": False, "reason": "api_timeout", "configured": True}

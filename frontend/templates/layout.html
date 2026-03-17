@@ -164,7 +164,7 @@
                 </a>
             </li>
             <li class="bottom-nav-item">
-                <button type="button" class="bottom-nav-link" id="bottom-nav-more-btn" aria-label="More navigation">
+                <button type="button" class="bottom-nav-link {% set more_paths = ['/profile', '/settings', '/sessions', '/household', '/notifications', '/net-worth', '/investments', '/recommendations', '/insights', '/reports', '/saved-views', '/settings/integrations', '/goals', '/income', '/recurring'] %}{% if request.url.path in more_paths or request.url.path.startswith('/settings') or request.url.path.startswith('/goals') %}active{% endif %}" id="bottom-nav-more-btn" aria-label="More navigation">
                     <span class="bottom-nav-icon">⋯</span>
                     <span>More</span>
                 </button>

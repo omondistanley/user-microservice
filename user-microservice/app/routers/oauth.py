@@ -19,6 +19,7 @@ from app.core.config import (
 )
 from app.core.security import create_access_token
 from app.services.refresh_token_service import create_refresh_token
+from app.services.session_service import create_session
 from app.services.audit_log_service import write_audit_log
 from app.services.service_factory import ServiceFactory
 
@@ -174,7 +175,8 @@ async def auth_google_callback(
         row = res.find_or_create_oauth_user("google", sub, email, first_name, last_name)
 
         our_access = create_access_token(sub=str(row["id"]), email=row["email"])
-        our_refresh = create_refresh_token(row["id"])
+        _session_id = create_session(row["id"], device_meta="oauth-google")
+        our_refresh = create_refresh_token(row["id"], session_id=_session_id)
         write_audit_log(
             action="login",
             user_id=row["id"],
@@ -332,7 +334,8 @@ async def auth_apple_callback_post(request: Request):
     row = res.find_or_create_oauth_user("apple", sub, email, first_name, last_name)
 
     our_access = create_access_token(sub=str(row["id"]), email=row["email"])
-    our_refresh = create_refresh_token(row["id"])
+    _session_id = create_session(row["id"], device_meta="oauth-apple")
+    our_refresh = create_refresh_token(row["id"], session_id=_session_id)
     write_audit_log(
         action="login",
         user_id=row["id"],

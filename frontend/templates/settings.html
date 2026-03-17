@@ -69,6 +69,16 @@
         <p id="scope-result" class="text-muted small" style="margin-top:.5rem;"></p>
     </div>
 
+    <!-- Apple Wallet -->
+    <div class="card-section">
+        <h2 class="h4">Apple Wallet</h2>
+        <p class="text-muted">Add your FinTrack card to Apple Wallet to quickly view your spending summary.</p>
+        <button type="button" id="add-to-wallet-btn" class="btn btn-secondary btn-sm" style="margin-top:.75rem;">
+            <span>Add to Apple Wallet</span>
+        </button>
+        <p id="wallet-result" class="text-muted small" style="margin-top:.5rem;"></p>
+    </div>
+
     <!-- Quick links -->
     <div class="card-section">
         <h2 class="h4">More Settings</h2>
@@ -143,17 +153,47 @@
     var themeSelect = document.getElementById('settings-theme-select');
     if (themeSelect) {
         try {
-            var stored = localStorage.getItem('theme') || 'dark';
+            var stored = localStorage.getItem('expense_theme') || 'dark';
             for (var i = 0; i < themeSelect.options.length; i++) {
                 if (themeSelect.options[i].value === stored) { themeSelect.selectedIndex = i; break; }
             }
         } catch(e) {}
         themeSelect.addEventListener('change', function() {
             var v = themeSelect.value;
-            try { localStorage.setItem('theme', v); } catch(e) {}
+            try { localStorage.setItem('expense_theme', v); } catch(e) {}
             // Mirror to the top-level theme selector used by theme.js
             var topSel = document.getElementById('theme-select');
             if (topSel) { topSel.value = v; topSel.dispatchEvent(new Event('change')); }
+        });
+    }
+
+    // Apple Wallet download
+    var walletBtn = document.getElementById('add-to-wallet-btn');
+    var walletResult = document.getElementById('wallet-result');
+    if (walletBtn) {
+        walletBtn.addEventListener('click', function() {
+            var h = headers();
+            walletResult.textContent = 'Generating pass…';
+            (window.Auth && window.Auth.requestWithRefresh
+                ? window.Auth.requestWithRefresh(window.API_BASE + '/api/v1/wallet/pass', { headers: h })
+                : fetch(window.API_BASE + '/api/v1/wallet/pass', { headers: h })
+            ).then(function(r) {
+                if (r.status === 503 || r.status === 500) {
+                    return r.json().then(function(d) {
+                        walletResult.textContent = d.detail || 'Apple Wallet is not configured on this server.';
+                    });
+                }
+                if (!r.ok) { walletResult.textContent = 'Could not generate pass.'; return; }
+                return r.blob().then(function(blob) {
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'fintrack.pkpass';
+                    a.click();
+                    setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+                    walletResult.textContent = 'Pass downloaded! Open it to add to Apple Wallet.';
+                });
+            }).catch(function() { walletResult.textContent = 'Error downloading pass.'; });
         });
     }
 

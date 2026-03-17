@@ -64,27 +64,53 @@
     }
 
     function loadHousehold() {
-        var fn = window.Auth && window.Auth.requestWithRefresh
-            ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/households/me', { headers: headers() }); }
-            : function() { return fetch(API + '/api/v1/households/me', { headers: headers() }); };
-        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
-            .then(function(d) {
-                if (infoEl) infoEl.innerHTML = '<strong>' + (d.name || 'Personal').replace(/</g,'&lt;') + '</strong>' +
-                    ' <span class="badge badge-secondary">' + (d.scope || 'personal') + '</span>';
-                var members = d.members || [];
-                if (!members.length) {
-                    membersEl.innerHTML = '<p class="text-muted">No other members yet.</p>';
-                    return;
-                }
-                membersEl.innerHTML = '<ul class="summary-list">' + members.map(function(m) {
-                    return '<li class="summary-list-item"><span>' + (m.email || m.user_id || '').replace(/</g,'&lt;') + '</span>' +
-                        '<span class="badge badge-secondary">' + (m.role || 'member') + '</span></li>';
-                }).join('') + '</ul>';
-            })
-            .catch(function() {
-                if (infoEl) infoEl.textContent = 'Personal household';
-                if (membersEl) membersEl.innerHTML = '<p class="text-muted">Could not load members.</p>';
-            });
+        Promise.all([
+            (window.Auth && window.Auth.requestWithRefresh
+                ? window.Auth.requestWithRefresh(API + '/api/v1/households', { headers: headers() })
+                : fetch(API + '/api/v1/households', { headers: headers() })
+            ).then(function(r) { return r.ok ? r.json() : []; }),
+            (window.Auth && window.Auth.requestWithRefresh
+                ? window.Auth.requestWithRefresh(API + '/api/v1/settings', { headers: headers() })
+                : fetch(API + '/api/v1/settings', { headers: headers() })
+            ).then(function(r) { return r.ok ? r.json() : null; })
+        ]).then(function(results) {
+            var households = results[0];
+            var settings = results[1];
+            var list = Array.isArray(households) ? households : (households && households.items ? households.items : []);
+            var activeId = settings && settings.active_household_id ? settings.active_household_id : null;
+            var active = list.find(function(h) { return h.household_id === activeId; }) || list[0];
+            window._activeHouseholdId = active ? (active.household_id || '') : '';
+            if (infoEl) {
+                infoEl.innerHTML = active
+                    ? '<strong>' + (active.name || 'Household').replace(/</g,'&lt;') + '</strong> <span class="badge badge-secondary">' + (active.role || 'member') + '</span>'
+                    : '<span class="text-muted">No households — create one.</span>';
+            }
+            // Load members for the active household
+            if (active && active.household_id) {
+                (window.Auth && window.Auth.requestWithRefresh
+                    ? window.Auth.requestWithRefresh(API + '/api/v1/households/' + active.household_id + '/members', { headers: headers() })
+                    : fetch(API + '/api/v1/households/' + active.household_id + '/members', { headers: headers() })
+                ).then(function(r) { return r.ok ? r.json() : []; })
+                .then(function(members) {
+                    var ml = Array.isArray(members) ? members : (members && members.items ? members.items : []);
+                    if (!ml.length) {
+                        membersEl.innerHTML = '<p class="text-muted">No other members yet.</p>';
+                        return;
+                    }
+                    membersEl.innerHTML = '<ul class="summary-list">' + ml.map(function(m) {
+                        return '<li class="summary-list-item"><span>' + (m.email || String(m.user_id || '')).replace(/</g,'&lt;') + '</span>' +
+                            '<span class="badge badge-secondary">' + (m.role || 'member') + '</span></li>';
+                    }).join('') + '</ul>';
+                }).catch(function() {
+                    membersEl.innerHTML = '<p class="text-muted">Could not load members.</p>';
+                });
+            } else {
+                membersEl.innerHTML = '<p class="text-muted">No other members yet.</p>';
+            }
+        }).catch(function() {
+            if (infoEl) infoEl.textContent = 'Personal household';
+            if (membersEl) membersEl.innerHTML = '<p class="text-muted">Could not load members.</p>';
+        });
     }
 
     if (inviteBtn) {
@@ -106,9 +132,14 @@
             var email = document.getElementById('invite-email').value;
             var role = document.getElementById('invite-role').value;
             var h = headers({'Content-Type': 'application/json'});
+            var activeHouseholdId = window._activeHouseholdId || '';
+            if (!activeHouseholdId) {
+                inviteResult.textContent = 'Please create a household first.';
+                return;
+            }
             var fn = window.Auth && window.Auth.requestWithRefresh
-                ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/households/invite', { method:'POST', headers:h, body: JSON.stringify({email:email,role:role}) }); }
-                : function() { return fetch(API + '/api/v1/households/invite', { method:'POST', headers:h, body: JSON.stringify({email:email,role:role}) }); };
+                ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/households/' + activeHouseholdId + '/members', { method:'POST', headers:h, body: JSON.stringify({email:email,role:role}) }); }
+                : function() { return fetch(API + '/api/v1/households/' + activeHouseholdId + '/members', { method:'POST', headers:h, body: JSON.stringify({email:email,role:role}) }); };
             fn().then(function(r) {
                 if (r.ok) {
                     inviteResult.textContent = 'Invite sent to ' + email;
@@ -121,6 +152,7 @@
         });
     }
 
+    window._activeHouseholdId = '';
     if (window.Auth && window.Auth.getAuthHeaders) {
         loadHousehold();
     } else {
