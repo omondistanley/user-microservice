@@ -31,6 +31,18 @@
         getLinkToken: function() {
             return request('/api/v1/plaid/link-token', { method: 'POST' });
         },
+        getHostedLink: function(completionRedirectUri) {
+            return request('/api/v1/plaid/link-hosted', {
+                method: 'POST',
+                body: completionRedirectUri ? { completion_redirect_uri: completionRedirectUri } : undefined,
+            });
+        },
+        linkTokenGet: function(linkToken) {
+            return request('/api/v1/plaid/link-token/get', {
+                method: 'POST',
+                body: { link_token: linkToken },
+            });
+        },
         exchangeItem: function(publicToken) {
             return request('/api/v1/plaid/item', {
                 method: 'POST',

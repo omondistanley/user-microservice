@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 import uuid
 from pathlib import Path
@@ -284,6 +285,7 @@ def _render(page: str, request: Request, **context):
         "expense_api_base": expense_api_base,
         "budget_api_base": budget_api_base,
         "gateway_public_url": "",  # always use relative paths; gateway is same-origin when accessed via port 8080
+        "plaid_flow": (os.environ.get("PLAID_FLOW", "hosted") or "hosted").strip().lower(),
         "csp_nonce": csp_nonce,
     }
     base_context.update(context)

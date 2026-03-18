@@ -2,6 +2,7 @@
 Plaid item storage: encrypted access_token, CRUD for plaid_item table.
 """
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import psycopg2
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 SCHEMA = "expenses_db"
 TABLE = "plaid_item"
+LINK_TOKEN_TABLE = "plaid_link_token"
 
 
 def _fernet():
@@ -160,5 +162,61 @@ class PlaidDataService:
                 (user_id, item_id),
             )
             return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def save_link_token(
+        self,
+        user_id: int,
+        link_token: str,
+        expiration_iso: Optional[str] = None,
+    ) -> None:
+        """Store a hosted Link link_token->user mapping (for webhook correlation)."""
+        token = (link_token or "").strip()
+        if not token:
+            return
+        expires_at = None
+        if expiration_iso:
+            try:
+                expires_at = datetime.fromisoformat(str(expiration_iso).replace("Z", "+00:00"))
+            except Exception:
+                expires_at = None
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'''
+                INSERT INTO "{SCHEMA}"."{LINK_TOKEN_TABLE}" (link_token, user_id, expires_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (link_token) DO UPDATE SET
+                    user_id = EXCLUDED.user_id,
+                    expires_at = COALESCE(EXCLUDED.expires_at, "{SCHEMA}"."{LINK_TOKEN_TABLE}".expires_at),
+                    updated_at = now()
+                ''',
+                (token, user_id, expires_at),
+            )
+        finally:
+            conn.close()
+
+    def get_user_id_for_link_token(self, link_token: str) -> Optional[int]:
+        token = (link_token or "").strip()
+        if not token:
+            return None
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'''
+                SELECT user_id
+                FROM "{SCHEMA}"."{LINK_TOKEN_TABLE}"
+                WHERE link_token = %s
+                LIMIT 1
+                ''',
+                (token,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return int(row["user_id"])
         finally:
             conn.close()

@@ -7,6 +7,7 @@
     <meta name="expense-api-base" content="{{ expense_api_base | default('') }}">
     <meta name="budget-api-base" content="{{ budget_api_base | default('') }}">
     <meta name="gateway-public-url" content="{{ gateway_public_url | default('') }}">
+    <meta name="plaid-flow" content="{{ plaid_flow | default('hosted') }}">
     <title>{% block title %}pocketii{% endblock %}</title>
     <link rel="manifest" href="/static/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">

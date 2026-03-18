@@ -112,17 +112,52 @@
     }).join('');
   }
 
-  var plaidPromise = (window.PlaidApi && window.PlaidApi.getItems)
-    ? window.PlaidApi.getItems().then(function(d) { return (d && d.items) ? d.items : []; }).catch(function() { return []; })
-    : Promise.resolve([]);
+  function loadPlaidItems() {
+    return (window.PlaidApi && window.PlaidApi.getItems)
+      ? window.PlaidApi.getItems().then(function(d) { return (d && d.items) ? d.items : []; }).catch(function() { return []; })
+      : Promise.resolve([]);
+  }
+
+  // Hosted Link finalization (fallback): use stored link_token to query /link/token/get for public_token.
+  function finalizeHostedPlaidIfNeeded() {
+    var flow = (window.PLAID_FLOW || 'hosted').toLowerCase();
+    if (flow === 'embedded') return Promise.resolve();
+    if (!window.PlaidApi || !window.PlaidApi.linkTokenGet || !window.PlaidApi.exchangeItem) return Promise.resolve();
+
+    var linkToken = null;
+    try { linkToken = localStorage.getItem('plaid_hosted_link_token'); } catch (e) { linkToken = null; }
+    if (!linkToken) return Promise.resolve();
+
+    var startedAt = Date.now();
+    function poll() {
+      return window.PlaidApi.linkTokenGet(linkToken).then(function(data) {
+        var pts = data && data.public_tokens ? data.public_tokens : [];
+        if (pts && pts.length) {
+          return window.PlaidApi.exchangeItem(pts[0]).then(function() {
+            try { localStorage.removeItem('plaid_hosted_link_token'); } catch (e) {}
+          });
+        }
+        if (Date.now() - startedAt > 2 * 60 * 1000) { // 2 minutes
+          return;
+        }
+        return new Promise(function(res) { setTimeout(res, 2000); }).then(poll);
+      }).catch(function() {
+        // Don't block success page; just proceed to rendering items.
+        return;
+      });
+    }
+    return poll();
+  }
 
   var tellerPromise = (window.TellerApi && window.TellerApi.getEnrollments)
     ? window.TellerApi.getEnrollments().then(function(d) { return (d && d.items) ? d.items : []; }).catch(function() { return []; })
     : Promise.resolve([]);
 
-  Promise.all([plaidPromise, tellerPromise]).then(function(results) {
-    var plaidItems = results[0];
-    var tellerItems = results[1];
+  finalizeHostedPlaidIfNeeded().then(function() {
+    return Promise.all([loadPlaidItems(), tellerPromise]);
+  }).then(function(results) {
+    var plaidItems = results[0] || [];
+    var tellerItems = results[1] || [];
     var html = '';
     html += renderItems(plaidItems, 'plaid');
     html += renderItems(tellerItems, 'teller');

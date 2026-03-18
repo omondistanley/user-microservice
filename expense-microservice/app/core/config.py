@@ -54,6 +54,13 @@ RATE_LIMIT_EXPENSES_PER_MINUTE: int = int(os.environ.get("RATE_LIMIT_EXPENSES_PE
 PLAID_CLIENT_ID: str = os.environ.get("PLAID_CLIENT_ID", "")
 PLAID_SECRET: str = os.environ.get("PLAID_SECRET", "")
 PLAID_ENV: str = os.environ.get("PLAID_ENV", "sandbox")  # sandbox, development, production
+# Hosted Link (optional): where Plaid redirects after Link completion
+PLAID_HOSTED_COMPLETION_REDIRECT_URI: str = os.environ.get(
+    "PLAID_HOSTED_COMPLETION_REDIRECT_URI",
+    "",
+).strip()
+# Hosted Link (recommended): where Plaid sends SESSION_FINISHED (contains public_token)
+PLAID_WEBHOOK_URL: str = os.environ.get("PLAID_WEBHOOK_URL", "").strip()
 # Fernet key for encrypting access_token (32 bytes base64). Generate: from cryptography.fernet import Fernet; Fernet.generate_key()
 ENCRYPTION_KEY: Optional[str] = os.environ.get("ENCRYPTION_KEY", "")
 

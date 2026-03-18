@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.core.dependencies import get_current_user_id
@@ -17,10 +17,12 @@ from app.services.plaid_data_service import (
 )
 from app.services.plaid_service import (
     create_link_token,
+    create_hosted_link_session,
     exchange_public_token,
     fetch_transactions,
     is_configured,
     item_get,
+    link_token_get,
 )
 from app.services.service_factory import ServiceFactory
 
@@ -34,6 +36,14 @@ class PlaidItemExchangeBody(BaseModel):
 class PlaidSyncBody(BaseModel):
     date_from: Optional[str] = None
     date_to: Optional[str] = None
+
+
+class PlaidHostedLinkBody(BaseModel):
+    completion_redirect_uri: Optional[str] = None
+
+
+class PlaidLinkTokenGetBody(BaseModel):
+    link_token: str
 
 
 def _get_plaid_data_service() -> PlaidDataService:
@@ -68,6 +78,149 @@ async def plaid_link_token(user_id: int = Depends(get_current_user_id)):
     if not link_token:
         raise HTTPException(status_code=503, detail="Failed to create link token")
     return {"link_token": link_token}
+
+
+@router.post("/link-hosted")
+async def plaid_link_hosted(
+    body: Optional[PlaidHostedLinkBody] = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Create a Plaid Hosted Link session and return the hosted URL + link_token.
+    The client should redirect the browser to hosted_link_url.
+
+    After the user completes the flow, obtain public_token via webhook (preferred) or
+    by calling /api/v1/plaid/link-token/get with the returned link_token (fallback).
+    """
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Plaid is not configured")
+    body = body or PlaidHostedLinkBody()
+    session = create_hosted_link_session(
+        user_id=user_id,
+        completion_redirect_uri=body.completion_redirect_uri,
+    )
+    if not session:
+        raise HTTPException(status_code=503, detail="Failed to create hosted link session")
+    # Store link_token -> user mapping for webhook correlation.
+    try:
+        pds = _get_plaid_data_service()
+        pds.save_link_token(user_id=user_id, link_token=session.get("link_token") or "", expiration_iso=session.get("expiration"))
+    except Exception:
+        pass
+    return session
+
+
+@router.post("/link-token/get")
+async def plaid_link_token_get(
+    body: PlaidLinkTokenGetBody,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Fallback path for Hosted Link: query Plaid for session completion + public_token.
+    Returns { status, public_tokens, link_sessions? }.
+    """
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Plaid is not configured")
+    token = (body.link_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="link_token required")
+    data = link_token_get(token)
+    if not data:
+        raise HTTPException(status_code=502, detail="Failed to get link token status")
+    # Return a stable subset for frontend polling
+    link_sessions = data.get("link_sessions") or []
+    public_tokens: list[str] = []
+    # Try new-style results first
+    try:
+        for s in link_sessions:
+            res = (s or {}).get("results") or {}
+            pts = res.get("public_tokens") or []
+            if isinstance(pts, list):
+                public_tokens.extend([str(x) for x in pts if x])
+            on_success = (s or {}).get("on_success") or {}
+            res2 = (on_success or {}).get("results") or {}
+            pts2 = res2.get("public_tokens") or []
+            if isinstance(pts2, list):
+                public_tokens.extend([str(x) for x in pts2 if x])
+    except Exception:
+        pass
+    # De-dup
+    public_tokens = list(dict.fromkeys([p for p in public_tokens if p]))
+    return {
+        "link_token": token,
+        "public_tokens": public_tokens,
+        "link_sessions": link_sessions,
+        "request_id": data.get("request_id"),
+    }
+
+
+@router.post("/webhook")
+async def plaid_webhook(request: Request):
+    """
+    Dedicated Plaid webhook receiver for Hosted Link (SESSION_FINISHED).
+    Expects the Plaid LINK webhook payload; when SUCCESS, exchanges public_token(s) and stores item(s).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return {"status": "ignored"}
+
+    if (body.get("webhook_type") or "").upper() != "LINK":
+        return {"status": "ignored"}
+    if (body.get("webhook_code") or "").upper() != "SESSION_FINISHED":
+        return {"status": "ignored"}
+    if (body.get("status") or "").upper() != "SUCCESS":
+        return {"status": "ignored", "reason": "not_success"}
+
+    link_token = (body.get("link_token") or "").strip()
+    public_tokens = body.get("public_tokens") or body.get("public_token") or []
+    if isinstance(public_tokens, str):
+        public_tokens = [public_tokens]
+    if not link_token or not isinstance(public_tokens, list) or not public_tokens:
+        return {"status": "ignored", "reason": "missing_tokens"}
+
+    pds = _get_plaid_data_service()
+    user_id = pds.get_user_id_for_link_token(link_token)
+    if not user_id:
+        # We may not have stored the link_token (older sessions); still accept.
+        return {"status": "accepted", "linked": 0, "reason": "unknown_link_token"}
+
+    linked = 0
+    errors: list[str] = []
+    for pt in public_tokens:
+        pt = (str(pt) or "").strip()
+        if not pt:
+            continue
+        try:
+            result = exchange_public_token(pt)
+            if not result:
+                errors.append("exchange_failed")
+                continue
+            access_token = result.get("access_token")
+            item_id = result.get("item_id")
+            if not access_token or not item_id:
+                errors.append("exchange_invalid")
+                continue
+            item_info = item_get(access_token)
+            institution_id = item_info.get("institution_id") if item_info else None
+            institution_name = (item_info.get("institution_name") or "Linked account") if item_info else "Linked account"
+            encrypted = encrypt_access_token(access_token)
+            if not encrypted:
+                errors.append("encryption_not_configured")
+                continue
+            pds.save_plaid_item(
+                user_id=user_id,
+                item_id=item_id,
+                access_token_encrypted=encrypted,
+                institution_id=institution_id,
+                institution_name=institution_name,
+            )
+            linked += 1
+        except Exception as e:
+            errors.append(str(e))
+    return {"status": "accepted", "linked": linked, "errors": errors[:5]}
 
 
 @router.post("/item")

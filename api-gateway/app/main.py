@@ -41,6 +41,8 @@ NO_JWT_PREFIXES = (
     "/auth",
     "/static",
     "/api/v1/apple-wallet",
+    # Plaid Hosted Link webhook (SESSION_FINISHED) must be unauthenticated
+    "/api/v1/plaid/webhook",
 )
 NO_JWT_EXACT = {"/", "/health", "/ready"}
 

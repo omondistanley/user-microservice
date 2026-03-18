@@ -12,10 +12,29 @@ Required (all in expense-microservice .env):
 - PLAID_ENV — sandbox | development | production (default: sandbox)
 - ENCRYPTION_KEY — Fernet key (32 bytes base64) for encrypting access tokens. Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
+Optional (Hosted Link):
+- PLAID_HOSTED_COMPLETION_REDIRECT_URI — where Plaid redirects after user finishes Hosted Link (e.g. https://pocketii.fly.dev/link-bank/success)
+- PLAID_WEBHOOK_URL — recommended for Hosted Link; SESSION_FINISHED webhook delivers public_token. Example: https://pocketii.fly.dev/api/v1/integrations/webhooks/plaid (or a dedicated /api/v1/plaid/webhook if you add one)
+
+Endpoints:
+- POST /api/v1/plaid/link-token — embedded Link: returns { link_token }
+- POST /api/v1/plaid/link-hosted — hosted Link: returns { hosted_link_url, link_token, expiration }
+- POST /api/v1/plaid/link-token/get — hosted Link fallback: returns public_tokens by calling Plaid /link/token/get (useful when webhooks are not configured)
+
 When any of PLAID_CLIENT_ID or PLAID_SECRET is missing or empty:
 - is_configured() is False; create_link_token() returns None.
 - API: POST /api/v1/plaid/link-token and POST /api/v1/plaid/item return 503 with detail "Plaid is not configured".
 - Frontend: Link bank page should show "Bank linking is not set up" and offer manual entry / CSV import instead of opening Plaid Link.
+
+=== Plaid Production checklist (US-first) ===
+- In Plaid Dashboard (Production):
+  - Enable product: Transactions
+  - Add Allowed origins: https://pocketii.fly.dev
+  - Add Redirect URIs (for Hosted Link/OAuth): https://pocketii.fly.dev/link-bank/success
+- In app env (production):
+  - Set PLAID_ENV=production and use Production keys for PLAID_CLIENT_ID / PLAID_SECRET
+  - Keep ENCRYPTION_KEY stable (rotation requires migrating stored access_tokens)
+  - Delete sandbox-linked items and re-link in production (tokens are env-specific)
 
 === Teller: env vars and "not configured" behavior ===
 Required (all in expense-microservice .env):

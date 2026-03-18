@@ -8,7 +8,13 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from app.core.config import PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV
+from app.core.config import (
+    PLAID_CLIENT_ID,
+    PLAID_ENV,
+    PLAID_HOSTED_COMPLETION_REDIRECT_URI,
+    PLAID_SECRET,
+    PLAID_WEBHOOK_URL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +63,55 @@ def create_link_token(user_id: int) -> Optional[str]:
         return None
 
 
+def create_hosted_link_session(
+    user_id: int,
+    completion_redirect_uri: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Create a Hosted Link session. Returns { hosted_link_url, link_token, expiration } or None.
+
+    Notes:
+    - Plaid does not guarantee delivering public_token via redirect; primary delivery is via webhook.
+    - We return link_token so the client can later call /link/token/get (fallback path) to obtain public_token.
+    """
+    if not is_configured():
+        return None
+    url = f"{_base_url()}/link/token/create"
+    hosted_link: Dict[str, Any] = {}
+    redirect = (completion_redirect_uri or PLAID_HOSTED_COMPLETION_REDIRECT_URI or "").strip()
+    if redirect:
+        hosted_link["completion_redirect_uri"] = redirect
+    payload: Dict[str, Any] = {
+        "client_id": PLAID_CLIENT_ID,
+        "secret": PLAID_SECRET,
+        "user": {"client_user_id": str(user_id)},
+        "client_name": "Expense Tracker",
+        "products": ["transactions"],
+        "country_codes": ["US"],
+        "language": "en",
+        "hosted_link": hosted_link,
+    }
+    if PLAID_WEBHOOK_URL:
+        payload["webhook"] = PLAID_WEBHOOK_URL
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            r = client.post(url, json=payload, headers=_headers())
+            r.raise_for_status()
+            data = r.json() or {}
+            hosted_url = data.get("hosted_link_url")
+            link_token = data.get("link_token")
+            if not hosted_url or not link_token:
+                return None
+            return {
+                "hosted_link_url": hosted_url,
+                "link_token": link_token,
+                "expiration": data.get("expiration"),
+            }
+    except Exception as e:
+        logger.exception("Plaid hosted link/token/create failed: %s", e)
+        return None
+
+
 def exchange_public_token(public_token: str) -> Optional[Dict[str, Any]]:
     """Exchange public_token for access_token and item_id. Returns dict with access_token, item_id or None."""
     if not is_configured():
@@ -75,6 +130,29 @@ def exchange_public_token(public_token: str) -> Optional[Dict[str, Any]]:
             return {"access_token": data.get("access_token"), "item_id": data.get("item_id")}
     except Exception as e:
         logger.exception("Plaid item/public_token/exchange failed: %s", e)
+        return None
+
+
+def link_token_get(link_token: str) -> Optional[Dict[str, Any]]:
+    """
+    Call /link/token/get to fetch session metadata and, if available, public_token(s).
+    Returns raw Plaid response dict (or None on error).
+    """
+    if not is_configured():
+        return None
+    url = f"{_base_url()}/link/token/get"
+    payload = {
+        "client_id": PLAID_CLIENT_ID,
+        "secret": PLAID_SECRET,
+        "link_token": link_token,
+    }
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(url, json=payload, headers=_headers())
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        logger.exception("Plaid link/token/get failed: %s", e)
         return None
 
 

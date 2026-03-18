@@ -202,24 +202,45 @@
 
   btn.addEventListener('click', function() {
     if (selectedProvider === 'plaid') {
-      if (!window.PlaidApi || !window.PlaidApi.getLinkToken) { showError('Plaid not loaded.'); return; }
-      window.PlaidApi.getLinkToken().then(function(data) {
-        var token = data && data.link_token;
-        if (!token) { showError('Could not get Plaid link token.'); return; }
-        if (typeof window.Plaid !== 'undefined' && window.Plaid.create) {
-          var handler = window.Plaid.create({
-            token: token,
-            onSuccess: function(publicToken) {
-              window.PlaidApi.exchangeItem(publicToken).then(function() {
-                window.location.href = '/link-bank/success';
-              }).catch(function(e) { showError(e.message || 'Failed to save Plaid account.'); });
-            },
-            onExit: function() {}
-          });
-          if (handler && handler.open) handler.open();
-          else showError('Plaid Link could not open.');
-        } else { showError('Plaid Link script did not load. Please refresh.'); }
-      }).catch(function(e) { showError(e.message || 'Failed to get Plaid link token.'); });
+      var flow = (window.PLAID_FLOW || 'hosted').toLowerCase();
+      if (flow === 'embedded') {
+        if (!window.PlaidApi || !window.PlaidApi.getLinkToken) { showError('Plaid not loaded.'); return; }
+        window.PlaidApi.getLinkToken().then(function(data) {
+          var token = data && data.link_token;
+          if (!token) { showError('Could not get Plaid link token.'); return; }
+          if (typeof window.Plaid !== 'undefined' && window.Plaid.create) {
+            var handler = window.Plaid.create({
+              token: token,
+              onSuccess: function(publicToken) {
+                window.PlaidApi.exchangeItem(publicToken).then(function() {
+                  window.location.href = '/link-bank/success';
+                }).catch(function(e) { showError(e.message || 'Failed to save Plaid account.'); });
+              },
+              onExit: function() {}
+            });
+            if (handler && handler.open) handler.open();
+            else showError('Plaid Link could not open.');
+          } else { showError('Plaid Link script did not load. Please refresh.'); }
+        }).catch(function(e) { showError(e.message || 'Failed to get Plaid link token.'); });
+        return;
+      }
+
+      // Hosted Link (preferred): backend returns hosted_link_url + link_token.
+      if (!window.PlaidApi || !window.PlaidApi.getHostedLink) { showError('Plaid not loaded.'); return; }
+      btn.disabled = true;
+      var completionRedirect = (window.location && window.location.origin)
+        ? (window.location.origin + '/link-bank/success')
+        : '/link-bank/success';
+      window.PlaidApi.getHostedLink(completionRedirect).then(function(data) {
+        var hostedUrl = data && data.hosted_link_url;
+        var linkToken = data && data.link_token;
+        if (!hostedUrl || !linkToken) { showError('Could not start hosted linking session.'); btn.disabled = false; return; }
+        try { localStorage.setItem('plaid_hosted_link_token', linkToken); } catch (e) {}
+        window.location.href = hostedUrl;
+      }).catch(function(e) {
+        showError(e.message || 'Failed to start hosted linking session.');
+        btn.disabled = false;
+      });
     } else {
       if (!window.TellerApi) { showError('Teller not loaded.'); return; }
       window.TellerApi.open(
