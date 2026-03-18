@@ -1,3 +1,5 @@
+# Docker I/O errors? See TROUBLESHOOTING.md
+# Build + run serially: ./scripts/docker-build-serial.sh up
 services:
   postgres:
     image: postgres:16-alpine

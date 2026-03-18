@@ -14,6 +14,10 @@
         <div class="stat-value" id="inv-total">—</div>
     </div>
     <div class="stat-card">
+        <div class="stat-label">Cost Basis</div>
+        <div class="stat-value" id="inv-cost">—</div>
+    </div>
+    <div class="stat-card">
         <div class="stat-label">Day Change</div>
         <div class="stat-value" id="inv-day-change">—</div>
     </div>
@@ -28,8 +32,8 @@
         <h2 class="page-title" style="font-size: 1.1rem;">Holdings</h2>
     </div>
     <p class="muted" style="margin-bottom: 0.75rem; font-size: 0.875rem;">
-        Add symbols (e.g. AAPL, VOO) with quantity and average cost. Your portfolio is used for
-        <a href="/recommendations">Recommendations</a> (risk metrics, scores, notes).
+        Add symbols (e.g. AAPL, VOO) with quantity and average cost. Connect Alpaca on the
+        <a href="/settings/integrations">Integrations</a> page to auto-sync your brokerage positions and enable buy/sell.
         Not financial advice. For informational purposes only.
     </p>
     <div class="table-wrap">
@@ -37,15 +41,16 @@
             <thead>
                 <tr>
                     <th>Symbol</th>
+                    <th>Source</th>
                     <th>Quantity</th>
-                    <th>Avg Price</th>
-                    <th>Value</th>
+                    <th>Avg Cost</th>
+                    <th>Market Price</th>
+                    <th>Market Value</th>
                     <th>Change %</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody id="inv-holdings-table-body">
-                <!-- Populated by holdings-list div logic below; JS targets #holdings-list -->
             </tbody>
         </table>
     </div>
@@ -111,59 +116,90 @@
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/investments.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function () {
-    // Mirror holdings-list content into the visible table and update stat cards
+    function fmt(n) {
+        return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function fmtChangePct(pct) {
+        if (pct == null || pct === '' || isNaN(Number(pct))) return '<span class="muted">—</span>';
+        var v = Number(pct);
+        var sign = v >= 0 ? '+' : '';
+        var color = v >= 0 ? 'var(--green,#38a169)' : 'var(--red,#e53e3e)';
+        return '<span style="color:' + color + ';font-weight:600;">' + sign + v.toFixed(2) + '%</span>';
+    }
+
     function syncTableFromList() {
         var listEl = document.getElementById('holdings-list');
         var tbody = document.getElementById('inv-holdings-table-body');
         var totalEl = document.getElementById('inv-total');
+        var costEl = document.getElementById('inv-cost');
+        var dayChangeEl = document.getElementById('inv-day-change');
         var countEl = document.getElementById('inv-count');
         var allocEl = document.getElementById('inv-allocation-list');
         if (!listEl || !tbody) return;
 
         var items = listEl.querySelectorAll('.holding-item');
         if (!items.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="muted">No holdings yet. Click "+ Add holding" to track a position.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="muted" style="padding:1rem;">No holdings yet. Click "+ Add holding" to track a position.</td></tr>';
             if (totalEl) totalEl.textContent = '$0.00';
+            if (costEl) costEl.textContent = '$0.00';
+            if (dayChangeEl) dayChangeEl.textContent = '$0.00';
             if (countEl) countEl.textContent = '0';
             if (allocEl) allocEl.innerHTML = '<span class="muted">Add holdings above to see allocation.</span>';
             return;
         }
 
-        var totalValue = 0;
+        // Prefer aggregates computed by investments.js (includes live quotes)
+        var totalMarket = listEl._totalMarketValue != null ? listEl._totalMarketValue : null;
+        var totalCost = listEl._totalCostBasis != null ? listEl._totalCostBasis : null;
+        var totalDayChange = listEl._totalDayChangeDollars != null ? listEl._totalDayChangeDollars : null;
+
         var rows = '';
         var alloc = [];
+        var computedMarket = 0;
+        var computedCost = 0;
 
         items.forEach(function (li) {
-            var sym = (li.querySelector('.holding-symbol') || {}).textContent || '';
-            var symOnly = sym.replace(/\s*Alpaca\s*$/i, '').trim();
-            var detailEl = li.querySelector('.holding-qty');
-            var detail = detailEl ? detailEl.textContent : '';
-            // parse "qty @ cost CURRENCY"
-            var match = detail.match(/([\d.]+)\s*@\s*([\d.,]+)/);
-            var qty = match ? parseFloat(match[1]) : 0;
-            var cost = match ? parseFloat(match[2].replace(/,/g, '')) : 0;
-            var value = qty * cost;
-            totalValue += value;
-            var holdingId = li.getAttribute('data-holding-id') || '';
+            var sym = li.getAttribute('data-symbol') || '';
+            var qty = parseFloat(li.getAttribute('data-quantity')) || 0;
+            var cost = parseFloat(li.getAttribute('data-cost')) || 0;
+            var price = li.getAttribute('data-price');
+            var changePct = li.getAttribute('data-change-pct');
             var source = (li.getAttribute('data-source') || '').toLowerCase();
-            var dataSym = li.getAttribute('data-symbol') || symOnly;
-            alloc.push({ sym: symOnly || dataSym, value: value });
+            var holdingId = li.getAttribute('data-holding-id') || '';
+
+            var priceNum = (price !== '' && price != null) ? parseFloat(price) : null;
+            var marketValue = priceNum != null ? qty * priceNum : qty * cost;
+            computedMarket += marketValue;
+            computedCost += qty * cost;
+
+            alloc.push({ sym: sym, value: marketValue });
+
+            var sourceLabel = source === 'alpaca'
+                ? '<span class="badge" style="font-size:0.7rem;padding:1px 6px;">Alpaca</span>'
+                : '<span style="font-size:0.75rem;color:var(--s400);">Manual</span>';
 
             rows += '<tr>';
-            rows += '<td><strong>' + (symOnly || dataSym) + '</strong></td>';
+            rows += '<td><strong>' + sym + '</strong></td>';
+            rows += '<td>' + sourceLabel + '</td>';
             rows += '<td>' + qty + '</td>';
-            rows += '<td>$' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>';
-            rows += '<td>$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>';
-            rows += '<td><span class="stat-change">—</span></td>';
-            rows += '<td>';
+            rows += '<td>' + fmt(cost) + '</td>';
+            rows += '<td>' + (priceNum != null ? fmt(priceNum) : '<span class="muted">—</span>') + '</td>';
+            rows += '<td>' + fmt(marketValue) + '</td>';
+            rows += '<td>' + fmtChangePct(changePct !== '' ? changePct : null) + '</td>';
+            rows += '<td style="white-space:nowrap;">';
             if (source === 'alpaca' && window.Investments && window.Investments.sellHolding) {
-                rows += '<button type="button" class="btn btn-ghost holding-table-sell" style="font-size:0.75rem; padding:0.15rem 0.5rem; margin-right:0.25rem;" data-symbol="' + (dataSym || symOnly) + '" data-quantity="' + qty + '">Sell</button>';
+                rows += '<button type="button" class="btn btn-ghost holding-table-sell"'
+                    + ' style="font-size:0.75rem;padding:0.15rem 0.5rem;margin-right:0.25rem;"'
+                    + ' data-symbol="' + sym + '" data-quantity="' + qty + '">Sell</button>';
             }
-            rows += '<button type="button" class="btn btn-ghost" style="font-size:0.75rem; padding:0.15rem 0.5rem;"'
-                  + ' data-holding-id="' + holdingId + '" onclick="(function(b){'
-                  + 'var li=document.querySelector(\'[data-holding-id=\\\'' + holdingId + '\\\']\');'
-                  + 'var del=li&&li.querySelector(\'.holding-delete\');if(del)del.click();'
-                  + '})(this)">Remove</button></td>';
+            rows += '<button type="button" class="btn btn-ghost"'
+                + ' style="font-size:0.75rem;padding:0.15rem 0.5rem;"'
+                + ' data-holding-id="' + holdingId + '"'
+                + ' onclick="(function(b){'
+                + 'var li=document.querySelector(\'[data-holding-id=\\\'' + holdingId + '\\\']\');'
+                + 'var del=li&&li.querySelector(\'.holding-delete\');if(del)del.click();'
+                + '})(this)">Remove</button>';
+            rows += '</td>';
             rows += '</tr>';
         });
 
@@ -172,20 +208,34 @@
             btn.addEventListener('click', function () {
                 var s = btn.getAttribute('data-symbol');
                 var q = btn.getAttribute('data-quantity');
-                if (s && q != null && window.Investments && window.Investments.sellHolding) window.Investments.sellHolding(s, parseFloat(q, 10));
+                if (s && q != null && window.Investments && window.Investments.sellHolding) {
+                    window.Investments.sellHolding(s, parseFloat(q));
+                }
             });
         });
-        if (totalEl) totalEl.textContent = '$' + totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        var displayMarket = totalMarket != null ? totalMarket : computedMarket;
+        var displayCost = totalCost != null ? totalCost : computedCost;
+        var displayDayChange = totalDayChange != null ? totalDayChange : 0;
+        var daySign = displayDayChange >= 0 ? '+' : '';
+        var dayColor = displayDayChange >= 0 ? 'var(--green,#38a169)' : 'var(--red,#e53e3e)';
+
+        if (totalEl) totalEl.textContent = fmt(displayMarket);
+        if (costEl) costEl.textContent = fmt(displayCost);
+        if (dayChangeEl) {
+            dayChangeEl.innerHTML = '<span style="color:' + dayColor + ';">'
+                + daySign + fmt(Math.abs(displayDayChange)).replace('$', '$') + '</span>';
+        }
         if (countEl) countEl.textContent = String(items.length);
 
         if (allocEl && alloc.length) {
-            var allocHtml = '<ul style="list-style:none; padding:0; margin:0;">';
+            var allocHtml = '<ul style="list-style:none;padding:0;margin:0;">';
             alloc.forEach(function (a) {
-                var pct = totalValue > 0 ? ((a.value / totalValue) * 100).toFixed(1) : '0.0';
-                allocHtml += '<li style="display:flex; align-items:center; gap:0.75rem; padding:0.4rem 0; border-bottom: 1px solid var(--border);">';
-                allocHtml += '<span style="min-width:4rem; font-weight:600;">' + a.sym + '</span>';
+                var pct = displayMarket > 0 ? ((a.value / displayMarket) * 100).toFixed(1) : '0.0';
+                allocHtml += '<li style="display:flex;align-items:center;gap:0.75rem;padding:0.4rem 0;border-bottom:1px solid var(--border);">';
+                allocHtml += '<span style="min-width:4rem;font-weight:600;">' + a.sym + '</span>';
                 allocHtml += '<div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:' + pct + '%;"></div></div>';
-                allocHtml += '<span style="min-width:3.5rem; text-align:right; font-size:0.875rem;">' + pct + '%</span>';
+                allocHtml += '<span style="min-width:3.5rem;text-align:right;font-size:0.875rem;">' + pct + '%</span>';
                 allocHtml += '</li>';
             });
             allocHtml += '</ul>';
@@ -193,14 +243,12 @@
         }
     }
 
-    // Observe mutations to hidden list so the table stays in sync
     var listEl = document.getElementById('holdings-list');
     if (listEl && typeof MutationObserver !== 'undefined') {
         var obs = new MutationObserver(function () { syncTableFromList(); });
-        obs.observe(listEl, { childList: true, subtree: true });
+        obs.observe(listEl, { childList: true, subtree: true, attributes: true });
     }
 
-    // Initial sync after investments.js runs
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { setTimeout(syncTableFromList, 400); });
     } else {

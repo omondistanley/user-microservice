@@ -57,6 +57,29 @@
     <!-- Right column -->
     <div style="display:flex;flex-direction:column;gap:20px;">
 
+        <!-- Alpaca -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">📈 Alpaca Brokerage</h2>
+                <span id="alpaca-badge" style="font-size:12px;padding:2px 8px;border-radius:12px;background:var(--s100);color:var(--s500);">Not connected</span>
+            </div>
+            <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Connect your Alpaca account to auto-sync holdings, view live positions, and place buy/sell orders from the Investments page.</p>
+            <div id="alpaca-connect-form" style="display:flex;flex-direction:column;gap:10px;">
+                <input id="alpaca-key-id" class="form-input" style="max-width:320px;" placeholder="API Key ID" autocomplete="off" />
+                <input id="alpaca-key-secret" class="form-input" style="max-width:320px;" placeholder="API Secret Key" type="password" autocomplete="off" />
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="alpaca-is-paper" checked style="width:16px;height:16px;" />
+                    <label for="alpaca-is-paper" style="font-size:13px;color:var(--s600);">Paper trading account</label>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button id="alpaca-link-btn" class="btn btn-primary" type="button">Connect</button>
+                    <button id="alpaca-sync-btn" class="btn btn-ghost" type="button" style="display:none;">Sync now</button>
+                    <button id="alpaca-unlink-btn" class="btn btn-ghost" type="button" style="display:none;color:var(--red,#e53e3e);">Disconnect</button>
+                </div>
+                <p id="alpaca-status-msg" style="font-size:13px;color:var(--s500);min-height:18px;"></p>
+            </div>
+        </div>
+
         <!-- Calendar reminders -->
         <div class="card">
             <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">📅 Calendar Reminders</h2>
@@ -242,6 +265,97 @@
             cal.textContent = 'Active token exists (rotate to reveal a new URL).';
         }
     }).catch(function() {});
+
+    // --- Alpaca ---
+    var alpacaBadge = document.getElementById('alpaca-badge');
+    var alpacaLinkBtn = document.getElementById('alpaca-link-btn');
+    var alpacaSyncBtn = document.getElementById('alpaca-sync-btn');
+    var alpacaUnlinkBtn = document.getElementById('alpaca-unlink-btn');
+    var alpacaStatusMsg = document.getElementById('alpaca-status-msg');
+    var alpacaKeyId = document.getElementById('alpaca-key-id');
+    var alpacaKeySecret = document.getElementById('alpaca-key-secret');
+    var alpacaIsPaper = document.getElementById('alpaca-is-paper');
+
+    function setAlpacaConnected(connected, isPaper, lastSync) {
+        if (connected) {
+            alpacaBadge.textContent = isPaper ? 'Connected (paper)' : 'Connected (live)';
+            alpacaBadge.style.background = 'var(--green-100,#c6f6d5)';
+            alpacaBadge.style.color = 'var(--green-800,#276749)';
+            alpacaLinkBtn.style.display = 'none';
+            alpacaSyncBtn.style.display = '';
+            alpacaUnlinkBtn.style.display = '';
+            alpacaKeyId.style.display = 'none';
+            alpacaKeySecret.style.display = 'none';
+            alpacaIsPaper.parentElement.style.display = 'none';
+            alpacaStatusMsg.textContent = lastSync ? 'Last synced: ' + new Date(lastSync).toLocaleString() : 'Never synced. Click "Sync now" to pull your positions.';
+        } else {
+            alpacaBadge.textContent = 'Not connected';
+            alpacaBadge.style.background = 'var(--s100)';
+            alpacaBadge.style.color = 'var(--s500)';
+            alpacaLinkBtn.style.display = '';
+            alpacaSyncBtn.style.display = 'none';
+            alpacaUnlinkBtn.style.display = 'none';
+            alpacaKeyId.style.display = '';
+            alpacaKeySecret.style.display = '';
+            alpacaIsPaper.parentElement.style.display = '';
+            alpacaStatusMsg.textContent = '';
+        }
+    }
+
+    fetchJson('/api/v1/alpaca/status').then(function(data) {
+        setAlpacaConnected(data.connected, data.is_paper, data.last_sync_at);
+    }).catch(function() { alpacaStatusMsg.textContent = 'Could not load Alpaca status.'; });
+
+    if (alpacaLinkBtn) {
+        alpacaLinkBtn.addEventListener('click', function() {
+            var keyId = alpacaKeyId.value.trim();
+            var keySecret = alpacaKeySecret.value.trim();
+            if (!keyId || !keySecret) { alpacaStatusMsg.textContent = 'Both API Key ID and Secret are required.'; return; }
+            alpacaLinkBtn.disabled = true;
+            alpacaStatusMsg.textContent = 'Connecting…';
+            fetchJson('/api/v1/alpaca/link', {
+                method: 'POST',
+                body: { api_key_id: keyId, api_key_secret: keySecret, is_paper: alpacaIsPaper.checked }
+            }).then(function(data) {
+                alpacaKeyId.value = '';
+                alpacaKeySecret.value = '';
+                setAlpacaConnected(true, data.is_paper, data.last_sync_at);
+                alpacaStatusMsg.textContent = 'Connected! Click "Sync now" to import your positions.';
+            }).catch(function(err) {
+                alpacaStatusMsg.textContent = 'Failed to connect: ' + (err.message || 'unknown error');
+            }).finally(function() { alpacaLinkBtn.disabled = false; });
+        });
+    }
+
+    if (alpacaSyncBtn) {
+        alpacaSyncBtn.addEventListener('click', function() {
+            alpacaSyncBtn.disabled = true;
+            alpacaStatusMsg.textContent = 'Syncing positions…';
+            fetchJson('/api/v1/alpaca/sync', { method: 'POST' }).then(function(data) {
+                alpacaStatusMsg.textContent = 'Synced ' + (data.synced || 0) + ' position(s). Visit the Investments page to see your holdings.';
+                return fetchJson('/api/v1/alpaca/status');
+            }).then(function(s) {
+                if (s) setAlpacaConnected(true, s.is_paper, s.last_sync_at);
+            }).catch(function(err) {
+                alpacaStatusMsg.textContent = 'Sync failed: ' + (err.message || 'unknown error');
+            }).finally(function() { alpacaSyncBtn.disabled = false; });
+        });
+    }
+
+    if (alpacaUnlinkBtn) {
+        alpacaUnlinkBtn.addEventListener('click', function() {
+            if (!confirm('Disconnect Alpaca? This will remove all Alpaca-synced holdings from your portfolio.')) return;
+            alpacaUnlinkBtn.disabled = true;
+            alpacaStatusMsg.textContent = 'Disconnecting…';
+            fetchJson('/api/v1/alpaca/link', { method: 'DELETE' }).then(function() {
+                setAlpacaConnected(false);
+                alpacaStatusMsg.textContent = 'Alpaca disconnected and holdings removed.';
+            }).catch(function() {
+                alpacaStatusMsg.textContent = 'Failed to disconnect.';
+            }).finally(function() { alpacaUnlinkBtn.disabled = false; });
+        });
+    }
+    // --- End Alpaca ---
 
     loadBankData();
     loadDigestConfig();

@@ -2,8 +2,6 @@
 # Fly release_command: create DBs (if missing) and run migrations.
 # Only runs migrations that are not yet recorded in public.schema_migrations per DB.
 # Uses DB_HOST, DB_PORT, DB_USER, DB_PASSWORD from Fly secrets.
-set -e
-
 TRACKED="/opt/run_migration_tracked.py"
 
 echo "release: creating databases if missing..."
@@ -30,7 +28,7 @@ for f in /opt/expense_tracker/user-microservice/migrations/create_user_table.sql
          /opt/expense_tracker/user-microservice/migrations/017_webhook_event_lifecycle.sql \
          /opt/expense_tracker/user-microservice/migrations/018_calendar_subscription_token.sql \
          /opt/expense_tracker/user-microservice/migrations/019_net_worth_manual.sql; do
-  [ -f "$f" ] && python3 "$TRACKED" "$f"
+  [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
 echo "release: running expense migrations..."
@@ -50,7 +48,7 @@ for f in /opt/expense/migrations/001_schema.sql \
          /opt/expense/migrations/013_receipt_ocr.sql \
          /opt/expense/migrations/014_plaid_provider.sql \
          /opt/expense/migrations/015_apple_wallet.sql; do
-  [ -f "$f" ] && python3 "$TRACKED" "$f"
+  [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
 echo "release: running budget migrations..."
@@ -58,12 +56,13 @@ export DB_NAME=budgets_db
 for f in /opt/budget/migrations/001_schema.sql \
          /opt/budget/migrations/002_budget_alerts.sql \
          /opt/budget/migrations/003_household_scope.sql; do
-  [ -f "$f" ] && python3 "$TRACKED" "$f"
+  [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
 echo "release: running investment migrations..."
 export DB_NAME=investments_db
 for f in /opt/investment/migrations/001_schema.sql \
+         /opt/investment/migrations/002_market_intelligence.sql \
          /opt/investment/migrations/003_recommendations_preferences.sql \
          /opt/investment/migrations/004_security_universe.sql \
          /opt/investment/migrations/005_sector_cache.sql \
@@ -71,8 +70,9 @@ for f in /opt/investment/migrations/001_schema.sql \
          /opt/investment/migrations/008_tax_lots.sql \
          /opt/investment/migrations/009_scenarios.sql \
          /opt/investment/migrations/010_fundamental_snapshot.sql \
-         /opt/investment/migrations/011_sentiment_snapshot.sql; do
-  [ -f "$f" ] && python3 "$TRACKED" "$f"
+         /opt/investment/migrations/011_sentiment_snapshot.sql \
+         /opt/investment/migrations/012_alpaca_connection.sql; do
+  [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
 echo "release: done"

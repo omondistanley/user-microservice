@@ -69,6 +69,46 @@ def run_alpaca_sync(job_id: str = "") -> dict:
     return {"processed": processed, "errors": errors, "job_id": job_id}
 
 
+def run_alpaca_sync_for_user(user_id: int) -> dict:
+    """
+    Sync Alpaca positions for a single user. Used by the user-triggered /alpaca/sync endpoint.
+    Returns { "synced": int, "errors": list } or { "error": str } if not connected.
+    """
+    conn_svc = AlpacaConnectionService(context=DB_CONTEXT)
+    holdings_svc = HoldingsDataService(context=DB_CONTEXT)
+    creds = conn_svc.get_credentials(user_id)
+    if not creds:
+        return {"error": "Alpaca not connected. Link your account first."}
+    errors = []
+    try:
+        positions = get_positions(
+            api_key_id=creds["api_key_id"],
+            api_key_secret=creds["api_key_secret"],
+            is_paper=creds["is_paper"],
+        )
+        holdings_svc.delete_holdings_by_source(user_id, "alpaca")
+        now = datetime.now(timezone.utc)
+        synced = 0
+        for i, pos in enumerate(positions):
+            external_id = pos.get("asset_id") or pos.get("symbol") or f"pos_{i}"
+            row = position_to_holding_row(user_id, pos, str(external_id))
+            if not row:
+                continue
+            row["created_at"] = now
+            row["updated_at"] = now
+            try:
+                holdings_svc.insert_holding(row)
+                synced += 1
+            except Exception as e:
+                logger.warning("alpaca_sync_for_user insert user_id=%s symbol=%s error=%s", user_id, row.get("symbol"), e)
+                errors.append({"symbol": row.get("symbol"), "error": str(e)})
+        conn_svc.mark_sync(user_id, when=now)
+        return {"synced": synced, "errors": errors}
+    except Exception as e:
+        logger.exception("alpaca_sync_for_user user_id=%s error=%s", user_id, e)
+        return {"error": str(e)}
+
+
 if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO)

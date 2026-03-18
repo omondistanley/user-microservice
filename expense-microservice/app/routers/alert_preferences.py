@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.routers.deps import get_current_user_id
+from app.core.dependencies import get_current_user_id
 from app.services.service_factory import ServiceFactory
 
 router = APIRouter(prefix="/api/v1/alert-preferences", tags=["alert-preferences"])

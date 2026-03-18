@@ -323,7 +323,7 @@ h1, h2, h3, h4 { color: var(--text-primary); font-weight: var(--fw-bold); line-h
 .btn-link-reset { border: 0; background: transparent; cursor: pointer; font: inherit; color: inherit; padding: 0; }
 
 /* ── 9. BADGES ─────────────────────────────────────────────── */
-.badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; vertical-align: middle; line-height: 1.4; }
+.badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; vertical-align: middle; line-height: 1.4; background: var(--indigo-100,#e0e7ff); color: var(--indigo,#6366F1); }
 .badge-indigo  { background: var(--indigo-100);  color: #4338CA; }
 .badge-emerald { background: var(--emerald-100); color: #065F46; }
 .badge-rose    { background: var(--rose-100);    color: #BE123C; }
@@ -342,7 +342,7 @@ h1, h2, h3, h4 { color: var(--text-primary); font-weight: var(--fw-bold); line-h
 
 /* ── 10. PROGRESS BARS ─────────────────────────────────────── */
 .progress-bar { height: 8px; background: var(--s100); border-radius: 20px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 20px; transition: width 0.3s ease; }
+.progress-fill { height: 100%; border-radius: 20px; transition: width 0.3s ease; background: var(--indigo); }
 .progress-fill.green  { background: var(--emerald); }
 .progress-fill.amber  { background: var(--amber); }
 .progress-fill.red    { background: var(--rose); }

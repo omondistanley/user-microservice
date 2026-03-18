@@ -118,14 +118,14 @@ async def alpaca_sync_trigger(
     user_id: int = Depends(get_current_user_id),
 ):
     """
-    Trigger a one-off sync of Alpaca positions for the current user.
+    Trigger a one-off sync of Alpaca positions for the current user only.
     Fetches positions from Alpaca and replaces holdings with source='alpaca'.
     """
-    from app.jobs.alpaca_sync import run_alpaca_sync
-    import uuid
-    # Run sync for all connected users; the job processes all, so we run and return result
-    result = run_alpaca_sync(job_id=str(uuid.uuid4()))
-    return {"synced": result.get("processed", 0), "errors": result.get("errors", [])}
+    from app.jobs.alpaca_sync import run_alpaca_sync_for_user
+    result = run_alpaca_sync_for_user(user_id)
+    if result.get("error"):
+        raise HTTPException(status_code=502, detail=result["error"])
+    return {"synced": result.get("synced", 0), "errors": result.get("errors", [])}
 
 
 @router.post("/alpaca/orders", response_model=dict)
