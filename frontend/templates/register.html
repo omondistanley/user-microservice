@@ -156,9 +156,11 @@
 (function() {
     var form = document.getElementById('register-form');
     var msg = document.getElementById('register-message');
+    var mobileSubmitBtn = form ? form.querySelector('button[type="submit"]') : null;
     var emailInput = document.getElementById('email');
     var emailHint = null;
     var emailTimer = null;
+    var desktopSubmitBtn = document.getElementById('register-submit-desktop');
 
     // Create email hint element
     if (emailInput) {
@@ -233,6 +235,10 @@
             var email = document.getElementById('email').value;
             var first_name = document.getElementById('first_name').value.trim();
             var last_name = document.getElementById('last_name').value.trim();
+            if (mobileSubmitBtn) {
+                mobileSubmitBtn.disabled = true;
+                mobileSubmitBtn.textContent = 'Creating…';
+            }
             window.Auth.register(email, first_name, last_name, password).then(function() {
                 msg.textContent = 'Account created. Redirecting…';
                 msg.className = 'auth-alert auth-alert--success';
@@ -243,10 +249,90 @@
                 msg.textContent = err.message || 'Registration failed';
                 msg.className = 'auth-alert auth-alert--error';
                 msg.style.display = 'block';
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create account'; }
+            }).finally(function() {
+                if (mobileSubmitBtn) {
+                    mobileSubmitBtn.disabled = false;
+                    mobileSubmitBtn.textContent = 'Create account →';
+                }
             });
         });
     }
+
+    function showDesktopError(text) {
+        if (!msg) return;
+        msg.textContent = text;
+        msg.className = 'auth-alert auth-alert--error';
+        msg.style.display = 'block';
+    }
+
+    function getDesktopValue(name) {
+        var el = document.querySelector('input[name="' + name + '"]');
+        return el ? (el.value || '') : '';
+    }
+
+    function handleDesktopRegister() {
+        if (!window.Auth || !window.Auth.register) {
+            showDesktopError('Registration is loading. Please try again.');
+            return;
+        }
+        if (msg) msg.style.display = 'none';
+        var first = getDesktopValue('first_name_d').trim();
+        var last = getDesktopValue('last_name_d').trim();
+        var email = getDesktopValue('email_d').trim();
+        var password = getDesktopValue('password_d');
+        var confirm = getDesktopValue('confirm_password_d');
+        var terms = document.getElementById('terms-d');
+        if (!first || !last || !email || !password || !confirm) {
+            showDesktopError('Please fill in all required fields.');
+            return;
+        }
+        if (terms && !terms.checked) {
+            showDesktopError('Please accept the Terms to continue.');
+            return;
+        }
+        if (password !== confirm) {
+            showDesktopError('Passwords do not match');
+            return;
+        }
+        if (desktopSubmitBtn) {
+            desktopSubmitBtn.disabled = true;
+            desktopSubmitBtn.textContent = 'Creating…';
+        }
+        window.Auth.register(email, first, last, password).then(function() {
+            if (msg) {
+                msg.textContent = 'Account created. Redirecting…';
+                msg.className = 'auth-alert auth-alert--success';
+                msg.style.display = 'block';
+            }
+            var redirectUrl = '/verify-email/pending' + (email ? '?email=' + encodeURIComponent(email) : '');
+            setTimeout(function() { window.location.href = redirectUrl; }, 1200);
+        }).catch(function(err) {
+            showDesktopError(err.message || 'Registration failed');
+        }).finally(function() {
+            if (desktopSubmitBtn) {
+                desktopSubmitBtn.disabled = false;
+                desktopSubmitBtn.textContent = 'Create account →';
+            }
+        });
+    }
+
+    if (desktopSubmitBtn) {
+        desktopSubmitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleDesktopRegister();
+        });
+    }
+
+    // Enter key on desktop inputs submits too
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && desktopSubmitBtn) {
+            var active = document.activeElement;
+            if (active && active.tagName === 'INPUT' && active.getAttribute('name') && active.getAttribute('name').endsWith('_d')) {
+                e.preventDefault();
+                handleDesktopRegister();
+            }
+        }
+    });
     var toggle = document.getElementById('register-password-toggle');
     var passwordInput = document.getElementById('password');
     if (toggle && passwordInput) {

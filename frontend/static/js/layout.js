@@ -1,6 +1,8 @@
 (function() {
     'use strict';
 
+    var path = window.location.pathname;
+
     var hash = window.location.hash;
     if (hash && hash.indexOf('access_token=') !== -1) {
         var params = new URLSearchParams(hash.slice(1));
@@ -128,7 +130,6 @@
         '/settings',
         '/saved-views',
     ];
-    var path = window.location.pathname;
     var isProtected = protectedPaths.indexOf(path) !== -1 || path.startsWith('/expenses/') || path.startsWith('/budgets/') || path.startsWith('/goals/') || path.startsWith('/investments/') || path.startsWith('/settings/');
     if (isProtected && window.Auth && !window.Auth.isLoggedIn()) {
         window.location.href = '/login?next=' + encodeURIComponent(path);

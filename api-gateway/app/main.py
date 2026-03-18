@@ -48,6 +48,9 @@ NO_JWT_EXACT = {"/", "/health", "/ready"}
 def _requires_jwt(path: str) -> bool:
     if path in NO_JWT_EXACT:
         return False
+    # Public pre-auth endpoint used by Register flow (email validation)
+    if path == "/api/v1/validate-email":
+        return False
     if path.startswith("/api/v1/") or path.startswith("/internal/"):
         return True
     for p in NO_JWT_PREFIXES:
