@@ -135,3 +135,34 @@ def compute_daily_sentiment(symbol: str, news_items: List[Dict[str, Any]]) -> fl
         if title or summary:
             texts.append((title + " " + summary).strip())
     return run_finbert(texts)
+
+
+def get_sentiment_trend_and_summary(
+    context: Dict[str, Any],
+    symbol: str,
+    as_of: date,
+    lookback_days: int = 7,
+) -> tuple:
+    """
+    Return (daily_scores, rolling_avg, summary_str) for use in explain/recommendations.
+    summary_str is 1-2 sentences describing level and trend; empty if no data.
+    """
+    days = get_daily_scores(context, symbol.strip().upper(), as_of, lookback_days)
+    rolling_avg = rolling_average(days, len(days)) if days else None
+    summary = ""
+    if days and rolling_avg is not None:
+        if rolling_avg > 0.2:
+            summary = f"Sentiment over the past week has been positive (7-day rolling average {rolling_avg:.2f})."
+        elif rolling_avg < -0.2:
+            summary = f"Sentiment over the past week has been negative (7-day rolling average {rolling_avg:.2f})."
+        else:
+            summary = f"Sentiment over the past week has been neutral to mixed (7-day rolling average {rolling_avg:.2f})."
+        if len(days) >= 2 and days[-1]["score"] < days[0]["score"] - 0.1:
+            summary += " Sentiment has turned more negative recently."
+        elif len(days) >= 2 and days[-1]["score"] > days[0]["score"] + 0.1:
+            summary += " Sentiment has improved recently."
+    return (
+        [{"date": str(d["snapshot_date"]), "score": round(d["score"], 4)} for d in days],
+        round(rolling_avg, 4) if rolling_avg is not None else None,
+        summary,
+    )

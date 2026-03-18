@@ -108,6 +108,11 @@ NEWS_PAGE_SIZE: int = int(os.environ.get("NEWS_PAGE_SIZE", "20"))
 SENTIMENT_THRESHOLD: float = float(os.environ.get("SENTIMENT_THRESHOLD", "-0.3"))
 SENTIMENT_LOOKBACK_DAYS: int = int(os.environ.get("SENTIMENT_LOOKBACK_DAYS", "7"))
 
+# Finance context for personalization: gateway or expense service URL (used with user JWT from request)
+GATEWAY_PUBLIC_URL: str = os.environ.get("GATEWAY_PUBLIC_URL", "").rstrip("/")
+EXPENSE_SERVICE_URL: str = os.environ.get("EXPENSE_SERVICE_URL", "").rstrip("/")
+FINANCE_CONTEXT_TIMEOUT_SECONDS: float = float(os.environ.get("FINANCE_CONTEXT_TIMEOUT_SECONDS", "8"))
+
 
 def get_cors_origins() -> list:
     if not CORS_ORIGINS or CORS_ORIGINS.strip() == "*":

@@ -45,8 +45,9 @@ class RiskProfileDataService:
         sharpe_objective: Optional[float] = None,
         loss_aversion: Optional[str] = None,
         constraints_json: Optional[Dict[str, Any]] = None,
+        use_finance_data_for_recommendations: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        """Insert or update risk profile. Optional columns industry_preferences, sharpe_objective, loss_aversion (migration 003)."""
+        """Insert or update risk profile. Optional columns industry_preferences, sharpe_objective, loss_aversion (003), use_finance_data_for_recommendations (013)."""
         conn = self._get_connection()
         conn.autocommit = False
         try:
@@ -78,6 +79,9 @@ class RiskProfileDataService:
             if constraints_json is not None:
                 updates.append("constraints_json = %s")
                 vals.append(Json(constraints_json))
+            if use_finance_data_for_recommendations is not None:
+                updates.append("use_finance_data_for_recommendations = %s")
+                vals.append(use_finance_data_for_recommendations)
 
             if existing:
                 if not vals:

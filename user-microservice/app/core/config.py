@@ -16,7 +16,7 @@ load_dotenv(_env_path)
 
 SECRET_KEY: str = os.environ.get("SECRET_KEY", "")
 ALGORITHM: str = os.environ.get("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 RESET_TOKEN_EXPIRE_HOURS: int = int(os.environ.get("RESET_TOKEN_EXPIRE_HOURS", "1"))
 

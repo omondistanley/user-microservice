@@ -27,6 +27,10 @@ class RiskProfileUpdate(BaseModel):
     )
     sharpe_objective: Optional[float] = Field(None, description="Target Sharpe ratio")
     loss_aversion: Optional[str] = Field(None, description="moderate | low | high")
+    use_finance_data_for_recommendations: Optional[bool] = Field(
+        None,
+        description="When true, use savings, goals, expenses, and budget to personalize recommendations.",
+    )
 
     @field_validator("sharpe_objective", mode="before")
     @classmethod
@@ -78,10 +82,13 @@ async def get_risk_profile(
             "industry_preferences": [],
             "sharpe_objective": None,
             "loss_aversion": "moderate",
+            "use_finance_data_for_recommendations": False,
         }
     out = dict(profile)
     if out.get("industry_preferences") is None:
         out["industry_preferences"] = []
+    if out.get("use_finance_data_for_recommendations") is None:
+        out["use_finance_data_for_recommendations"] = False
     return out
 
 
@@ -102,6 +109,7 @@ async def update_risk_profile(
             industry_preferences=payload.industry_preferences,
             sharpe_objective=payload.sharpe_objective,
             loss_aversion=payload.loss_aversion,
+            use_finance_data_for_recommendations=payload.use_finance_data_for_recommendations,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

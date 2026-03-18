@@ -1,13 +1,21 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.core.config import RECOMMENDATIONS_PAGE_SIZE
+from app.core.config import (
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWORD,
+    DB_PORT,
+    DB_USER,
+    RECOMMENDATIONS_PAGE_SIZE,
+    SENTIMENT_LOOKBACK_DAYS,
+)
 from app.core.dependencies import get_current_user_id
 from app.services.analyst_universe import get_security_info
 from app.services.recommendation_data_service import RecommendationDataService
@@ -15,6 +23,7 @@ from app.services.recommendation_engine import RecommendationEngine
 from app.services.service_factory import ServiceFactory
 from app.services.market_data_router import MarketDataRouter, get_default_market_data_router
 from app.services.news_router import get_news_for_symbol
+from app.services.sentiment_service import get_sentiment_trend_and_summary
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["recommendations"])
@@ -36,13 +45,25 @@ def _get_market_router() -> MarketDataRouter:
     return get_default_market_data_router()
 
 
+def _db_context() -> Dict[str, Any]:
+    return {
+        "host": DB_HOST or "localhost",
+        "port": int(DB_PORT) if DB_PORT else 5432,
+        "user": DB_USER or "postgres",
+        "password": DB_PASSWORD or "postgres",
+        "dbname": DB_NAME or "investments_db",
+    }
+
+
 @router.post("/recommendations/run", response_model=dict)
 async def run_recommendations(
+    request: Request,
     user_id: int = Depends(get_current_user_id),
     engine: RecommendationEngine = Depends(_get_engine),
 ) -> Dict[str, Any]:
+    auth_header = request.headers.get("Authorization") if request else None
     try:
-        result = engine.run_for_user(user_id)
+        result = engine.run_for_user(user_id, auth_header=auth_header)
     except Exception as exc:
         msg = str(exc).strip() if str(exc).strip() else "Recommendation run failed. Ensure migrations (003) are applied."
         logger.exception("Recommendations run failed for user_id=%s: %s", user_id, exc)
@@ -242,6 +263,8 @@ async def explain_recommendations(
                     "current_price": str(quote.price),
                     "as_of": quote.as_of.isoformat() if quote.as_of else None,
                 }
+                if getattr(quote, "change_pct", None) is not None:
+                    market["change_pct"] = float(quote.change_pct)
                 bars_30d = await asyncio.wait_for(
                     market_router.get_bars(enrich_symbol, "1d", start_30d, end_dt),
                     timeout=BARS_ENRICH_TIMEOUT,
@@ -265,6 +288,19 @@ async def explain_recommendations(
                 except Exception:
                     pass
                 expl["market"] = market
+                # Dedicated enrichment block for modal
+                enrichment: Dict[str, Any] = {
+                    "quote": {
+                        "price": str(quote.price),
+                        "as_of": quote.as_of.isoformat() if quote.as_of else None,
+                        "change_pct": float(quote.change_pct) if getattr(quote, "change_pct", None) is not None else None,
+                    },
+                    "trend_1m_pct": market.get("trend_1m_pct"),
+                    "52w_high": market.get("52w_high"),
+                    "52w_low": market.get("52w_low"),
+                    "data_freshness": expl["data_freshness"],
+                }
+                expl["enrichment"] = enrichment
             except Exception:
                 pass
             try:
@@ -276,8 +312,25 @@ async def explain_recommendations(
                     if not isinstance(expl["news_factors"], dict):
                         expl["news_factors"] = {}
                     expl["news_factors"]["recent_news"] = recent
+                    if expl.get("enrichment") is not None and isinstance(expl["enrichment"], dict):
+                        expl["enrichment"]["recent_news"] = recent
                     if news_items and news_items[0].get("title"):
                         expl["analyst_note"] = (expl.get("analyst_note") or "") + " Latest: " + (news_items[0].get("title") or "")[:120]
+            except Exception:
+                pass
+            # Sentiment: 7d trend and summary paragraph
+            try:
+                ctx = _db_context()
+                today = date(end_dt.year, end_dt.month, end_dt.day)
+                daily_scores, rolling_avg, summary_str = get_sentiment_trend_and_summary(
+                    ctx, enrich_symbol, today, SENTIMENT_LOOKBACK_DAYS
+                )
+                expl["sentiment_trend_7d"] = {
+                    "daily_scores": list(daily_scores),
+                    "rolling_avg_7d": rolling_avg,
+                }
+                if summary_str:
+                    expl["sentiment_summary"] = summary_str
             except Exception:
                 pass
 

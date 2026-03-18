@@ -10,6 +10,7 @@
 </div>
 
 <div id="link-error" class="message-error" style="display:none;margin-bottom:16px;"></div>
+<p id="link-bank-status-hint" class="muted" style="display:none;margin-bottom:16px;font-size:13px;"></p>
 
 <div id="bank-not-configured-wrap" style="display:none;margin-bottom:20px;">
     <div class="card" style="border-left:4px solid var(--amber);background:var(--s50);">
@@ -135,24 +136,33 @@
     if (window.Auth && window.Auth.getAuthHeaders) return window.Auth.getAuthHeaders();
     return {};
   }
-  function fetchWithAuth(url) {
-    var opt = { method: 'GET', headers: getAuthHeaders() };
-    var fn = (window.Auth && window.Auth.requestWithRefresh) ? function() { return window.Auth.requestWithRefresh(url, opt); } : function() { return fetch(url, opt); };
-    return fn().then(function(r) { return { ok: r.ok, status: r.status }; });
+  /** Plain fetch for status only: no requestWithRefresh, so 401 does not trigger redirect. */
+  function fetchStatus(url, isTellerConfig) {
+    return fetch(url, { method: 'GET', headers: getAuthHeaders() })
+      .then(function(r) {
+        if (!r.ok) return { ok: false, status: r.status, configured: false };
+        return r.json().then(function(d) {
+          var configured = !!(d && (d.configured === true || (isTellerConfig && d.app_id)));
+          return { ok: true, status: r.status, configured: configured };
+        }).catch(function() { return { ok: false, status: r.status, configured: false }; });
+      })
+      .catch(function() { return { ok: false, status: 0, configured: false }; });
   }
   function checkProvidersConfigured() {
-    var plaidOk = fetchWithAuth(API + '/api/v1/plaid/status').then(function(r) { return r.ok; });
-    var tellerOk = fetchWithAuth(API + '/api/v1/teller/config').then(function(r) { return r.ok; });
-    var truelayerOk = fetchWithAuth(API + '/api/v1/truelayer/status').then(function(r) { return r.ok; });
-    Promise.all([plaidOk, tellerOk, truelayerOk]).then(function(results) {
-      var anyConfigured = results[0] || results[1] || results[2];
-      if (!anyConfigured && notConfiguredWrap && providerSection && footerSection) {
-        notConfiguredWrap.style.display = 'block';
-        providerSection.style.display = 'none';
-        footerSection.style.display = 'none';
+    var statusHint = document.getElementById('link-bank-status-hint');
+    Promise.all([
+      fetchStatus(API + '/api/v1/plaid/status', false),
+      fetchStatus(API + '/api/v1/teller/config', true),
+      fetchStatus(API + '/api/v1/truelayer/status', false)
+    ]).then(function(results) {
+      var had401 = results.some(function(r) { return r.status === 401; });
+      var anyConfigured = results.some(function(r) { return r.ok && r.configured; });
+      if (had401 && statusHint) {
+        statusHint.textContent = 'Session may have expired. Try again or log in again.';
+        statusHint.style.display = 'block';
       }
-    }).catch(function() {
-      if (notConfiguredWrap && providerSection && footerSection) {
+      if (had401) return;
+      if (!anyConfigured && notConfiguredWrap && providerSection && footerSection) {
         notConfiguredWrap.style.display = 'block';
         providerSection.style.display = 'none';
         footerSection.style.display = 'none';

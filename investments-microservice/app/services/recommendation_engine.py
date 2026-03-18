@@ -20,6 +20,7 @@ from app.services.risk_profile_service import RiskProfileDataService
 from app.services.service_factory import ServiceFactory
 from app.services.ai_explainer import generate_narrative, is_enabled as ai_explainer_enabled
 from app.services.analyst_universe import get_analyst_universe, get_security_info
+from app.services.finance_context_client import fetch_finance_context, FinanceContext
 
 
 def _run_narrative_sync(explanation: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
@@ -127,6 +128,46 @@ def _score_universe_candidate_breakdown(
     return total, breakdown
 
 
+# Soft scoring: max total penalty so one metric does not wipe out aggressive suggestions
+FINANCE_PENALTY_CAP = Decimal("0.30")
+SAVINGS_RATE_THRESHOLD = 0.10
+GOAL_HORIZON_MONTHS_THRESHOLD = 12
+GOALS_BEHIND_PENALTY = Decimal("0.08")
+MANY_GOALS_COUNT = 4
+
+
+def _finance_penalty(finance_ctx: Optional[FinanceContext], risk_band: str) -> Decimal:
+    """Return penalty to subtract from score when candidate/holding is aggressive or balanced and finance context suggests caution."""
+    if finance_ctx is None or not finance_ctx.data_fresh:
+        return Decimal("0")
+    band = (risk_band or "balanced").lower()
+    if band == "conservative":
+        return Decimal("0")
+    penalty = Decimal("0")
+    if finance_ctx.savings_rate is not None and finance_ctx.savings_rate < SAVINGS_RATE_THRESHOLD:
+        penalty += Decimal("0.06")
+    if finance_ctx.surplus is not None and finance_ctx.surplus <= 0:
+        penalty += Decimal("0.08")
+    if finance_ctx.goal_horizon_months is not None and finance_ctx.goal_horizon_months < GOAL_HORIZON_MONTHS_THRESHOLD:
+        penalty += Decimal("0.05")
+    if finance_ctx.goals_behind:
+        penalty += GOALS_BEHIND_PENALTY
+    if finance_ctx.active_goals_count >= MANY_GOALS_COUNT:
+        penalty += Decimal("0.03")
+    if band == "balanced":
+        penalty = penalty * Decimal("0.5")
+    return min(penalty, FINANCE_PENALTY_CAP)
+
+
+def _get_risk_band_for_symbol(symbol: str) -> str:
+    """Return risk_band from analyst universe for symbol, else 'balanced'."""
+    universe = get_analyst_universe()
+    for c in universe:
+        if (c.get("symbol") or "").strip().upper() == (symbol or "").strip().upper():
+            return (c.get("risk_band") or "balanced").lower()
+    return "balanced"
+
+
 class RecommendationEngine:
     """Two-stage recommendation engine (heuristic + predictive-style reranker).
 
@@ -147,7 +188,9 @@ class RecommendationEngine:
         self.rec_svc = rec_svc or _get_recommendation_data_service()
         self.logger = logging.getLogger("investments_recommendations")
 
-    def _run_no_holdings(self, user_id: int, risk: Dict[str, Any]) -> Dict[str, Any]:
+    def _run_no_holdings(
+        self, user_id: int, risk: Dict[str, Any], finance_ctx: Optional[Any] = None
+    ) -> Dict[str, Any]:
         """
         Generate recommendations when user has no holdings: suggest a starter portfolio
         from the analyst universe, scored by risk_tolerance, industry_preferences,
@@ -174,6 +217,8 @@ class RecommendationEngine:
             desc = c.get("description") or sym
             # Normalize score to 0–1 range for display; use rank so higher rank = higher score
             combined = Decimal("1") - (Decimal(rank - 1) / Decimal(max(len(chosen), 1))) * Decimal("0.5")
+            combined -= _finance_penalty(finance_ctx, risk_band)
+            combined = max(Decimal("0"), min(Decimal("1"), combined))
             conf = Decimal("0.85") - (Decimal(rank - 1) / Decimal(max(len(chosen), 1))) * Decimal("0.2")
             conf = max(Decimal("0.5"), min(Decimal("1"), conf))
 
@@ -183,6 +228,8 @@ class RecommendationEngine:
             ]
             if risk.get("industry_preferences"):
                 why.append("Matches or complements your stated industry/sector preferences.")
+            if finance_ctx is not None:
+                why.append("Given your current savings rate and goals, we've tilted suggestions slightly more conservative where appropriate.")
             why.append(f"Use this as a starting idea; add the symbol to Holdings when you are ready.")
 
             sec = get_security_info(sym) or {}
@@ -217,6 +264,8 @@ class RecommendationEngine:
                 "news_factors": {"sentiment_score_7d": None, "event_flags": []},
                 "analyst_note": f"{desc}. Suggested to help you build a portfolio that can grow while managing risk.",
             }
+            if finance_ctx is not None:
+                explanation["personalized_with_finance_data"] = True
 
             if ai_explainer_enabled():
                 try:
@@ -266,17 +315,25 @@ class RecommendationEngine:
             },
         }
 
-    def run_for_user(self, user_id: int) -> Dict[str, Any]:
+    def run_for_user(self, user_id: int, auth_header: Optional[str] = None) -> Dict[str, Any]:
         """Generate recommendations, persist run + items, and return summary.
         Works with or without holdings: no holdings = suggest starter portfolio from analyst universe
         using industry/risk/Sharpe preferences to help user make money, save money, and avoid losses.
+        When use_finance_data_for_recommendations is True and auth_header is provided, fetches savings/goals
+        from expense service for soft scoring and narrative.
         """
         holdings_rows = self.holdings_svc.list_all_holdings_for_user(user_id)
         risk = self.risk_svc.get_risk_profile(user_id) or {}
+        finance_ctx = None
+        if risk.get("use_finance_data_for_recommendations") and auth_header:
+            try:
+                finance_ctx = fetch_finance_context(auth_header)
+            except Exception:
+                pass
 
         # No-holdings path: suggest a starter portfolio from analyst universe (preference-aware).
         if not holdings_rows:
-            return self._run_no_holdings(user_id, risk)
+            return self._run_no_holdings(user_id, risk, finance_ctx)
 
         # With-holdings path: rank existing positions + preference-aware scoring.
         snapshot = self.snapshot_svc.get_latest_snapshot(user_id)
@@ -347,6 +404,9 @@ class RecommendationEngine:
             h_score = Decimal(str(item["heuristic_score"]))
             model_score = h_score / (Decimal("1") + abs(h_score))
             combined = (h_score * Decimal("0.7")) + (model_score * Decimal("0.3"))
+            risk_band = _get_risk_band_for_symbol(item["symbol"])
+            combined -= _finance_penalty(finance_ctx, risk_band)
+            combined = max(Decimal("0"), combined)
 
             conf = Decimal("1.0")
             conf -= vol_annual * Decimal("0.5")
@@ -374,6 +434,8 @@ class RecommendationEngine:
                 why_selected.append(f"Your risk tolerance ({risk.get('risk_tolerance')}) is reflected in the score.")
             if risk.get("sharpe_objective") is not None:
                 why_selected.append("Compared against your target Sharpe objective to favor risk-adjusted return.")
+            if finance_ctx is not None:
+                why_selected.append("Given your current savings rate and goals, we've tilted suggestions slightly more conservative where appropriate.")
             why_selected.append("Aims to support making money and avoiding undue losses via diversification and weight limits.")
 
             sec = get_security_info(item["symbol"])
@@ -422,6 +484,8 @@ class RecommendationEngine:
                     "event_flags": [],
                 },
             }
+            if finance_ctx is not None:
+                explanation["personalized_with_finance_data"] = True
 
             if ai_explainer_enabled():
                 try:
@@ -460,6 +524,8 @@ class RecommendationEngine:
             desc = c.get("description") or sym
             # Normalize for display: map raw score to 0-1 range (universe scores are typically 0.8-2.x)
             combined = min(Decimal("1"), max(Decimal("0"), (s - Decimal("0.5")) / Decimal("2")))
+            combined -= _finance_penalty(finance_ctx, risk_band)
+            combined = max(Decimal("0"), min(Decimal("1"), combined))
             conf = Decimal("0.75")
 
             why = [
@@ -468,6 +534,8 @@ class RecommendationEngine:
             ]
             if risk.get("industry_preferences"):
                 why.append("Matches or complements your stated industry/sector preferences.")
+            if finance_ctx is not None:
+                why.append("Given your current savings rate and goals, we've tilted suggestions slightly more conservative where appropriate.")
             why.append("Add to Holdings when ready.")
 
             sec = get_security_info(sym) or {}
@@ -489,6 +557,8 @@ class RecommendationEngine:
                 "news_factors": {"sentiment_score_7d": None, "event_flags": []},
                 "analyst_note": f"{desc}. Suggested to diversify or add exposure.",
             }
+            if finance_ctx is not None:
+                explanation["personalized_with_finance_data"] = True
             items_with_scores.append({
                 "symbol": sym,
                 "score": combined,

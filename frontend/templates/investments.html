@@ -27,6 +27,36 @@
     </div>
 </div>
 
+<!-- Gains & loss over time -->
+<div class="card" id="inv-gains-section">
+    <div class="page-header" style="margin-bottom: 0.75rem;">
+        <h2 class="page-title" style="font-size: 1.1rem;">Gains &amp; loss over time</h2>
+    </div>
+    <p class="muted" style="font-size: 0.875rem; margin-bottom: 0.75rem;">
+        Based on current holdings and historical prices. Toggle series below to compare total, manual-only, or Alpaca-only.
+    </p>
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap: 0.75rem; margin-bottom: 1rem;">
+        <span style="font-size: 0.8125rem; color: var(--text-muted);">Time range:</span>
+        <div style="display:flex; gap: 0.25rem;">
+            <button type="button" class="btn btn-sm btn-ghost inv-gains-days" data-days="30">30d</button>
+            <button type="button" class="btn btn-sm btn-primary inv-gains-days" data-days="90">90d</button>
+            <button type="button" class="btn btn-sm btn-ghost inv-gains-days" data-days="365">1y</button>
+        </div>
+        <span style="font-size: 0.8125rem; color: var(--text-muted); margin-left: 0.5rem;">Show:</span>
+        <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
+            <input type="checkbox" id="inv-gains-total" checked /> Total
+        </label>
+        <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
+            <input type="checkbox" id="inv-gains-manual" /> Manual
+        </label>
+        <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
+            <input type="checkbox" id="inv-gains-alpaca" /> Alpaca
+        </label>
+    </div>
+    <div id="inv-gains-chart" style="min-height: 260px;"></div>
+    <p id="inv-gains-note" class="muted" style="font-size: 0.75rem; margin-top: 0.5rem; display:none;"></p>
+</div>
+
 <div class="card">
     <div class="page-header" style="margin-bottom: 1rem;">
         <h2 class="page-title" style="font-size: 1.1rem;">Holdings</h2>
@@ -113,6 +143,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/investments.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function () {

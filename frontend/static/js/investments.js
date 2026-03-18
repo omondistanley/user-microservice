@@ -119,6 +119,101 @@
         return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function fetchGainsHistory(days) {
+        var url = apiUrl('/api/v1/portfolio/gains-history?days=' + (days || 90));
+        return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
+            if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || 'Failed to load gains history'); });
+            return r.json();
+        });
+    }
+
+    var invGainsChartInstance = null;
+    var invGainsLastData = null;
+
+    function renderGainsChart(data, visible) {
+        visible = visible || { total: true, manual: false, alpaca: false };
+        var container = document.getElementById('inv-gains-chart');
+        var noteEl = document.getElementById('inv-gains-note');
+        if (!container) return;
+        if (invGainsChartInstance) {
+            try { invGainsChartInstance.destroy(); } catch (e) {}
+            invGainsChartInstance = null;
+        }
+        if (!data || !data.dates || data.dates.length === 0) {
+            container.innerHTML = '<p class="muted" style="padding:1.5rem;">' + (data && data.note ? data.note : 'Add holdings to see gains over time.') + '</p>';
+            if (noteEl) { noteEl.textContent = data && data.note ? data.note : ''; noteEl.style.display = data && data.note ? 'block' : 'none'; }
+            return;
+        }
+        var series = [];
+        if (visible.total && data.series && data.series.total && data.series.total.gain_loss) {
+            series.push({ name: 'Total', data: data.series.total.gain_loss });
+        }
+        if (visible.manual && data.series && data.series.manual && data.series.manual.gain_loss) {
+            series.push({ name: 'Manual', data: data.series.manual.gain_loss });
+        }
+        if (visible.alpaca && data.series && data.series.alpaca && data.series.alpaca.gain_loss) {
+            series.push({ name: 'Alpaca', data: data.series.alpaca.gain_loss });
+        }
+        if (series.length === 0) {
+            container.innerHTML = '<p class="muted" style="padding:1.5rem;">Select at least one series (Total, Manual, or Alpaca).</p>';
+            if (noteEl) noteEl.style.display = 'none';
+            return;
+        }
+        container.innerHTML = '';
+        var opts = {
+            chart: { type: 'line', zoom: { enabled: false }, fontFamily: 'Inter, sans-serif', toolbar: { show: false }, background: 'transparent' },
+            series: series,
+            xaxis: { categories: data.dates, labels: { rotate: -45, formatter: function (v) { return (v || '').substring(0, 10); } } },
+            yaxis: {
+                title: { text: 'Gain / Loss ($)' },
+                labels: { formatter: function (v) { return '$' + Number(v).toFixed(0); } }
+            },
+            stroke: { curve: 'smooth', width: 2 },
+            dataLabels: { enabled: false },
+            legend: { position: 'top' },
+            grid: { borderColor: 'rgba(255,255,255,0.06)' },
+            colors: ['#6366f1', '#10b981', '#f59e0b']
+        };
+        if (typeof ApexCharts !== 'undefined') {
+            invGainsChartInstance = new ApexCharts(container, opts);
+            invGainsChartInstance.render();
+        }
+        if (noteEl) {
+            noteEl.textContent = data.note || 'Based on current holdings and historical prices.';
+            noteEl.style.display = 'block';
+        }
+    }
+
+    function loadGainsChart(days) {
+        days = days || 90;
+        fetchGainsHistory(days).then(function (data) {
+            invGainsLastData = data;
+            var totalCb = document.getElementById('inv-gains-total');
+            var manualCb = document.getElementById('inv-gains-manual');
+            var alpacaCb = document.getElementById('inv-gains-alpaca');
+            var visible = {
+                total: totalCb ? totalCb.checked : true,
+                manual: manualCb ? manualCb.checked : false,
+                alpaca: alpacaCb ? alpacaCb.checked : false
+            };
+            renderGainsChart(data, visible);
+        }).catch(function () {
+            var container = document.getElementById('inv-gains-chart');
+            if (container) container.innerHTML = '<p class="muted" style="padding:1.5rem;">Could not load gains history.</p>';
+        });
+    }
+
+    function invGainsVisible() {
+        var totalCb = document.getElementById('inv-gains-total');
+        var manualCb = document.getElementById('inv-gains-manual');
+        var alpacaCb = document.getElementById('inv-gains-alpaca');
+        return {
+            total: totalCb ? totalCb.checked : true,
+            manual: manualCb ? manualCb.checked : false,
+            alpaca: alpacaCb ? alpacaCb.checked : false
+        };
+    }
+
     function formatChangePct(pct) {
         if (pct == null || isNaN(pct)) return '<span class="muted">—</span>';
         var sign = pct >= 0 ? '+' : '';
@@ -260,6 +355,28 @@
                 loadHoldings();
             }
         }).catch(function () { loadHoldings(); });
+
+        loadGainsChart(90);
+
+        document.querySelectorAll('.inv-gains-days').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var days = parseInt(btn.getAttribute('data-days'), 10) || 90;
+                document.querySelectorAll('.inv-gains-days').forEach(function (b) {
+                    b.classList.remove('btn-primary');
+                    b.classList.add('btn-ghost');
+                });
+                btn.classList.remove('btn-ghost');
+                btn.classList.add('btn-primary');
+                loadGainsChart(days);
+            });
+        });
+
+        ['inv-gains-total', 'inv-gains-manual', 'inv-gains-alpaca'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('change', function () {
+                if (invGainsLastData) renderGainsChart(invGainsLastData, invGainsVisible());
+            });
+        });
 
         var addBtn = document.getElementById('holdings-add-btn');
         if (addBtn) addBtn.addEventListener('click', showAddForm);

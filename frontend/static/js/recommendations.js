@@ -78,6 +78,7 @@
         if (payload.industry_preferences != null) body.industry_preferences = payload.industry_preferences;
         if (payload.sharpe_objective != null) body.sharpe_objective = payload.sharpe_objective;
         if (payload.loss_aversion != null) body.loss_aversion = payload.loss_aversion;
+        if (payload.use_finance_data_for_recommendations != null) body.use_finance_data_for_recommendations = !!payload.use_finance_data_for_recommendations;
         return fetch(API + '/api/v1/risk-profile', {
             method: 'PUT',
             headers: headers,
@@ -213,6 +214,9 @@
             }
             var ex = match.explanation;
             var html = '';
+            if (ex.personalized_with_finance_data) {
+                html += '<p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">Personalized using your savings, goals, and budget data.</p>';
+            }
             if (ex.security) {
                 var sec = ex.security;
                 html += '<h4>Security</h4><ul>';
@@ -233,6 +237,38 @@
                 if (m['52w_high'] != null) html += '<li><strong>52w high</strong>: $' + escapeHtml(formatNum2(m['52w_high'])) + '</li>';
                 if (m['52w_low'] != null) html += '<li><strong>52w low</strong>: $' + escapeHtml(formatNum2(m['52w_low'])) + '</li>';
                 html += '</ul>';
+            }
+            if (ex.enrichment) {
+                var en = ex.enrichment;
+                html += '<h4>Enrichment</h4><ul>';
+                if (en.quote) {
+                    html += '<li><strong>Live price</strong>: $' + escapeHtml(en.quote.price != null ? formatNum2(en.quote.price) : '—') + '</li>';
+                    if (en.quote.as_of) html += '<li><strong>As of</strong>: ' + escapeHtml(String(en.quote.as_of)) + '</li>';
+                    if (en.quote.change_pct != null) html += '<li><strong>Day change</strong>: ' + escapeHtml(Number(en.quote.change_pct).toFixed(2)) + '%</li>';
+                }
+                if (en.trend_1m_pct != null) html += '<li><strong>1M trend</strong>: ' + escapeHtml(Number(en.trend_1m_pct).toFixed(2)) + '%</li>';
+                if (en['52w_high'] != null) html += '<li><strong>52w high</strong>: $' + escapeHtml(formatNum2(en['52w_high'])) + '</li>';
+                if (en['52w_low'] != null) html += '<li><strong>52w low</strong>: $' + escapeHtml(formatNum2(en['52w_low'])) + '</li>';
+                if (en.data_freshness && en.data_freshness.provider) html += '<li><strong>Provider</strong>: ' + escapeHtml(String(en.data_freshness.provider)) + '</li>';
+                html += '</ul>';
+                if (en.recent_news && en.recent_news.length) {
+                    html += '<p class="rec-enrichment-news"><strong>Recent news</strong></p><ul class="rec-news-list">';
+                    en.recent_news.forEach(function (n) {
+                        var title = (n.title || 'Headline').substring(0, 80);
+                        if ((n.title || '').length > 80) title += '…';
+                        var link = n.url ? '<a href="' + escapeHtml(n.url) + '" target="_blank" rel="noopener">' + escapeHtml(title) + '</a>' : escapeHtml(title);
+                        html += '<li>' + link + (n.published_at ? ' <span class="muted">' + escapeHtml(String(n.published_at)) + '</span>' : '') + '</li>';
+                    });
+                    html += '</ul>';
+                }
+            }
+            if (ex.sentiment_summary) {
+                html += '<h4>Market sentiment</h4><p>' + escapeHtml(String(ex.sentiment_summary)) + '</p>';
+                if (ex.sentiment_trend_7d && ex.sentiment_trend_7d.daily_scores && ex.sentiment_trend_7d.daily_scores.length) {
+                    html += '<p class="muted" style="font-size:0.85rem;">7-day rolling average: ' + (ex.sentiment_trend_7d.rolling_avg_7d != null ? escapeHtml(Number(ex.sentiment_trend_7d.rolling_avg_7d).toFixed(2)) : '—') + '</p>';
+                }
+            } else if (ex.sentiment_trend_7d) {
+                html += '<h4>Market sentiment</h4><p class="muted">No sentiment data for this symbol.</p>';
             }
             if (ex.why_selected && ex.why_selected.length) {
                 html += '<h4>Why selected</h4><ul>';
@@ -361,11 +397,13 @@
                 var indEl = document.getElementById('rec-pref-industries');
                 var sharpeEl = document.getElementById('rec-pref-sharpe');
                 var lossEl = document.getElementById('rec-pref-loss');
+                var useFinanceEl = document.getElementById('rec-pref-use-finance');
                 if (riskEl && profile.risk_tolerance) riskEl.value = profile.risk_tolerance;
                 if (indEl && profile.industry_preferences && profile.industry_preferences.length)
                     indEl.value = profile.industry_preferences.join(', ');
                 if (sharpeEl && profile.sharpe_objective != null) sharpeEl.value = Number(profile.sharpe_objective).toFixed(2);
                 if (lossEl && profile.loss_aversion) lossEl.value = profile.loss_aversion;
+                if (useFinanceEl) useFinanceEl.checked = !!profile.use_finance_data_for_recommendations;
             }
         });
 
@@ -376,6 +414,7 @@
                 var indEl = document.getElementById('rec-pref-industries');
                 var sharpeEl = document.getElementById('rec-pref-sharpe');
                 var lossEl = document.getElementById('rec-pref-loss');
+                var useFinanceEl = document.getElementById('rec-pref-use-finance');
                 var industries = (indEl && indEl.value.trim()) ? indEl.value.trim().split(/\s*,\s*/).filter(Boolean) : null;
                 var sharpe = sharpeEl && sharpeEl.value.trim() ? parseFloat(sharpeEl.value, 10) : null;
                 if (sharpe !== null && isNaN(sharpe)) sharpe = null;
@@ -383,7 +422,8 @@
                     risk_tolerance: riskEl ? riskEl.value : undefined,
                     industry_preferences: industries,
                     sharpe_objective: sharpe,
-                    loss_aversion: lossEl ? lossEl.value : undefined
+                    loss_aversion: lossEl ? lossEl.value : undefined,
+                    use_finance_data_for_recommendations: useFinanceEl ? useFinanceEl.checked : undefined
                 };
                 savePrefsBtn.disabled = true;
                 saveRiskProfile(payload).then(function () {

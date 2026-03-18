@@ -1,8 +1,10 @@
 import asyncio
+import logging
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.config import (
     DB_HOST,
@@ -21,7 +23,11 @@ from app.services.quality_score_service import get_quality_scores
 from app.services.service_factory import ServiceFactory
 from app.services.market_data_router import MarketDataRouter, get_default_market_data_router
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["portfolio"])
+BARS_TIMEOUT = 8.0
+GAINS_HISTORY_DAYS_MIN = 7
+GAINS_HISTORY_DAYS_MAX = 365
 
 
 def _get_data_service() -> HoldingsDataService:
@@ -203,4 +209,132 @@ async def quality_scores(
     context = _db_context()
     scores = get_quality_scores(context, symbols)
     return {"quality_scores": scores}
+
+
+@router.get("/portfolio/gains-history", response_model=dict)
+async def gains_history(
+    user_id: int = Depends(get_current_user_id),
+    ds: HoldingsDataService = Depends(_get_data_service),
+    market_router: MarketDataRouter = Depends(_get_market_router),
+    days: int = Query(90, ge=GAINS_HISTORY_DAYS_MIN, le=GAINS_HISTORY_DAYS_MAX),
+):
+    """
+    Gains/loss over time from current holdings and historical daily bars.
+    Returns time series for total, manual-only, and alpaca-only. Assumes holdings (and quantities)
+    were constant over the period; does not reflect past adds/sells.
+    """
+    rows = ds.list_all_holdings_for_user(user_id)
+    if not rows:
+        return {
+            "dates": [],
+            "series": {
+                "total": {"value": [], "cost_basis": [], "gain_loss": []},
+                "manual": {"value": [], "cost_basis": [], "gain_loss": []},
+                "alpaca": {"value": [], "cost_basis": [], "gain_loss": []},
+            },
+            "note": "Add holdings to see gains over time.",
+        }
+
+    end_dt = datetime.now(timezone.utc)
+    start_dt = end_dt - timedelta(days=days)
+    symbols = list({(r.get("symbol") or "").strip().upper() for r in rows if (r.get("symbol") or "").strip()})
+
+    symbol_to_dates: Dict[str, Dict[str, float]] = {}
+    all_dates: set[str] = set()
+    for symbol in symbols:
+        try:
+            bars = await asyncio.wait_for(
+                market_router.get_bars(symbol, "1d", start_dt, end_dt),
+                timeout=BARS_TIMEOUT,
+            )
+            if not bars:
+                continue
+            by_date: Dict[str, float] = {}
+            for b in bars:
+                ps = b.period_start
+                dt = ps.date() if hasattr(ps, "date") else ps
+                key = dt.isoformat() if hasattr(dt, "isoformat") else str(dt)
+                by_date[key] = float(b.close)
+                all_dates.add(key)
+            symbol_to_dates[symbol] = by_date
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.debug("gains_history bars %s: %s", symbol, e)
+            continue
+
+    sorted_dates = sorted(all_dates)
+    if not sorted_dates:
+        return {
+            "dates": [],
+            "series": {
+                "total": {"value": [], "cost_basis": [], "gain_loss": []},
+                "manual": {"value": [], "cost_basis": [], "gain_loss": []},
+                "alpaca": {"value": [], "cost_basis": [], "gain_loss": []},
+            },
+            "note": "No historical bar data available for the selected range.",
+        }
+
+    def close_for(sym: str, d: str) -> Optional[float]:
+        by = symbol_to_dates.get(sym)
+        if not by:
+            return None
+        if d in by:
+            return by[d]
+        idx = sorted_dates.index(d) if d in sorted_dates else -1
+        for i in range(idx - 1, -1, -1):
+            if sorted_dates[i] in by:
+                return by[sorted_dates[i]]
+        return None
+
+    total_value: List[float] = []
+    total_cost: List[float] = []
+    total_gain: List[float] = []
+    manual_value: List[float] = []
+    manual_cost: List[float] = []
+    manual_gain: List[float] = []
+    alpaca_value: List[float] = []
+    alpaca_cost: List[float] = []
+    alpaca_gain: List[float] = []
+
+    for d in sorted_dates:
+        tv, tc = Decimal("0"), Decimal("0")
+        mv, mc = Decimal("0"), Decimal("0")
+        av, ac = Decimal("0"), Decimal("0")
+        for r in rows:
+            sym = (r.get("symbol") or "").strip().upper()
+            qty = Decimal(str(r.get("quantity") or "0"))
+            avg = Decimal(str(r.get("avg_cost") or "0"))
+            cost = qty * avg
+            close = close_for(sym, d)
+            if close is not None:
+                val = qty * Decimal(str(close))
+            else:
+                val = cost
+            src = (r.get("source") or "manual").lower()
+            tv += val
+            tc += cost
+            if src == "manual":
+                mv += val
+                mc += cost
+            elif src == "alpaca":
+                av += val
+                ac += cost
+        total_value.append(float(tv))
+        total_cost.append(float(tc))
+        total_gain.append(float(tv - tc))
+        manual_value.append(float(mv))
+        manual_cost.append(float(mc))
+        manual_gain.append(float(mv - mc))
+        alpaca_value.append(float(av))
+        alpaca_cost.append(float(ac))
+        alpaca_gain.append(float(av - ac))
+
+    return {
+        "dates": sorted_dates,
+        "series": {
+            "total": {"value": total_value, "cost_basis": total_cost, "gain_loss": total_gain},
+            "manual": {"value": manual_value, "cost_basis": manual_cost, "gain_loss": manual_gain},
+            "alpaca": {"value": alpaca_value, "cost_basis": alpaca_cost, "gain_loss": alpaca_gain},
+        },
+        "note": "Based on current holdings and historical prices.",
+    }
 
