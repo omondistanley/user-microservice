@@ -10,6 +10,7 @@ import httpx
 
 from app.core.config import (
     PLAID_CLIENT_ID,
+    PLAID_ENABLE_RECURRING_TRANSACTIONS,
     PLAID_ENV,
     PLAID_HOSTED_COMPLETION_REDIRECT_URI,
     PLAID_SECRET,
@@ -38,6 +39,14 @@ def is_configured() -> bool:
     return bool(PLAID_CLIENT_ID and PLAID_SECRET)
 
 
+def _link_token_products() -> List[str]:
+    """Transactions only by default; optional Recurring (extra Plaid fee per account/month)."""
+    p = ["transactions"]
+    if PLAID_ENABLE_RECURRING_TRANSACTIONS:
+        p.append("recurring_transactions")
+    return p
+
+
 def create_link_token(user_id: int) -> Optional[str]:
     """Create a link_token for Plaid Link. Returns None if Plaid not configured."""
     if not is_configured():
@@ -48,7 +57,7 @@ def create_link_token(user_id: int) -> Optional[str]:
         "secret": PLAID_SECRET,
         "user": {"client_user_id": str(user_id)},
         "client_name": "Expense Tracker",
-        "products": ["transactions"],
+        "products": _link_token_products(),
         "country_codes": ["US"],
         "language": "en",
     }
@@ -86,7 +95,7 @@ def create_hosted_link_session(
         "secret": PLAID_SECRET,
         "user": {"client_user_id": str(user_id)},
         "client_name": "Expense Tracker",
-        "products": ["transactions"],
+        "products": _link_token_products(),
         "country_codes": ["US"],
         "language": "en",
         "hosted_link": hosted_link,
@@ -201,3 +210,27 @@ def item_get(access_token: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.warning("Plaid item/get failed: %s", e)
         return None
+
+
+def fetch_accounts(access_token: str) -> List[Dict[str, Any]]:
+    """
+    List accounts for an Item (/accounts/get). No Balance product — metadata only;
+    typically no extra Plaid product charge vs /accounts/balance/get.
+    """
+    if not is_configured():
+        return []
+    url = f"{_base_url()}/accounts/get"
+    payload = {
+        "client_id": PLAID_CLIENT_ID,
+        "secret": PLAID_SECRET,
+        "access_token": access_token,
+    }
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            r = client.post(url, json=payload, headers=_headers())
+            r.raise_for_status()
+            data = r.json() or {}
+            return data.get("accounts") or []
+    except Exception as e:
+        logger.warning("Plaid accounts/get failed: %s", e)
+        return []

@@ -2,6 +2,7 @@
 OAuth 2.0 routes for Google and Apple sign-in.
 Redirect to provider, then callback finds or creates user and issues JWT; redirect to app with tokens in fragment.
 """
+import hashlib
 import logging
 import secrets
 from urllib.parse import urlencode
@@ -31,6 +32,27 @@ OAUTH_REDIRECT_URI_COOKIE = "oauth_redirect_uri"
 STATE_MAX_AGE = 600  # 10 minutes
 
 
+def _cookie_secure(request: Request) -> bool:
+    """
+    True when we know the public request is HTTPS.
+    Uses X-Forwarded-Proto when behind a proxy.
+    """
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    if forwarded_proto:
+        return forwarded_proto.strip().lower() == "https"
+    return (request.url.scheme or "").strip().lower() == "https"
+
+
+def _normalize_state(val: str | None) -> str:
+    # Cookies can be wrapped/serialized in unexpected ways; be defensive.
+    return (val or "").strip().strip('"')
+
+
+def _state_hash_short(val: str) -> str:
+    # Avoid logging full secrets; hashes are enough to correlate mismatches.
+    return hashlib.sha256(val.encode("utf-8")).hexdigest()[:12]
+
+
 def _client_ip(request: Request) -> str | None:
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
@@ -55,10 +77,23 @@ def _redirect_with_tokens(access_token: str, refresh_token: str, next_url: str =
 # --- Google ---
 
 def _google_redirect_uri(request: Request) -> str:
-    """Use APP_BASE_URL when set (production), else request host so cookie and callback URL match."""
+    """
+    Build the Google redirect URI from the *public* origin so that the
+    callback request lands on the same origin where we set cookies.
+    """
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        forwarded_proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
+        base = f"{forwarded_proto.strip().lower()}://{forwarded_host.strip()}".rstrip("/")
+        return f"{base}/auth/google/callback"
+
+    # If APP_BASE_URL is explicitly set for production, prefer it (but don't
+    # treat local dev defaults as production).
     base = (APP_BASE_URL or "").strip().rstrip("/")
     if base and not base.startswith("http://localhost") and not base.startswith("http://127.0.0.1"):
         return f"{base}/auth/google/callback"
+
+    # Fallback: internal request base_url.
     fallback = str(request.base_url).rstrip("/")
     return f"{fallback}/auth/google/callback"
 
@@ -81,6 +116,7 @@ async def auth_google(request: Request):
     }
     url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
     response = RedirectResponse(url=url, status_code=302)
+    secure = _cookie_secure(request)
     response.set_cookie(
         key=OAUTH_STATE_COOKIE,
         value=state,
@@ -88,6 +124,7 @@ async def auth_google(request: Request):
         httponly=True,
         samesite="lax",
         path="/",
+        secure=secure,
     )
     response.set_cookie(
         key=OAUTH_REDIRECT_URI_COOKIE,
@@ -96,6 +133,7 @@ async def auth_google(request: Request):
         httponly=True,
         samesite="lax",
         path="/",
+        secure=secure,
     )
     return response
 
@@ -111,12 +149,25 @@ async def auth_google_callback(
         return RedirectResponse(url="/login?error=access_denied", status_code=302)
     if not code or not state:
         return RedirectResponse(url="/login?error=missing_params", status_code=302)
-    cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
-    redirect_uri = request.cookies.get(OAUTH_REDIRECT_URI_COOKIE) or f"{APP_BASE_URL.rstrip('/')}/auth/google/callback"
+
+    secure = _cookie_secure(request)
+    cookie_state = _normalize_state(request.cookies.get(OAUTH_STATE_COOKIE))
+    state = _normalize_state(state)
+    redirect_uri_cookie = _normalize_state(request.cookies.get(OAUTH_REDIRECT_URI_COOKIE))
+    redirect_uri = redirect_uri_cookie or _google_redirect_uri(request)
+
     if not cookie_state or not secrets.compare_digest(cookie_state, state):
         response = RedirectResponse(url="/login?error=invalid_state", status_code=302)
-        response.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-        response.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+        logger.warning(
+            "google_oauth_invalid_state request_id=%s cookie_state_len=%s state_len=%s cookie_state_hash=%s state_hash=%s",
+            _request_id(request),
+            len(cookie_state),
+            len(state),
+            _state_hash_short(cookie_state) if cookie_state else "none",
+            _state_hash_short(state) if state else "none",
+        )
+        response.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+        response.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
         return response
 
     try:
@@ -134,16 +185,16 @@ async def auth_google_callback(
             )
         if token_resp.status_code != 200:
             resp = RedirectResponse(url="/login?error=token_exchange_failed", status_code=302)
-            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
             return resp
 
         token_data = token_resp.json()
         access_token_google = token_data.get("access_token")
         if not access_token_google:
             resp = RedirectResponse(url="/login?error=no_access_token", status_code=302)
-            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
             return resp
 
         async with httpx.AsyncClient() as client:
@@ -153,16 +204,16 @@ async def auth_google_callback(
             )
         if userinfo_resp.status_code != 200:
             resp = RedirectResponse(url="/login?error=userinfo_failed", status_code=302)
-            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
             return resp
 
         userinfo = userinfo_resp.json()
         email = (userinfo.get("email") or "").strip()
         if not email:
             resp = RedirectResponse(url="/login?error=no_email", status_code=302)
-            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
             return resp
 
         sub = userinfo.get("sub") or ""
@@ -172,8 +223,8 @@ async def auth_google_callback(
         res = ServiceFactory.get_service("UserResource")
         if not res:
             resp = RedirectResponse(url="/login?error=server", status_code=302)
-            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+            resp.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+            resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
             return resp
         row = res.find_or_create_oauth_user("google", sub, email, first_name, last_name)
 
@@ -189,23 +240,35 @@ async def auth_google_callback(
         )
 
         response = _redirect_with_tokens(our_access, our_refresh)
-        response.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-        response.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+        response.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+        response.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
         return response
     except Exception as e:
         logger.exception("Google OAuth callback failed: %s", e)
         resp = RedirectResponse(url="/login?error=server", status_code=302)
-        resp.delete_cookie(OAUTH_STATE_COOKIE, path="/")
-        resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/")
+        resp.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+        resp.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
         return resp
 
 
 # --- Apple ---
 
-def _apple_redirect_uri() -> str:
+def _apple_redirect_uri(request: Request) -> str:
     if APPLE_REDIRECT_URI:
         return APPLE_REDIRECT_URI.rstrip("/")
-    return f"{APP_BASE_URL.rstrip('/')}/auth/apple/callback"
+
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        forwarded_proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
+        base = f"{forwarded_proto.strip().lower()}://{forwarded_host.strip()}".rstrip("/")
+        return f"{base}/auth/apple/callback"
+
+    base = (APP_BASE_URL or "").strip().rstrip("/")
+    if base:
+        return f"{base}/auth/apple/callback"
+
+    fallback = str(request.base_url).rstrip("/")
+    return f"{fallback}/auth/apple/callback"
 
 
 @router.get("/auth/apple", include_in_schema=False)
@@ -214,7 +277,7 @@ async def auth_apple(request: Request):
     if not APPLE_CLIENT_ID:
         return RedirectResponse(url="/login?error=apple_not_configured", status_code=302)
     state = secrets.token_urlsafe(32)
-    redirect_uri = _apple_redirect_uri()
+    redirect_uri = _apple_redirect_uri(request)
     params = {
         "client_id": APPLE_CLIENT_ID,
         "redirect_uri": redirect_uri,
@@ -225,6 +288,7 @@ async def auth_apple(request: Request):
     }
     url = "https://appleid.apple.com/auth/authorize?" + urlencode(params)
     response = RedirectResponse(url=url, status_code=302)
+    secure = _cookie_secure(request)
     response.set_cookie(
         key=OAUTH_STATE_COOKIE,
         value=state,
@@ -232,6 +296,7 @@ async def auth_apple(request: Request):
         httponly=True,
         samesite="lax",
         path="/",
+        secure=secure,
     )
     return response
 
@@ -247,13 +312,25 @@ async def auth_apple_callback_post(request: Request):
 
     if not state:
         return RedirectResponse(url="/login?error=missing_params", status_code=302)
-    cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
+    secure = _cookie_secure(request)
+    cookie_state = _normalize_state(request.cookies.get(OAUTH_STATE_COOKIE))
+    state = _normalize_state(state)
     if not cookie_state or not secrets.compare_digest(cookie_state, state):
-        return RedirectResponse(url="/login?error=invalid_state", status_code=302)
+        response = RedirectResponse(url="/login?error=invalid_state", status_code=302)
+        response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
+        logger.warning(
+            "apple_oauth_invalid_state request_id=%s cookie_state_len=%s state_len=%s cookie_state_hash=%s state_hash=%s",
+            _request_id(request),
+            len(cookie_state),
+            len(state),
+            _state_hash_short(cookie_state) if cookie_state else "none",
+            _state_hash_short(state) if state else "none",
+        )
+        return response
 
     if not id_token:
         response = RedirectResponse(url="/login?error=no_id_token", status_code=302)
-        response.delete_cookie(OAUTH_STATE_COOKIE)
+        response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
         return response
 
     # Decode and verify Apple id_token (JWT) with Apple's JWKS.
@@ -265,14 +342,14 @@ async def auth_apple_callback_post(request: Request):
         kid = unverified.get("kid")
         if not kid:
             response = RedirectResponse(url="/login?error=invalid_id_token", status_code=302)
-            response.delete_cookie(OAUTH_STATE_COOKIE)
+            response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
             return response
 
         async with httpx.AsyncClient() as client:
             jwks_resp = await client.get("https://appleid.apple.com/auth/keys")
         if jwks_resp.status_code != 200:
             response = RedirectResponse(url="/login?error=apple_keys_failed", status_code=302)
-            response.delete_cookie(OAUTH_STATE_COOKIE)
+            response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
             return response
 
         jwks = jwks_resp.json()
@@ -283,7 +360,7 @@ async def auth_apple_callback_post(request: Request):
                 break
         if not key:
             response = RedirectResponse(url="/login?error=invalid_id_token", status_code=302)
-            response.delete_cookie(OAUTH_STATE_COOKIE)
+            response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
             return response
 
         public_key = jwk.construct(key)
@@ -296,14 +373,14 @@ async def auth_apple_callback_post(request: Request):
         )
     except Exception:
         response = RedirectResponse(url="/login?error=invalid_id_token", status_code=302)
-        response.delete_cookie(OAUTH_STATE_COOKIE)
+        response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
         return response
 
     sub = payload.get("sub") or ""
     email = (payload.get("email") or "").strip()
     if not sub:
         response = RedirectResponse(url="/login?error=no_apple_sub", status_code=302)
-        response.delete_cookie(OAUTH_STATE_COOKIE)
+        response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
         return response
 
     first_name = None
@@ -326,13 +403,13 @@ async def auth_apple_callback_post(request: Request):
                 email = row.get("email") or ""
         if not email:
             response = RedirectResponse(url="/login?error=no_apple_email", status_code=302)
-            response.delete_cookie(OAUTH_STATE_COOKIE)
+            response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
             return response
 
     res = ServiceFactory.get_service("UserResource")
     if not res:
         response = RedirectResponse(url="/login?error=server", status_code=302)
-        response.delete_cookie(OAUTH_STATE_COOKIE)
+        response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
         return response
     row = res.find_or_create_oauth_user("apple", sub, email, first_name, last_name)
 
@@ -348,5 +425,5 @@ async def auth_apple_callback_post(request: Request):
     )
 
     response = _redirect_with_tokens(our_access, our_refresh)
-    response.delete_cookie(OAUTH_STATE_COOKIE)
+    response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
     return response

@@ -61,6 +61,11 @@ PLAID_HOSTED_COMPLETION_REDIRECT_URI: str = os.environ.get(
 ).strip()
 # Hosted Link (recommended): where Plaid sends SESSION_FINISHED (contains public_token)
 PLAID_WEBHOOK_URL: str = os.environ.get("PLAID_WEBHOOK_URL", "").strip()
+# If true, Link requests Recurring Transactions on new Items (extra Plaid subscription per account).
+# Default false: only Transactions product (~lower cost; sync via /transactions/get, no /transactions/refresh in app).
+PLAID_ENABLE_RECURRING_TRANSACTIONS: bool = os.environ.get(
+    "PLAID_ENABLE_RECURRING_TRANSACTIONS", ""
+).lower() in ("1", "true", "yes")
 # Fernet key for encrypting access_token (32 bytes base64). Generate: from cryptography.fernet import Fernet; Fernet.generate_key()
 ENCRYPTION_KEY: Optional[str] = os.environ.get("ENCRYPTION_KEY", "")
 

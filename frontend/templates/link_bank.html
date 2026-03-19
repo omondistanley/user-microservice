@@ -123,6 +123,12 @@
 <script nonce="{{ csp_nonce | default('') }}" src="https://cdn.teller.io/connect/connect.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
+  // Guard: redirect to login immediately if no token stored.
+  if (window.Auth && !window.Auth.isLoggedIn()) {
+    window.location.replace('/login?next=/link-bank');
+    return;
+  }
+
   var selectedProvider = 'plaid';
   var btn = document.getElementById('link-bank-btn');
   var errorEl = document.getElementById('link-error');
@@ -132,13 +138,12 @@
   var footerSection = document.getElementById('bank-footer-section');
   var API = window.EXPENSE_API_BASE !== undefined && window.EXPENSE_API_BASE !== '' ? window.EXPENSE_API_BASE : (window.API_BASE || '');
 
-  function getAuthHeaders() {
-    if (window.Auth && window.Auth.getAuthHeaders) return window.Auth.getAuthHeaders();
-    return {};
-  }
-  /** Plain fetch for status only: no requestWithRefresh, so 401 does not trigger redirect. */
+  /** Use requestWithRefresh so a 401 (expired session) triggers token refresh then login redirect. */
   function fetchStatus(url, isTellerConfig) {
-    return fetch(url, { method: 'GET', headers: getAuthHeaders() })
+    var doFetch = (window.Auth && window.Auth.requestWithRefresh)
+      ? function() { return window.Auth.requestWithRefresh(url, { method: 'GET' }); }
+      : function() { return fetch(url, { method: 'GET', headers: window.Auth ? window.Auth.getAuthHeaders() : {} }); };
+    return doFetch()
       .then(function(r) {
         if (!r.ok) return { ok: false, status: r.status, configured: false };
         return r.json().then(function(d) {
@@ -149,19 +154,12 @@
       .catch(function() { return { ok: false, status: 0, configured: false }; });
   }
   function checkProvidersConfigured() {
-    var statusHint = document.getElementById('link-bank-status-hint');
     Promise.all([
       fetchStatus(API + '/api/v1/plaid/status', false),
       fetchStatus(API + '/api/v1/teller/config', true),
       fetchStatus(API + '/api/v1/truelayer/status', false)
     ]).then(function(results) {
-      var had401 = results.some(function(r) { return r.status === 401; });
       var anyConfigured = results.some(function(r) { return r.ok && r.configured; });
-      if (had401 && statusHint) {
-        statusHint.textContent = 'Session may have expired. Try again or log in again.';
-        statusHint.style.display = 'block';
-      }
-      if (had401) return;
       if (!anyConfigured && notConfiguredWrap && providerSection && footerSection) {
         notConfiguredWrap.style.display = 'block';
         providerSection.style.display = 'none';

@@ -59,6 +59,15 @@ def test_plaid_exchange_503_when_not_configured(auth_override, monkeypatch):
     assert "not configured" in body.get("detail", "").lower()
 
 
+def test_plaid_accounts_503_when_not_configured(auth_override, monkeypatch):
+    """GET /api/v1/plaid/accounts returns 503 when Plaid is not configured."""
+    import app.routers.plaid as plaid_router
+    monkeypatch.setattr(plaid_router, "is_configured", lambda: False)
+    r = client.get("/api/v1/plaid/accounts", headers={"Authorization": "Bearer fake"})
+    assert r.status_code == 503
+    assert "not configured" in r.json().get("detail", "").lower()
+
+
 def test_teller_config_503_when_not_configured(monkeypatch):
     """GET /api/v1/teller/config returns 503 when Teller is not configured (no auth required)."""
     import app.core.config as config

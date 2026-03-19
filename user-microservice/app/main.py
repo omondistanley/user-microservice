@@ -280,6 +280,7 @@ def _render(page: str, request: Request, **context):
     # and tokens in localStorage apply to the same origin they're actually using.
     expense_api_base = "" if GATEWAY_PUBLIC_URL else EXPENSE_API_BASE_FRONTEND
     budget_api_base = "" if GATEWAY_PUBLIC_URL else BUDGET_API_BASE_FRONTEND
+    demo_public_url = (os.environ.get("DEMO_PUBLIC_URL") or "").rstrip("/")
     base_context = {
         "request": request,
         "expense_api_base": expense_api_base,
@@ -287,6 +288,7 @@ def _render(page: str, request: Request, **context):
         "gateway_public_url": "",  # always use relative paths; gateway is same-origin when accessed via port 8080
         "plaid_flow": (os.environ.get("PLAID_FLOW", "hosted") or "hosted").strip().lower(),
         "csp_nonce": csp_nonce,
+        "demo_public_url": demo_public_url,
     }
     base_context.update(context)
     return templates.TemplateResponse(page, base_context)

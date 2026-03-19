@@ -1,0 +1,19 @@
+# Render Blueprint: pocketii demo. Repo root = expense_tracker.
+# After deploy, set PUBLIC_BASE_URL=https://your-service.onrender.com on the service.
+services:
+  - type: web
+    name: pocketii-demo
+    runtime: docker
+    rootDir: demo-app
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DEMO_JWT_SECRET
+        generateValue: true
+      - key: DEMO_RESET_INTERVAL_SECONDS
+        value: "900"
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: DEMO_AI_ENABLED
+        value: "false"

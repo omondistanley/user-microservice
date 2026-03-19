@@ -19,6 +19,7 @@ from app.services.plaid_service import (
     create_link_token,
     create_hosted_link_session,
     exchange_public_token,
+    fetch_accounts,
     fetch_transactions,
     is_configured,
     item_get,
@@ -277,6 +278,45 @@ async def plaid_list_items(user_id: int = Depends(get_current_user_id)):
             for i in items
         ]
     }
+
+
+@router.get("/accounts")
+async def plaid_list_accounts(user_id: int = Depends(get_current_user_id)):
+    """
+    All Plaid accounts across linked Items (names, masks, type/subtype).
+    Uses /accounts/get — metadata only; does not call Balance or /transactions/refresh.
+    """
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Plaid is not configured")
+    pds = _get_plaid_data_service()
+    items = pds.get_plaid_items(user_id)
+    out: List[Dict[str, Any]] = []
+    for item in items:
+        row = pds.get_plaid_item_by_item_id(user_id, item["item_id"])
+        if not row:
+            continue
+        enc = row.get("access_token_encrypted")
+        if not enc:
+            continue
+        access_token = decrypt_access_token(enc)
+        if not access_token:
+            continue
+        inst = item.get("institution_name") or "Linked account"
+        item_id = item["item_id"]
+        for acct in fetch_accounts(access_token):
+            out.append(
+                {
+                    "item_id": item_id,
+                    "institution_name": inst,
+                    "account_id": acct.get("account_id"),
+                    "name": acct.get("name"),
+                    "official_name": acct.get("official_name"),
+                    "mask": acct.get("mask"),
+                    "type": acct.get("type"),
+                    "subtype": acct.get("subtype"),
+                }
+            )
+    return {"accounts": out}
 
 
 @router.delete("/items/{item_id}")

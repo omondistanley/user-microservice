@@ -19,6 +19,10 @@
             </div>
             <p id="bank-status" style="font-size:13px;color:var(--s500);margin-bottom:12px;">Checking provider status…</p>
             <ul id="bank-items" style="list-style:none;display:flex;flex-direction:column;gap:8px;"></ul>
+            <p style="font-size:12px;color:var(--s500);margin-top:14px;line-height:1.55;border-top:1px solid var(--s100);padding-top:12px;">
+                <strong>Economical use:</strong> This app links with Plaid <strong>Transactions</strong> only by default (no Recurring Transactions add-on). Sync uses <code>/transactions/get</code> — we do not call paid <code>/transactions/refresh</code>.
+                For spends without Plaid, use the <strong>Apple Wallet</strong> webhook (<code>POST /api/v1/apple-wallet/webhook</code> + Shortcuts); see <code>docs/plaid_economics.md</code> in the repo.
+            </p>
         </div>
 
         <!-- Digest -->
@@ -159,17 +163,41 @@
         }).catch(function() {
             bankStatus.textContent = 'Could not load provider status.';
         });
-        fetchJson('/api/v1/bank/items').then(function(data) {
+        Promise.all([
+            fetchJson('/api/v1/bank/items').catch(function() { return { items: [] }; }),
+            fetchJson('/api/v1/plaid/accounts').catch(function() { return { accounts: [] }; })
+        ]).then(function(pair) {
+            var data = pair[0];
+            var adata = pair[1] || {};
             var items = data.items || [];
+            var byItem = {};
+            (adata.accounts || []).forEach(function(a) {
+                var id = a.item_id;
+                if (!byItem[id]) byItem[id] = [];
+                byItem[id].push(a);
+            });
             if (!items.length) {
                 bankItems.innerHTML = '<li style="font-size:13px;color:var(--s400);">No linked accounts yet</li>';
                 return;
             }
+            function esc(s) {
+                return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
             bankItems.innerHTML = items.map(function(i) {
-                return '<li style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--s50);border-radius:8px;">' +
-                    '<span style="font-size:14px;font-weight:500;color:var(--s900);">' + (i.name || 'Linked account') + '</span>' +
-                    '<span class="badge-slate">' + i.provider + '</span>' +
-                    '</li>';
+                var sub = '';
+                if ((i.provider || '').toLowerCase() === 'plaid' && byItem[i.item_id] && byItem[i.item_id].length) {
+                    sub = '<ul style="margin:8px 0 0 12px;padding:0;list-style:disc;color:var(--s600);font-size:12px;">' +
+                        byItem[i.item_id].map(function(a) {
+                            var line = esc(a.official_name || a.name || 'Account') + (a.mask ? ' ··' + esc(a.mask) : '');
+                            var typ = esc([a.subtype, a.type].filter(Boolean).join(' · ') || '');
+                            return '<li style="margin:4px 0;"><span style="font-weight:500;color:var(--s800);">' + line + '</span>' +
+                                (typ ? '<span style="color:var(--s400);"> — ' + typ + '</span>' : '') + '</li>';
+                        }).join('') + '</ul>';
+                }
+                return '<li style="padding:10px 12px;background:var(--s50);border-radius:8px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:14px;font-weight:600;color:var(--s900);">' + esc(i.name || 'Linked account') + '</span>' +
+                    '<span class="badge-slate">' + esc(i.provider || '') + '</span></div>' + sub + '</li>';
             }).join('');
         }).catch(function() {
             bankItems.innerHTML = '<li style="font-size:13px;color:var(--s400);">Failed to load linked items</li>';

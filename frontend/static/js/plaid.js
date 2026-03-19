@@ -52,6 +52,10 @@
         getItems: function() {
             return request('/api/v1/plaid/items');
         },
+        /** Per-account rows from Plaid /accounts/get (names, masks, types; not live balances). */
+        getAccounts: function() {
+            return request('/api/v1/plaid/accounts');
+        },
         deleteItem: function(itemId) {
             var headers = {};
             if (window.Auth && window.Auth.getAuthHeaders) {

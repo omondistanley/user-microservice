@@ -381,6 +381,7 @@
     <li><a href="#features">Features</a></li>
     <li><a href="#security">Security</a></li>
     <li><a href="#integrations">Integrations</a></li>
+    {% if demo_public_url %}<li><a href="{{ demo_public_url }}/demo" target="_blank" rel="noopener">Live demo</a></li>{% endif %}
   </ul>
   <div class="nav-actions">
     <a href="/login" class="btn-ghost-sm">Sign In</a>
@@ -397,7 +398,12 @@
       <p class="hero-sub">Track every dollar, sync your bank or import CSV, set budgets and savings goals, and see net worth and investments — all in one clean dashboard.</p>
       <div class="hero-ctas">
         <a href="/register" class="btn-primary">Start for Free →</a>
+        {% if demo_public_url %}
+        <a href="{{ demo_public_url }}/demo/watch" class="btn-outline" target="_blank" rel="noopener noreferrer">▷ Watch demo</a>
+        <a href="{{ demo_public_url }}/demo/start" class="btn-outline" target="_blank" rel="noopener noreferrer" style="margin-left:8px;">Try live demo</a>
+        {% else %}
         <a href="#how-it-works" class="btn-outline">▷ Watch Demo</a>
+        {% endif %}
       </div>
       <div class="hero-proof">
         <span>Self-hosted</span>
