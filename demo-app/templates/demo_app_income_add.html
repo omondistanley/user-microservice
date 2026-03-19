@@ -1,0 +1,55 @@
+{% extends "base_demo.html" %}
+{% block title %}Add Income — demo{% endblock %}
+{% block content %}
+<div class="container">
+  <p class="page-back-wrap"><a href="/demo/app/income" class="page-back-link">← Back to Income</a></p>
+  <div class="page-header">
+    <h1 class="page-title">Add income</h1>
+  </div>
+  <div class="card">
+    <form id="income-form" method="post" action="/api/demo/income" style="display:flex;flex-direction:column;gap:1rem;max-width:400px;">
+      <input type="hidden" name="csrf" value="">
+      <div class="form-group">
+        <label class="form-label" for="amount">Amount</label>
+        <input type="number" id="amount" name="amount" class="form-input" step="0.01" min="0.01" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="source">Source</label>
+        <select id="source" name="source" class="form-select">
+          <option value="Salary">Salary</option>
+          <option value="Freelance">Freelance</option>
+          <option value="Dividend">Dividend</option>
+          <option value="Interest">Interest</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="income_date">Date</label>
+        <input type="date" id="income_date" name="income_date" class="form-input" required>
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="/demo/app/income" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function() {
+  var d = new Date();
+  document.getElementById('income_date').value = d.toISOString().slice(0, 10);
+  document.getElementById('income-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = e.target;
+    var body = JSON.stringify({
+      amount: parseFloat(form.amount.value),
+      source: form.source.value,
+      income_date: form.income_date.value
+    });
+    fetch('/api/demo/income', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, credentials: 'include' })
+      .then(function(r) { if (r.ok) window.location.href = '/demo/app/income'; else return r.json().then(function(j) { alert(j.detail || 'Failed'); }); })
+      .catch(function() { alert('Request failed'); });
+  });
+})();
+</script>
+{% endblock %}

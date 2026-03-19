@@ -1,0 +1,66 @@
+{% extends "base_demo.html" %}
+{% block title %}Expenses — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Expenses <span class="badge-preview" style="margin-left:8px;">Sandbox</span></h1>
+    <p class="page-meta" id="expenses-balance">Session data · resets on schedule</p>
+  </div>
+  <a href="/demo/app/expenses/add" class="btn btn-primary">+ Add Expense</a>
+</div>
+
+{% set total_spent = expenses|sum(attribute='amount')|default(0) %}
+{% set txn_count = expenses|length %}
+{% set daily_avg = (total_spent / 30)|round(2) if txn_count else 0 %}
+{% set largest = expenses|map(attribute='amount')|max|default(0) %}
+
+<div class="stat-row" id="expenses-stats-row" style="margin-bottom:24px;">
+  <div class="stat-card">
+    <div class="stat-label">Total Spent</div>
+    <div class="stat-value" id="stat-total-spent">${{ "%.2f"|format(total_spent) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Daily Average</div>
+    <div class="stat-value" id="stat-daily-avg">${{ "%.2f"|format(daily_avg) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Largest Expense</div>
+    <div class="stat-value" id="stat-largest">${{ "%.2f"|format(largest) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Transactions</div>
+    <div class="stat-value" id="stat-tx-count">{{ txn_count }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="font-size:15px;margin-bottom:12px;">Your sandbox expenses</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th style="text-align:right;">Amount</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="exp-tbody">
+        {% for e in expenses %}
+        <tr>
+          <td>{{ e.expense_date }}</td>
+          <td>{{ e.description }}</td>
+          <td>{{ e.category }}</td>
+          <td style="text-align:right;">${{ "%.2f"|format(e.amount) }}</td>
+          <td><a href="/demo/app/expenses/{{ e.id }}" style="color:var(--indigo);text-decoration:none;">View / Edit</a></td>
+        </tr>
+        {% endfor %}
+        {% if not expenses %}
+        <tr><td colspan="5" style="padding:24px;color:var(--s400);text-align:center;">No expenses yet. <a href="/demo/app/expenses/add">Add one</a>.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

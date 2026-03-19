@@ -1,0 +1,58 @@
+{% extends "demo_watch_shell.html" %}
+{% block watch_title %}Watch — Insights{% endblock %}
+{% block watch_content %}
+  <div class="hero">
+    <h2>Insights <span class="pill">deterministic</span></h2>
+    <p>Forecast + anomalies are computed from seeded watch expenses. No keys, no external calls.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:15px;margin-bottom:10px;">Spend Forecast</h3>
+    {% if forecast and forecast|length %}
+    <table>
+      <thead>
+        <tr><th>Month</th><th style="text-align:right;">Projected spend</th></tr>
+      </thead>
+      <tbody>
+        {% for p in forecast %}
+        <tr>
+          <td>{{ p.month }}</td>
+          <td style="text-align:right;font-weight:800;color:var(--indigo);">${{ "%.2f"|format(p.projected_amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="color:#64748b;font-size:13px;">No forecast available.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:15px;margin-bottom:10px;">Anomalies (preview)</h3>
+    {% if anomalies %}
+    <table>
+      <thead>
+        <tr><th>Date</th><th style="text-align:right;">Amount</th><th>Reason</th><th>Detail</th></tr>
+      </thead>
+      <tbody>
+        {% for a in anomalies %}
+        <tr>
+          <td>{{ a.date }}</td>
+          <td style="text-align:right;font-weight:700;">${{ "%.2f"|format(a.amount) }}</td>
+          <td>
+            <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:12px;">
+              {{ a.reason }}
+            </span>
+          </td>
+          <td style="color:#334155;font-size:13px;">{{ a.detail }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div style="color:#64748b;font-size:13px;">No anomalies detected for {{ month }}.</div>
+    {% endif %}
+    <div style="margin-top:10px;color:#64748b;font-size:12px;">Not financial advice.</div>
+  </div>
+{% endblock %}
+

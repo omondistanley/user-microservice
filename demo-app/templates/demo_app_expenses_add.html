@@ -1,0 +1,60 @@
+{% extends "base_demo.html" %}
+{% block title %}Add Expense — demo{% endblock %}
+{% block content %}
+<div class="container">
+  <p class="page-back-wrap"><a href="/demo/app/expenses" class="page-back-link">← Expenses</a></p>
+  <div class="page-header">
+    <h1 class="page-title">Add expense</h1>
+  </div>
+  <div class="card">
+    <form id="exp-form" style="display:flex;flex-direction:column;gap:1rem;max-width:400px;">
+      <div class="form-group">
+        <label class="form-label" for="amount">Amount</label>
+        <input id="amount" name="amount" type="number" step="0.01" min="0.01" class="form-input" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="description">Description</label>
+        <input id="description" name="description" type="text" maxlength="500" class="form-input" placeholder="e.g. Coffee" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="category">Category</label>
+        <input id="category" name="category" type="text" maxlength="64" class="form-input" value="Other">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="expense_date">Date</label>
+        <input id="expense_date" name="expense_date" type="date" class="form-input" required>
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="/demo/app/expenses" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+    <p id="exp-err" style="color:var(--rose);font-size:13px;margin-top:8px;display:none;"></p>
+  </div>
+</div>
+<script>
+(function() {
+  document.getElementById('expense_date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('exp-form').onsubmit = function(ev) {
+    ev.preventDefault();
+    var form = ev.target;
+    var err = document.getElementById('exp-err');
+    err.style.display = 'none';
+    fetch('/api/demo/expenses', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: parseFloat(form.amount.value),
+        description: form.description.value.trim(),
+        category: (form.category.value || 'Other').trim(),
+        expense_date: form.expense_date.value
+      })
+    }).then(function(r) {
+      if (r.ok) window.location.href = '/demo/app/expenses';
+      else return r.json().then(function(j) { err.textContent = j.detail || 'Failed'; err.style.display = 'block'; });
+    }).catch(function() { err.textContent = 'Request failed'; err.style.display = 'block'; });
+  };
+})();
+</script>
+{% endblock %}

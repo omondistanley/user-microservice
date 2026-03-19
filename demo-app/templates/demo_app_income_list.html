@@ -1,0 +1,42 @@
+{% extends "base_demo.html" %}
+{% block title %}Income — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Income</h1>
+  <a href="/demo/app/income/add" class="btn btn-primary">+ Add income</a>
+</div>
+<div class="stat-row">
+  <div class="stat-card">
+    <div class="stat-label">Total Income</div>
+    <div class="stat-value">${{ "%.2f"|format(total_income|default(0)) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">This Month</div>
+    <div class="stat-value">${{ "%.2f"|format(income_this_month|default(0)) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Entries</div>
+    <div class="stat-value">{{ income_list|length }}</div>
+  </div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Source</th><th style="text-align:right;">Amount</th></tr>
+      </thead>
+      <tbody>
+        {% for i in income_list %}
+        <tr>
+          <td>{{ i.income_date }}</td>
+          <td>{{ i.source }}</td>
+          <td style="text-align:right;">${{ "%.2f"|format(i.amount) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" style="color:var(--s400);text-align:center;padding:24px;">No income yet. <a href="/demo/app/income/add">Add income</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

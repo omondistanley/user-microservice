@@ -1,0 +1,20 @@
+{% extends "base_demo.html" %}
+{% block title %}Investments — demo{% endblock %}
+{% block nav_inv %}active{% endblock %}
+{% block content %}
+<h1 style="font-size:22px;margin-bottom:16px;">Investments <span class="badge-preview" style="margin-left:8px;">Sample</span></h1>
+<div class="card">
+  <table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="text-align:left;border-bottom:1px solid #e2e8f0;"><th style="padding:8px 0;">Symbol</th><th>Qty</th><th>Last (sample)</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:8px 0;font-weight:600;">SPY</td><td>12</td><td>$508.00</td></tr>
+      <tr><td style="padding:8px 0;font-weight:600;">QQQ</td><td>4</td><td>$448.00</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:12px;font-size:13px;color:#64748b;">No live quotes — static preview.</p>
+</div>
+<div class="card disabled-preview">
+  <button type="button" class="btn btn-primary" disabled>Sync positions</button>
+  <button type="button" class="btn btn-ghost" disabled style="margin-left:8px;">Place order</button>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base_demo.html" %}
+{% block title %}Reports — demo{% endblock %}
+{% block content %}
+<div class="content-inner">
+  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+    <h1 class="page-title">Reports <span class="badge-preview" style="margin-left:8px;">Sample</span></h1>
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <label for="reports-period" class="form-label" style="margin:0;">Period</label>
+      <select id="reports-period" class="form-select" style="width:auto;">
+        <option value="month">This Month</option>
+        <option value="quarter">This Quarter</option>
+        <option value="year">This Year</option>
+      </select>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value">${{ "%.2f"|format(total_spend|default(0)) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top Category</div>
+      <div class="stat-value">{{ (category_spend|first).category if category_spend else '—' }}</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 style="font-size:1rem;font-weight:600;margin:0 0 1rem;">Spending by Category ({{ month }})</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Category</th><th style="text-align:right;">Total</th></tr>
+        </thead>
+        <tbody>
+          {% for row in category_spend %}
+          <tr>
+            <td><a href="/demo/app/reports/category/{{ row.category }}">{{ row.category }}</a></td>
+            <td style="text-align:right;">${{ "%.2f"|format(row.total) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="2" style="color:var(--s400);text-align:center;padding:24px;">No data for this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

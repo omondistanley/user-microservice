@@ -1,0 +1,49 @@
+{% extends "base_demo.html" %}
+{% block title %}Add Goal — demo{% endblock %}
+{% block content %}
+<div class="container">
+  <p class="page-back-wrap"><a href="/demo/app/goals" class="page-back-link">← Goals</a></p>
+  <div class="page-header">
+    <h1 class="page-title">New goal</h1>
+  </div>
+  <div class="card">
+    <form id="goal-form" style="display:flex;flex-direction:column;gap:1rem;max-width:400px;">
+      <div class="form-group">
+        <label class="form-label" for="name">Name</label>
+        <input type="text" id="name" name="name" class="form-input" required placeholder="e.g. Emergency fund">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="target_amount">Target amount</label>
+        <input type="number" id="target_amount" name="target_amount" class="form-input" step="0.01" min="0.01" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="current_amount">Current amount</label>
+        <input type="number" id="current_amount" name="current_amount" class="form-input" step="0.01" min="0" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="deadline">Deadline (optional)</label>
+        <input type="date" id="deadline" name="deadline" class="form-input">
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="/demo/app/goals" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+document.getElementById('goal-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var form = e.target;
+  var body = JSON.stringify({
+    name: form.name.value,
+    target_amount: parseFloat(form.target_amount.value),
+    current_amount: parseFloat(form.current_amount.value) || 0,
+    deadline: form.deadline.value || null
+  });
+  fetch('/api/demo/goals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, credentials: 'include' })
+    .then(function(r) { if (r.ok) window.location.href = '/demo/app/goals'; else return r.json().then(function(j) { alert(j.detail || 'Failed'); }); })
+    .catch(function() { alert('Request failed'); });
+});
+</script>
+{% endblock %}

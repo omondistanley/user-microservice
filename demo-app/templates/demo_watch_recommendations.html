@@ -1,0 +1,31 @@
+{% extends "demo_watch_shell.html" %}
+{% block watch_title %}Watch — Recommendations{% endblock %}
+{% block watch_content %}
+  <div class="hero">
+    <h2>Recommendations <span class="pill">preview</span></h2>
+    <p>“Run analysis” is preview-only in watch mode. Results are computed server-side from sandbox data.</p>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:8px;">Portfolio summary</div>
+    <div style="color:#334155;font-size:14px;line-height:1.5;">{{ portfolio_summary }}</div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:10px;">Top recommendations</div>
+    {% if recommendations %}
+      {% for r in recommendations %}
+      <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:10px;background:#fff;">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="font-weight:800;color:#0f172a;font-size:14px;">{{ r.title }}</div>
+          <div style="font-size:12px;color:#64748b;">score: {{ r.score }}</div>
+        </div>
+        <div style="margin-top:8px;color:#334155;font-size:13px;line-height:1.45;">{{ r.why }}</div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div style="color:#64748b;font-size:13px;padding:8px 0;">No recommendations for {{ month }}.</div>
+    {% endif %}
+  </div>
+{% endblock %}
+

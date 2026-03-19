@@ -1,0 +1,47 @@
+{% extends "base_demo.html" %}
+{% block title %}Savings Goals — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Savings Goals</h1>
+  <a href="/demo/app/goals/add" class="btn btn-primary">+ New goal</a>
+</div>
+{% set total_saved = goals|sum(attribute='current_amount')|default(0) %}
+{% set total_target = goals|sum(attribute='target_amount')|default(0) %}
+{% set goals_pct = ((total_saved / total_target * 100)|round) if total_target else 0 %}
+<div class="stat-row">
+  <div class="stat-card">
+    <div class="stat-label">Total Saved</div>
+    <div class="stat-value">${{ "%.2f"|format(total_saved) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Active Goals</div>
+    <div class="stat-value">{{ goals|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Overall %</div>
+    <div class="stat-value">{{ goals_pct }}%</div>
+  </div>
+</div>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="stat-label" style="margin-bottom:0.5rem;">Overall Progress</div>
+  <div class="progress-bar">
+    <div class="progress-fill green" style="width:{% if goals_pct > 100 %}100{% else %}{{ goals_pct }}{% endif %}%;"></div>
+  </div>
+</div>
+<div class="card">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;">
+    {% for g in goals %}
+    <a href="/demo/app/goals/{{ g.id }}" style="text-decoration:none;color:inherit;">
+      <div class="card" style="padding:16px;">
+        <div style="font-weight:700;margin-bottom:8px;">{{ g.name }}</div>
+        <div style="font-size:13px;color:var(--s500);">${{ "%.2f"|format(g.current_amount|default(0)) }} / ${{ "%.2f"|format(g.target_amount) }}</div>
+        {% set gpct = ((g.current_amount|default(0) / g.target_amount * 100)|round) %}
+<div class="progress-bar" style="margin-top:8px;"><div class="progress-fill green" style="width:{% if gpct > 100 %}100{% else %}{{ gpct }}{% endif %}%;"></div></div>
+      </div>
+    </a>
+    {% else %}
+    <p style="color:var(--s500);grid-column:1/-1;">No goals yet. <a href="/demo/app/goals/add">Add a goal</a>.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

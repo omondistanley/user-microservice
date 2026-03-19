@@ -1,0 +1,32 @@
+{% extends "base_demo.html" %}
+{% block title %}{{ goal.name }} — demo{% endblock %}
+{% block content %}
+{% set gpct = ((goal.current_amount|default(0) / goal.target_amount * 100)|round) %}
+<div class="container">
+  <p class="page-back-wrap"><a href="/demo/app/goals" class="page-back-link">← Goals</a></p>
+  <div class="page-header">
+    <h1 class="page-title">{{ goal.name }}</h1>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Current</div>
+      <div class="stat-value">${{ "%.2f"|format(goal.current_amount|default(0)) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Target</div>
+      <div class="stat-value">${{ "%.2f"|format(goal.target_amount) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Progress</div>
+      <div class="stat-value">{% if gpct > 100 %}100{% else %}{{ gpct }}{% endif %}%</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="progress-bar" style="height:12px;margin-bottom:16px;">
+      <div class="progress-fill green" style="width:{% if gpct > 100 %}100{% else %}{{ gpct }}{% endif %}%;"></div>
+    </div>
+    {% if goal.deadline %}<p style="font-size:13px;color:var(--s500);">Deadline: {{ goal.deadline }}</p>{% endif %}
+  </div>
+  <p style="font-size:13px;color:var(--s500);">Edit progress from the full app. Demo does not support updating goal amount here.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base_demo.html" %}
+{% block title %}Settings — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Settings <span class="badge-preview" style="margin-left:8px;">Sample</span></h1>
+</div>
+<div class="card">
+  <div class="form-group">
+    <label class="form-label" for="currency">Currency</label>
+    <select id="currency" class="form-select" style="width:auto;">
+      <option value="USD">USD</option>
+      <option value="EUR">EUR</option>
+      <option value="GBP">GBP</option>
+    </select>
+  </div>
+  <p style="font-size:13px;color:var(--s500);margin-top:16px;">Demo settings. Changes are not persisted.</p>
+</div>
+{% endblock %}

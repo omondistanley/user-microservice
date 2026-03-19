@@ -1,0 +1,17 @@
+{% extends "base_demo.html" %}
+{% block title %}Saved Views — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Saved Views <span class="badge-preview" style="margin-left:8px;">Sample</span></h1>
+</div>
+<div class="card">
+  <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Sample saved report views. In production you save filters and quick access.</p>
+  <ul style="list-style:none;padding:0;margin:0;">
+    {% for v in saved_views %}
+    <li style="padding:12px 0;border-bottom:1px solid var(--s100);">{{ v.name }} <span style="font-size:11px;color:var(--s400);">— {{ v.created }}</span></li>
+    {% else %}
+    <li style="padding:24px;color:var(--s500);">No saved views.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base_demo.html" %}
+{% block title %}Recurring — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Recurring</h1>
+</div>
+<p style="color:var(--s500);margin-bottom:16px;font-size:14px;">Sample recurring items. In production these sync from linked accounts.</p>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Description</th><th>Category</th><th>Amount</th><th>Frequency</th></tr>
+      </thead>
+      <tbody>
+        {% for r in recurring %}
+        <tr>
+          <td>{{ r.description }}</td>
+          <td>{{ r.category }}</td>
+          <td>${{ "%.2f"|format(r.amount) }}</td>
+          <td>{{ r.frequency }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

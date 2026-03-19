@@ -1,0 +1,58 @@
+[
+  {
+    "id": "dashboard",
+    "path": "/demo/watch/app/dashboard",
+    "title": "Dashboard (sample)",
+    "body": "A single view of cash + spending signals using deterministic watch data (no bank connections).",
+    "durationMs": 14000
+  },
+  {
+    "id": "expenses",
+    "path": "/demo/watch/app/expenses",
+    "title": "Expenses (read-only)",
+    "body": "Explore categorized expenses in watch mode. The interactive demo lets you add/edit inside a sandbox session.",
+    "durationMs": 14000
+  },
+  {
+    "id": "expense_detail",
+    "path": "/demo/watch/app/expenses/detail/coffee",
+    "title": "Expense detail (preview)",
+    "body": "A full detail/edit screen layout, shown as preview only. No destructive actions are executed.",
+    "durationMs": 12000
+  },
+  {
+    "id": "budgets",
+    "path": "/demo/watch/app/budgets",
+    "title": "Budgets (month-aware)",
+    "body": "Budget limits and utilization computed from seeded watch expenses for the selected month.",
+    "durationMs": 14000
+  },
+  {
+    "id": "budget_detail",
+    "path": "/demo/watch/app/budgets/detail/food_2026_03",
+    "title": "Budget detail (preview)",
+    "body": "Edit form layout for a single month+category budget. Save/Delete are disabled in watch mode.",
+    "durationMs": 12000
+  },
+  {
+    "id": "insights",
+    "path": "/demo/watch/app/insights",
+    "title": "Insights (deterministic)",
+    "body": "Spend forecast + anomaly-like detections derived from watch sandbox data (no API keys).",
+    "durationMs": 16000
+  },
+  {
+    "id": "recommendations",
+    "path": "/demo/watch/app/recommendations",
+    "title": "Recommendations (deterministic)",
+    "body": "Run-like analysis with explainers. In watch mode this is preview-only; the interactive demo performs the run.",
+    "durationMs": 14000
+  },
+  {
+    "id": "investments",
+    "path": "/demo/watch/app/investments",
+    "title": "Investments (sample)",
+    "body": "Static holdings preview. No live quotes are requested in this sandbox.",
+    "durationMs": 14000
+  }
+]

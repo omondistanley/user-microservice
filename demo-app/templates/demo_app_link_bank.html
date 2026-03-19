@@ -1,0 +1,16 @@
+{% extends "base_demo.html" %}
+{% block title %}Link Bank — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Link Bank <span class="badge-preview" style="margin-left:8px;">Demo</span></h1>
+</div>
+<p style="color:var(--s500);margin-bottom:20px;font-size:14px;">This demo does not connect to real banks. No Plaid or Teller API calls.</p>
+<div class="card disabled-preview" style="margin-bottom:16px;">
+  <h2 style="font-size:15px;margin-bottom:8px;">Connect your bank</h2>
+  <button type="button" class="btn btn-primary" disabled>Link bank (disabled in demo)</button>
+</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;">
+  <a href="/demo/app/expenses/add" class="btn btn-primary">Add expense manually</a>
+  <a href="/demo/app/expenses" class="btn btn-ghost">View expenses</a>
+</div>
+{% endblock %}

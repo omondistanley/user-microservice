@@ -1,0 +1,19 @@
+{% extends "base_demo.html" %}
+{% block title %}Integrations — demo{% endblock %}
+{% block nav_int %}active{% endblock %}
+{% block content %}
+<h1 style="font-size:22px;margin-bottom:16px;">Integrations</h1>
+<p style="color:#64748b;margin-bottom:20px;font-size:14px;">These actions are <strong>preview only</strong>. This demo never calls Plaid, Teller, or Alpaca.</p>
+<div class="card disabled-preview" style="margin-bottom:16px;">
+  <h2 style="font-size:15px;margin-bottom:8px;">Plaid</h2>
+  <button type="button" class="btn btn-primary" disabled>Link bank</button>
+</div>
+<div class="card disabled-preview" style="margin-bottom:16px;">
+  <h2 style="font-size:15px;margin-bottom:8px;">Alpaca</h2>
+  <button type="button" class="btn btn-primary" disabled>Connect brokerage</button>
+</div>
+<div class="card" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+  <h2 style="font-size:15px;margin-bottom:8px;">Apple Wallet webhook</h2>
+  <p style="font-size:13px;color:#166534;">In production you can log spends via Shortcuts without Plaid. Not wired in this sandbox.</p>
+</div>
+{% endblock %}

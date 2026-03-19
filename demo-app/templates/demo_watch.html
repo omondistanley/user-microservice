@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Watch demo — pocketii</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --indigo: #6366F1; --slate-100: #F1F5F9; --slate-700: #334155; --slate-800: #1E293B; --slate-900: #0f172a; }
+    body { font-family: Inter, sans-serif; margin: 0; background: var(--slate-100); color: var(--slate-800); }
+    .watch-controls {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(15,23,42,.95); color: #fff; padding: 16px 20px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between;
+    }
+    .watch-controls .narration { flex: 1; min-width: 200px; max-width: 560px; }
+    #watch-narration-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+    #watch-narration-body { font-size: 13px; color: #cbd5e1; line-height: 1.45; }
+    #watch-caption { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .watch-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .watch-bar button, .watch-bar a {
+      padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;
+      border: none; text-decoration: none; display: inline-block;
+    }
+    #watch-pause { background: #475569; color: #fff; }
+    #watch-next { background: #6366F1; color: #fff; }
+    #watch-skip-interactive { background: #10B981; color: #fff; }
+    #watch-progress { font-size: 12px; color: #94a3b8; }
+    .demo-watch-highlight {
+      outline: 3px solid var(--indigo); outline-offset: 6px; border-radius: 12px;
+      transition: outline 0.2s ease;
+    }
+    .scroll-area { padding-bottom: 140px; }
+    .hero { background: linear-gradient(135deg, #1e1b4b, #312e81); color: #fff; padding: 48px 24px; text-align: center; }
+    .hero h2 { font-size: 24px; margin-bottom: 8px; }
+    .hero p { opacity: .85; max-width: 480px; margin: 0 auto; }
+    .section { max-width: 800px; margin: 0 auto; padding: 32px 20px; }
+    .section h3 { font-size: 18px; margin-bottom: 16px; color: var(--slate-900); }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .stat { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .stat .v { font-size: 24px; font-weight: 800; color: var(--indigo); }
+    .stat .l { font-size: 12px; color: var(--slate-700); text-transform: uppercase; letter-spacing: .04em; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--slate-100); font-size: 14px; }
+    th { background: var(--slate-100); font-weight: 600; }
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--slate-100); }
+    .disabled-row { opacity: .5; }
+  </style>
+</head>
+<body>
+  <div class="scroll-area">
+    <div data-demo-scene="intro" class="hero">
+      <h2>pocketii</h2>
+      <p>Your finances in one place — expenses, budgets, goals, investments. <strong>Sample tour below.</strong></p>
+    </div>
+
+    <div data-demo-scene="dashboard" class="section">
+      <h3>Dashboard <span class="pill">Sample</span></h3>
+      <div class="grid2">
+        <div class="stat"><div class="l">Net worth</div><div class="v">${{ fixture.net_worth }}</div></div>
+        <div class="stat"><div class="l">Spent this month</div><div class="v">${{ fixture.month_spend }}</div></div>
+        <div class="stat"><div class="l">Food</div><div class="v">${{ fixture.food_spend }}</div></div>
+      </div>
+    </div>
+
+    <div data-demo-scene="expenses" class="section">
+      <h3>Recent expenses <span class="pill">Sample</span></h3>
+      <table>
+        <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
+        <tbody>
+          <tr><td>Mar 16</td><td>Grocery Co</td><td>$48.20</td></tr>
+          <tr><td>Mar 15</td><td>Transit pass</td><td>$35.00</td></tr>
+          <tr><td>Mar 14</td><td>Coffee</td><td>$6.50</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div data-demo-scene="budgets" class="section">
+      <h3>Budgets <span class="pill">Sample</span></h3>
+      <div class="stat">
+        <div class="l">Food</div>
+        <div class="v">${{ fixture.budget_food_spent }} / ${{ fixture.budget_food_limit }}</div>
+        <p style="margin-top:8px;font-size:13px;color:#64748b;">Almost at limit — sample copy.</p>
+      </div>
+    </div>
+
+    <div data-demo-scene="integrations" class="section">
+      <h3>Integrations <span class="pill">Preview only</span></h3>
+      <p style="margin-bottom:12px;font-size:14px;color:#64748b;">Plaid · Teller · TrueLayer — connect in the real app.</p>
+      <div class="stat disabled-row" style="pointer-events:none;">
+        <button type="button" class="pill" disabled>Link bank (not available in demo)</button>
+      </div>
+    </div>
+
+    <div data-demo-scene="investments" class="section">
+      <h3>Investments <span class="pill">Sample</span></h3>
+      <div class="grid2">
+        <div class="stat"><div class="l">SPY</div><div class="v">12 sh</div></div>
+        <div class="stat"><div class="l">Last price</div><div class="v">$508</div></div>
+      </div>
+    </div>
+
+    <div data-demo-scene="outro" class="section" style="text-align:center;padding-bottom:48px;">
+      <h3>Ready to explore?</h3>
+      <p style="margin:16px 0;color:#64748b;">Open the interactive sandbox to add your own sample expenses.</p>
+      <a href="/demo/start" class="pill" style="background:var(--indigo);color:#fff;padding:12px 24px;text-decoration:none;font-weight:600;">Try interactive demo</a>
+    </div>
+  </div>
+
+  <div class="watch-controls" role="region" aria-label="Demo narration">
+    <div class="narration">
+      <div id="watch-narration-title"></div>
+      <div id="watch-narration-body"></div>
+      <div id="watch-caption" aria-live="polite"></div>
+    </div>
+    <div class="watch-bar">
+      <span id="watch-progress"></span>
+      <button type="button" id="watch-pause" aria-pressed="false">Pause</button>
+      <button type="button" id="watch-next">Next</button>
+      <a href="/demo/start" id="watch-skip-interactive">Skip to interactive</a>
+    </div>
+  </div>
+
+  <script>
+    window.DEMO_SCENES = {{ scenes|tojson }};
+  </script>
+  <script src="/static/js/watch.js"></script>
+</body>
+</html>

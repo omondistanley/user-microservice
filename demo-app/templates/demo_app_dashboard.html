@@ -1,0 +1,218 @@
+{% extends "base_demo.html" %}
+{% block title %}Dashboard — demo{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css"/>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Dashboard <span class="badge-preview" style="margin-left:8px;">Sample</span></h1>
+</div>
+
+<!-- Mobile dashboard -->
+<div class="m-dash-mobile">
+  <div class="m-balance-hero">
+    <div class="m-balance-label">Running Balance</div>
+    <div class="m-balance-value" id="m-dashboard-balance">${{ fixture.net_worth }}</div>
+    <div class="m-balance-chips">
+      <div class="m-balance-chip">
+        <span class="m-balance-chip-label">Income</span>
+        <span class="m-balance-chip-val income">${{ "%.2f"|format(total_income_month|default(0)) }}</span>
+      </div>
+      <div class="m-balance-chip" style="margin-left:20px;">
+        <span class="m-balance-chip-label">Expenses</span>
+        <span class="m-balance-chip-val expense">${{ "%.2f"|format(total_spend|default(0)) }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="m-kpi-row">
+    <div class="m-kpi-card">
+      <div class="m-kpi-label">Savings Rate</div>
+      <div class="m-kpi-value">
+        {% if total_income_month and total_income_month > 0 %}
+          {{ "%.0f"|format(((total_income_month - total_spend) / total_income_month * 100)|round) }}%
+        {% else %}—{% endif %}
+      </div>
+      <div class="m-kpi-sub">this month</div>
+    </div>
+    <div class="m-kpi-card">
+      <div class="m-kpi-label">Budgets</div>
+      <div class="m-kpi-value">{{ budgets|length }}</div>
+      <div class="m-kpi-sub">active</div>
+    </div>
+  </div>
+  <div class="m-section-header">
+    <span class="m-section-title">Recent</span>
+    <a href="/demo/app/expenses" class="m-section-link">View all →</a>
+  </div>
+  <ul class="m-list" id="m-dashboard-txn-list">
+    {% for e in expenses[:10] %}
+    <li style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--s100);">
+      <div>
+        <span style="font-weight:600;">{{ e.description }}</span>
+        <span style="font-size:12px;color:var(--s500);">{{ e.expense_date }} · {{ e.category }}</span>
+      </div>
+      <span style="font-weight:600;color:var(--rose);">-${{ "%.2f"|format(e.amount) }}</span>
+    </li>
+    {% else %}
+    <li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">No transactions yet.</li>
+    {% endfor %}
+  </ul>
+  <div class="m-section-header" style="margin-top:16px;">
+    <span class="m-section-title">Budgets</span>
+    <a href="/demo/app/budgets" class="m-section-link">All →</a>
+  </div>
+  <div id="m-dashboard-budgets">
+    {% for b in budgets[:5] %}
+    <div style="padding:8px 0;border-bottom:1px solid var(--s100);">
+      <span>{{ b.category }}</span>
+      <span style="float:right;">${{ "%.0f"|format(b.spent|default(0)) }} / ${{ "%.0f"|format(b.limit) }}</span>
+    </div>
+    {% else %}
+    <p style="font-size:13px;color:var(--s400);">No budgets this month.</p>
+    {% endfor %}
+  </div>
+  <div class="m-card" style="margin-top:16px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <a href="/demo/app/expenses/add" class="btn btn-primary btn-sm" style="justify-content:center;">+ Expense</a>
+      <a href="/demo/app/income/add" class="btn btn-ghost btn-sm" style="justify-content:center;">+ Income</a>
+      <a href="/demo/app/link-bank" class="btn btn-ghost btn-sm" style="justify-content:center;">🏦 Link Bank</a>
+      <a href="/demo/app/reports" class="btn btn-ghost btn-sm" style="justify-content:center;">📊 Reports</a>
+    </div>
+  </div>
+</div>
+
+<!-- Desktop dashboard -->
+<div class="m-dash-desktop">
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Running Balance</div>
+      <div class="stat-value">${{ fixture.net_worth }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Monthly Expenses</div>
+      <div class="stat-value">${{ "%.2f"|format(total_spend|default(0)) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Monthly Income</div>
+      <div class="stat-value">${{ "%.2f"|format(total_income_month|default(0)) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Savings Rate</div>
+      <div class="stat-value">
+        {% if total_income_month and total_income_month > 0 %}
+          {{ "%.0f"|format(((total_income_month - total_spend) / total_income_month * 100)|round) }}%
+        {% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-top:0;">
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Recent Transactions</h2>
+          <a href="/demo/app/expenses" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">View all →</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Description</th><th>Category</th><th style="text-align:right;">Amount</th></tr>
+            </thead>
+            <tbody>
+              {% for e in expenses[:10] %}
+              <tr>
+                <td>{{ e.expense_date }}</td>
+                <td>{{ e.description }}</td>
+                <td>{{ e.category }}</td>
+                <td style="text-align:right;">-${{ "%.2f"|format(e.amount) }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" style="color:var(--s400);text-align:center;padding:24px;">No transactions yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Spending by Category</h2>
+          <a href="/demo/app/reports" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">Full report →</a>
+        </div>
+        <div id="dashboard-category-bars">
+          {% for row in category_spend[:8] %}
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+            <span>{{ row.category }}</span>
+            <span>${{ "%.2f"|format(row.total) }}</span>
+          </div>
+          {% else %}
+          <p style="color:var(--s400);font-size:13px;">No spending this month.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Budget Overview</h2>
+          <a href="/demo/app/budgets" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">All budgets →</a>
+        </div>
+        <div id="dashboard-budgets-list">
+          {% for b in budgets[:5] %}
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;">
+              <span>{{ b.category }}</span>
+              <span>${{ "%.0f"|format(b.spent|default(0)) }} / ${{ "%.0f"|format(b.limit) }}</span>
+            </div>
+            <div class="progress-bar" style="margin-top:4px;"><div class="progress-fill {% if b.pct >= 100 %}red{% elif b.pct >= 80 %}amber{% else %}green{% endif %}" style="width:{% if (b.pct|default(0)) > 100 %}100{% else %}{{ b.pct|default(0) }}{% endif %}%;"></div></div>
+          </div>
+          {% else %}
+          <p style="color:var(--s400);font-size:13px;">No budgets this month.</p>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Savings Goals</h2>
+          <a href="/demo/app/goals" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">All goals →</a>
+        </div>
+        <div id="dashboard-goals-list">
+          {% for g in goals[:3] %}
+          <div style="margin-bottom:8px;">
+            <span>{{ g.name }}</span>
+            <span style="float:right;">${{ "%.0f"|format(g.current_amount|default(0)) }} / ${{ "%.0f"|format(g.target_amount) }}</span>
+          </div>
+          {% else %}
+          <p style="color:var(--s400);font-size:13px;">No goals yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card" style="background:var(--s50);border-color:var(--s100);">
+        <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:12px;">Quick Actions</h2>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <a href="/demo/app/expenses/add" class="btn btn-primary btn-sm" style="justify-content:center;">+ Add Expense</a>
+          <a href="/demo/app/income/add" class="btn btn-ghost btn-sm" style="justify-content:center;">+ Add Income</a>
+          <a href="/demo/app/link-bank" class="btn btn-ghost btn-sm" style="justify-content:center;">🏦 Link Bank</a>
+          <a href="/demo/app/reports" class="btn btn-ghost btn-sm" style="justify-content:center;">📊 Reports</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+<script>
+(function() {
+  if (sessionStorage.getItem('demo_tour_v1')) return;
+  sessionStorage.setItem('demo_tour_v1', '1');
+  var d = window.driver && window.driver({ showProgress: true });
+  if (d && d.drive) {
+    d.setSteps([
+      { element: '.stat-row', popover: { title: 'Dashboard', description: 'Sample data. Add expenses and budgets to see them here.' } },
+      { element: '.sidebar', popover: { title: 'Navigate', description: 'Same sections as the full app.' } },
+      { popover: { title: 'Demo', description: 'Data resets on a schedule. No API keys used.' } }
+    ]);
+    d.drive();
+  }
+})();
+</script>
+{% endblock %}

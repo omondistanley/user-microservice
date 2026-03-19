@@ -1,0 +1,128 @@
+{% extends "base_demo.html" %}
+{% block title %}Recommendations — demo{% endblock %}
+{% block nav_recommendations %}active{% endblock %}
+{% block content %}
+<div class="page-header" style="margin-bottom:16px;">
+  <h1 style="font-size:22px;margin:0 0 8px 0;">Recommendations <span class="badge-preview" style="margin-left:8px;">{{ month }}</span></h1>
+  <p style="color:#64748b;font-size:14px;margin:0;">Deterministic demo recommendations computed from your sandbox budgets + expenses (no API keys).</p>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <h2 style="font-size:15px;margin-bottom:10px;">Run analysis</h2>
+
+  <form id="rec-prefs-form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Month</label>
+      <input type="month" name="month" required value="{{ month }}"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:170px;" />
+    </div>
+
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Risk tolerance</label>
+      <select name="risk_tolerance"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:190px;background:#fff;color:#0f172a;">
+        <option value="conservative">Conservative</option>
+        <option value="balanced" selected>Balanced</option>
+        <option value="aggressive">Aggressive</option>
+      </select>
+    </div>
+
+    <div style="flex:1;min-width:220px;">
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Industries / sectors (optional)</label>
+      <input name="industries" type="text" placeholder="e.g. technology, bonds"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:100%;max-width:360px;" />
+    </div>
+
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155;">
+      <input type="checkbox" name="use_budget" checked />
+      Use my budgets to personalize
+    </label>
+
+    <button type="button" id="rec-run-btn" class="btn btn-primary" style="margin-left:auto;">Run analysis</button>
+  </form>
+
+  <div id="rec-run-status" style="margin-top:10px;color:#64748b;font-size:13px;display:none;">
+    Generating recommendations...
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="font-size:15px;margin-bottom:10px;">Latest results</h2>
+  <div id="rec-portfolio-summary" style="color:#334155;font-size:14px;margin-bottom:12px;">
+    No recommendation run yet.
+  </div>
+  <div id="rec-list"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var runBtn = document.getElementById('rec-run-btn');
+  var statusEl = document.getElementById('rec-run-status');
+  var form = document.getElementById('rec-prefs-form');
+  var listEl = document.getElementById('rec-list');
+  var summaryEl = document.getElementById('rec-portfolio-summary');
+
+  function badge(score) {
+    var s = parseFloat(score);
+    if (!isFinite(s)) return '<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#334155;font-weight:700;font-size:12px;">score</span>';
+    if (s >= 0.7) return '<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#ecfdf5;color:#065f46;font-weight:700;font-size:12px;">high</span>';
+    if (s >= 0.5) return '<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#fffbeb;color:#92400e;font-weight:700;font-size:12px;">medium</span>';
+    return '<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#fff1f2;color:#9f1239;font-weight:700;font-size:12px;">low</span>';
+  }
+
+  function setRunning(running) {
+    if (running) {
+      runBtn.disabled = true;
+      statusEl.style.display = 'block';
+    } else {
+      runBtn.disabled = false;
+      statusEl.style.display = 'none';
+    }
+  }
+
+  runBtn.addEventListener('click', function() {
+    var fd = new FormData(form);
+    var payload = {
+      month: fd.get('month'),
+      risk_tolerance: fd.get('risk_tolerance'),
+      industries: fd.get('industries'),
+      use_budget: !!fd.get('use_budget')
+    };
+
+    setRunning(true);
+    fetch('/api/demo/recommendations/run', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(data) {
+      summaryEl.textContent = data.portfolio_summary || ('Demo analysis for ' + (data.month || '') + '.');
+      var recs = data.recommendations || [];
+      if (!recs.length) {
+        listEl.innerHTML = '<div style="color:#64748b;font-size:13px;padding:8px 0;">No recommendations yet for this month.</div>';
+      } else {
+        listEl.innerHTML = recs.map(function(rec) {
+          return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:10px;background:#fff;">'
+            + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">'
+            + '<div style="font-weight:800;color:#0f172a;font-size:14px;">' + (rec.title || '') + '</div>'
+            + badge(rec.score)
+            + '</div>'
+            + '<div style="margin-top:8px;color:#334155;font-size:13px;line-height:1.4;">' + (rec.why || '') + '</div>'
+            + '</div>';
+        }).join('');
+      }
+    }).catch(function() {
+      alert('Failed to run recommendations in the demo.');
+    }).finally(function() {
+      setRunning(false);
+    });
+  });
+})();
+</script>
+{% endblock %}
+

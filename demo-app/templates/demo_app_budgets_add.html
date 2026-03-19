@@ -1,0 +1,72 @@
+{% extends "base_demo.html" %}
+{% block title %}Add Budget — demo{% endblock %}
+{% block nav_bud %}active{% endblock %}
+{% block content %}
+<h1 style="font-size:22px;margin-bottom:16px;">
+  Add budget <span class="badge-preview" style="margin-left:8px;">{{ month }}</span>
+</h1>
+
+<div class="card" style="max-width:720px;">
+  <h2 style="font-size:15px;margin-bottom:12px;">Create a month-scoped budget</h2>
+
+  <form id="budget-add-form" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Month</label>
+      <input name="month" type="month" required value="{{ month }}"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:180px;" />
+    </div>
+
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Category</label>
+      <input name="category" type="text" maxlength="64" required value="Food"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:200px;" />
+    </div>
+
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Limit</label>
+      <input name="limit" type="number" step="0.01" min="0.01" max="999999" required value="200.00"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:140px;" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create</button>
+  </form>
+
+  <p id="budget-add-err" style="color:#dc2626;font-size:13px;margin-top:10px;display:none;"></p>
+
+  <div style="margin-top:18px;">
+    <a href="/demo/app/budgets?month={{ month }}" class="btn btn-ghost" style="text-decoration:none;">Back</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var form = document.getElementById('budget-add-form');
+  var errEl = document.getElementById('budget-add-err');
+  form.onsubmit = function(ev) {
+    ev.preventDefault();
+    errEl.style.display = 'none';
+    var fd = new FormData(form);
+    var payload = {
+      month: fd.get('month'),
+      category: fd.get('category'),
+      limit: parseFloat(fd.get('limit'))
+    };
+    fetch('/api/demo/budgets', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r) {
+      if (!r.ok) throw new Error();
+      window.location.href = '/demo/app/budgets?month=' + encodeURIComponent(payload.month);
+    }).catch(function() {
+      errEl.textContent = 'Create failed. Session may have expired.';
+      errEl.style.display = 'block';
+    });
+  };
+})();
+</script>
+{% endblock %}
+

@@ -1,0 +1,37 @@
+{% extends "demo_watch_shell.html" %}
+{% block watch_title %}Watch — Dashboard{% endblock %}
+{% block watch_content %}
+  <div class="hero">
+    <h2>Dashboard <span class="pill">sample</span></h2>
+    <p>Your finances in one place — using deterministic watch data. No bank accounts are connected.</p>
+  </div>
+
+  <div class="card">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+      <div>
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Net worth</div>
+        <div style="font-size:28px;font-weight:800;color:var(--indigo);margin-top:6px;">${{ fixture.net_worth }}</div>
+        <div style="color:#64748b;font-size:13px;margin-top:4px;">Sample figure — not your real data.</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Spent this month</div>
+        <div style="font-size:24px;font-weight:800;color:var(--indigo);margin-top:6px;">${{ fixture.month_spend }}</div>
+        <div style="color:#64748b;font-size:13px;margin-top:4px;">Derived from watch sandbox (static preview).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:8px;">Category highlight</div>
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div>
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Food</div>
+        <div style="font-size:22px;font-weight:800;margin-top:6px;">${{ fixture.food_spend }}</div>
+      </div>
+      <div style="color:#64748b;font-size:13px;max-width:420px;">
+        Next, explore Expenses and Budgets to see how month-scoped utilization is computed.
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

@@ -1,0 +1,11 @@
+{% extends "base_demo.html" %}
+{% block title %}Household — demo{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Household <span class="badge-preview" style="margin-left:8px;">Sample</span></h1>
+</div>
+<div class="card">
+  <h2 style="font-size:1rem;font-weight:600;margin:0 0 12px;">{{ household.name }}</h2>
+  <p style="font-size:13px;color:var(--s500);">{{ household.members }} member(s). In production you can invite others and share scope.</p>
+</div>
+{% endblock %}
