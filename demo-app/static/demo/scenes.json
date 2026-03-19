@@ -2,57 +2,71 @@
   {
     "id": "dashboard",
     "path": "/demo/watch/app/dashboard",
-    "title": "Dashboard (sample)",
-    "body": "A single view of cash + spending signals using deterministic watch data (no bank connections).",
-    "durationMs": 14000
+    "title": "Dashboard",
+    "body": "A single view of cash and spending. In the interactive demo you can add expenses and budgets from here.",
+    "durationMs": 4000
   },
   {
     "id": "expenses",
     "path": "/demo/watch/app/expenses",
-    "title": "Expenses (read-only)",
-    "body": "Explore categorized expenses in watch mode. The interactive demo lets you add/edit inside a sandbox session.",
-    "durationMs": 14000
+    "title": "Expenses",
+    "body": "Your transactions. In the interactive demo you add from the list and open any row to edit or delete.",
+    "durationMs": 4000
+  },
+  {
+    "id": "add_expense",
+    "path": "/demo/watch/app/expenses/add",
+    "title": "Add expense",
+    "body": "Here you add a new expense. In the interactive demo you fill this form and submit.",
+    "durationMs": 4000
   },
   {
     "id": "expense_detail",
     "path": "/demo/watch/app/expenses/detail/coffee",
-    "title": "Expense detail (preview)",
-    "body": "A full detail/edit screen layout, shown as preview only. No destructive actions are executed.",
-    "durationMs": 12000
+    "title": "Edit & delete expense",
+    "body": "Change amount, description, category, or date. In the interactive demo you can Save or Delete from this screen.",
+    "durationMs": 4000
   },
   {
     "id": "budgets",
     "path": "/demo/watch/app/budgets",
-    "title": "Budgets (month-aware)",
-    "body": "Budget limits and utilization computed from seeded watch expenses for the selected month.",
-    "durationMs": 14000
+    "title": "Budgets",
+    "body": "Monthly limits and usage. In the interactive demo you add a budget or open one to edit or delete.",
+    "durationMs": 4000
+  },
+  {
+    "id": "add_budget",
+    "path": "/demo/watch/app/budgets/add",
+    "title": "Add budget",
+    "body": "Here you create a new budget. In the interactive demo you can submit, then edit or delete it from the budget list.",
+    "durationMs": 4000
   },
   {
     "id": "budget_detail",
     "path": "/demo/watch/app/budgets/detail/food_2026_03",
-    "title": "Budget detail (preview)",
-    "body": "Edit form layout for a single month+category budget. Save/Delete are disabled in watch mode.",
-    "durationMs": 12000
+    "title": "Edit & delete budget",
+    "body": "Change month, category, or limit. In the interactive demo you can Save or Delete here.",
+    "durationMs": 4000
   },
   {
     "id": "insights",
     "path": "/demo/watch/app/insights",
-    "title": "Insights (deterministic)",
-    "body": "Spend forecast + anomaly-like detections derived from watch sandbox data (no API keys).",
-    "durationMs": 16000
+    "title": "Insights",
+    "body": "Spend forecast and anomaly-style detections from demo data (no API keys).",
+    "durationMs": 4000
   },
   {
     "id": "recommendations",
     "path": "/demo/watch/app/recommendations",
-    "title": "Recommendations (deterministic)",
-    "body": "Run-like analysis with explainers. In watch mode this is preview-only; the interactive demo performs the run.",
-    "durationMs": 14000
+    "title": "Recommendations",
+    "body": "Deterministic analysis. In the interactive demo you can run analysis with your sandbox data.",
+    "durationMs": 4000
   },
   {
     "id": "investments",
     "path": "/demo/watch/app/investments",
-    "title": "Investments (sample)",
-    "body": "Static holdings preview. No live quotes are requested in this sandbox.",
-    "durationMs": 14000
+    "title": "Investments",
+    "body": "Static holdings preview. No live quotes in this sandbox.",
+    "durationMs": 4000
   }
 ]

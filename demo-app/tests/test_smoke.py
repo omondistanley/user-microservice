@@ -153,8 +153,11 @@ def test_watch_pages_are_read_only_and_api_requires_jwt(client):
     # Watch routes should be accessible without a demo JWT.
     assert client.get("/demo/watch/app/dashboard").status_code == 200
     assert client.get("/demo/watch/app/expenses").status_code == 200
+    assert client.get("/demo/watch/app/expenses/add").status_code == 200
     assert client.get("/demo/watch/app/expenses/detail/coffee").status_code == 200
     assert client.get("/demo/watch/app/budgets").status_code == 200
+    assert client.get("/demo/watch/app/budgets/add").status_code == 200
+    assert client.get("/demo/watch/app/budgets/add?month=2026-03").status_code == 200
     assert client.get("/demo/watch/app/budgets/detail/food_2026_03").status_code == 200
     assert client.get("/demo/watch/app/insights").status_code == 200
     assert client.get("/demo/watch/app/recommendations").status_code == 200

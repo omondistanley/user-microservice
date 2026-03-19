@@ -179,6 +179,15 @@ async def watch_expenses(request: Request, month: Optional[str] = None):
     )
 
 
+@router.get("/demo/watch/app/expenses/add", response_class=HTMLResponse)
+async def watch_expenses_add(request: Request):
+    touch_activity()
+    return templates.TemplateResponse(
+        "demo_watch_expenses_add.html",
+        _ctx(request, scenes=_load_scenes()),
+    )
+
+
 @router.get("/demo/watch/app/expenses/detail/{detail_key}", response_class=HTMLResponse)
 async def watch_expense_detail(request: Request, detail_key: str):
     touch_activity()
@@ -221,6 +230,16 @@ async def watch_budgets(request: Request, month: Optional[str] = None):
     return templates.TemplateResponse(
         "demo_watch_budgets.html",
         _ctx(request, scenes=_load_scenes(), month=m, budgets=budgets, total_spend=total_spend),
+    )
+
+
+@router.get("/demo/watch/app/budgets/add", response_class=HTMLResponse)
+async def watch_budgets_add(request: Request, month: Optional[str] = None):
+    touch_activity()
+    m = _watch_month(month)
+    return templates.TemplateResponse(
+        "demo_watch_budgets_add.html",
+        _ctx(request, scenes=_load_scenes(), month=m),
     )
 
 

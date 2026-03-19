@@ -53,7 +53,7 @@
     if (timer) clearTimeout(timer);
     if (paused) return;
 
-    var ms = reducedMotion ? Math.min(s.durationMs || 10000, 8000) : (s.durationMs || 10000);
+    var ms = reducedMotion ? Math.min(s.durationMs || 4000, 4000) : (s.durationMs || 4000);
     timer = setTimeout(function () {
       if (idx + 1 < scenes.length) goTo(idx + 1);
       else endWatch();
