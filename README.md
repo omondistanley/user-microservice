@@ -4,7 +4,7 @@
 
 [![Live App](https://img.shields.io/badge/Live%20App-pocketii.fly.dev-blue?style=flat-square)](https://pocketii.fly.dev/landing)
 [![Demo](https://img.shields.io/badge/Demo-pocketii.onrender.com-green?style=flat-square)](https://pocketii.onrender.com)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+
 
 ---
 
