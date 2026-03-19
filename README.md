@@ -45,6 +45,8 @@ The demo runs in two modes:
 
 pocketii is a full-featured personal finance management platform with the addition of an investment portfolio module, shared household finance, and AI-powered insights.
 
+- reach out for project docs if interested
+
 **Core capabilities:**
 - Log and categorize expenses and income
 - Set and track budgets with real-time alerts
@@ -54,6 +56,7 @@ pocketii is a full-featured personal finance management platform with the additi
 - Link real bank accounts (Plaid, Teller, TrueLayer)
 - Share finances with household members
 - Export data, view reports, and manage recurring transactions
+
 
 ---
 
