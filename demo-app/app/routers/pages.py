@@ -113,9 +113,31 @@ def _watch_month(month: Optional[str]) -> str:
 async def watch_dashboard(request: Request, month: Optional[str] = None):
     touch_activity()
     m = _watch_month(month)
+    expenses = list_expenses_for_month(WATCH_SESSION_ID, m)[:15]
+    budgets = list_budgets(WATCH_SESSION_ID, m)
+    for b in budgets:
+        b["spent"] = spend_for_category_month(WATCH_SESSION_ID, b["category"], m)
+        b["remaining"] = max(float(b["limit"]) - b["spent"], 0.0)
+        b["pct"] = min(100.0, (b["spent"] / float(b["limit"])) * 100.0) if b["limit"] else 0.0
+    goals = []
+    income_list = []
+    total_spend = total_spend_for_month(WATCH_SESSION_ID, m)
+    category_spend = category_spend_for_month(WATCH_SESSION_ID, m)
+    total_income_month = 0.0
     return templates.TemplateResponse(
         "demo_watch_dashboard.html",
-        _ctx(request, scenes=_load_scenes(), month=m),
+        _ctx(
+            request,
+            scenes=_load_scenes(),
+            month=m,
+            expenses=expenses,
+            budgets=budgets,
+            goals=goals,
+            income_list=income_list,
+            total_spend=total_spend,
+            total_income_month=total_income_month,
+            category_spend=category_spend,
+        ),
     )
 
 

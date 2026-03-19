@@ -1,41 +1,39 @@
-{% extends "demo_watch_shell.html" %}
-{% block watch_title %}Watch — Expense detail{% endblock %}
-{% block watch_content %}
-  <div class="hero">
-    <h2>Expense detail <span class="pill">preview</span></h2>
-    <p>This screen uses the same structure as the interactive editor, but actions are disabled in watch mode.</p>
-  </div>
+{% extends "base_demo_watch.html" %}
+{% block title %}Expense detail — Watch demo{% endblock %}
+{% block content %}
+<h1 style="font-size:22px;margin-bottom:16px;">
+  Expense <span class="badge-preview" style="margin-left:8px;">Watch</span>
+</h1>
 
-  <div class="card" style="max-width:760px;">
-    <h3 style="font-size:15px;margin-bottom:14px;">Expense</h3>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-      <div>
-        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Amount</label>
-        <input disabled value="{{ expense.amount }}" type="text"
-          style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:160px;background:#f8fafc;color:#0f172a;" />
-      </div>
-      <div style="flex:1;min-width:220px;">
-        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Description</label>
-        <input disabled value="{{ expense.description }}" type="text"
-          style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:100%;max-width:380px;background:#f8fafc;color:#0f172a;" />
-      </div>
-      <div>
-        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Category</label>
-        <input disabled value="{{ expense.category }}" type="text"
-          style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:190px;background:#f8fafc;color:#0f172a;" />
-      </div>
-      <div>
-        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Date</label>
-        <input disabled value="{{ expense.expense_date }}" type="text"
-          style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:190px;background:#f8fafc;color:#0f172a;" />
-      </div>
+<div class="card" style="max-width:720px;">
+  <h2 style="font-size:15px;margin-bottom:12px;">View expense (read-only)</h2>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Amount</label>
+      <input disabled value="{{ expense.amount }}" type="text"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:140px;background:#f8fafc;color:#0f172a;" />
     </div>
-
-    <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
-      <button type="button" class="btn btn-primary" disabled style="opacity:.5;pointer-events:none;">Save (disabled)</button>
-      <button type="button" class="btn btn-ghost" disabled style="opacity:.5;pointer-events:none;">Delete (disabled)</button>
-      <a href="/demo/watch/app/expenses" class="btn btn-ghost" style="text-decoration:none;">Back</a>
+    <div style="flex:1;min-width:220px;">
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Description</label>
+      <input disabled value="{{ expense.description }}" type="text"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:100%;max-width:360px;background:#f8fafc;color:#0f172a;" />
+    </div>
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Category</label>
+      <input disabled value="{{ expense.category }}" type="text"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:170px;background:#f8fafc;color:#0f172a;" />
+    </div>
+    <div>
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Date</label>
+      <input disabled value="{{ expense.expense_date }}" type="text"
+        style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:170px;background:#f8fafc;color:#0f172a;" />
     </div>
   </div>
+
+  <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="/demo/watch/app/expenses" class="btn btn-ghost" style="text-decoration:none;">Back to expenses</a>
+    <a href="/demo/start" class="btn btn-primary" style="text-decoration:none;">Skip to interactive</a>
+  </div>
+</div>
 {% endblock %}
-

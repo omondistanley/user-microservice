@@ -1,58 +1,86 @@
-{% extends "demo_watch_shell.html" %}
-{% block watch_title %}Watch — Insights{% endblock %}
-{% block watch_content %}
-  <div class="hero">
-    <h2>Insights <span class="pill">deterministic</span></h2>
-    <p>Forecast + anomalies are computed from seeded watch expenses. No keys, no external calls.</p>
+{% extends "base_demo_watch.html" %}
+{% block title %}Insights — Watch demo{% endblock %}
+{% block content %}
+<div class="page-header" style="margin-bottom:16px;">
+  <h1 style="font-size:22px;margin:0 0 8px 0;">Insights <span class="badge-preview" style="margin-left:8px;">{{ month }}</span></h1>
+  <p style="color:#64748b;font-size:14px;margin:0;">Deterministic insights from demo data (read-only).</p>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <div>
+      <h2 style="font-size:15px;margin-bottom:4px;">Spend Forecast</h2>
+      <div style="color:#64748b;font-size:13px;">Projected spend for the next 3 months</div>
+    </div>
+    <form method="get" action="/demo/watch/app/insights" style="display:flex;gap:10px;align-items:flex-end;">
+      <div>
+        <label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px;">Month</label>
+        <input type="month" name="month" value="{{ month }}" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;width:180px;" />
+      </div>
+      <button type="submit" class="btn btn-primary">View</button>
+    </form>
   </div>
 
-  <div class="card">
-    <h3 style="font-size:15px;margin-bottom:10px;">Spend Forecast</h3>
-    {% if forecast and forecast|length %}
-    <table>
+  <div style="margin-top:14px;">
+    <table style="width:100%;border-collapse:collapse;">
       <thead>
-        <tr><th>Month</th><th style="text-align:right;">Projected spend</th></tr>
+        <tr style="text-align:left;border-bottom:1px solid #e2e8f0;">
+          <th style="padding:8px 0;">Month</th>
+          <th style="padding:8px 0;text-align:right;">Projected spend</th>
+        </tr>
       </thead>
       <tbody>
         {% for p in forecast %}
-        <tr>
-          <td>{{ p.month }}</td>
-          <td style="text-align:right;font-weight:800;color:var(--indigo);">${{ "%.2f"|format(p.projected_amount) }}</td>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 0;">{{ p.month }}</td>
+          <td style="padding:10px 0;text-align:right;font-weight:700;color:var(--indigo);">${{ "%.2f"|format(p.projected_amount) }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}
-    <div style="color:#64748b;font-size:13px;">No forecast available.</div>
-    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div>
+      <h2 style="font-size:15px;margin-bottom:4px;">Anomalies</h2>
+      <div style="color:#64748b;font-size:13px;">Unusual expenses by amount pattern (read-only)</div>
+    </div>
+    <div style="color:#64748b;font-size:12px;max-width:420px;">
+      Not financial advice.
+    </div>
   </div>
 
-  <div class="card">
-    <h3 style="font-size:15px;margin-bottom:10px;">Anomalies (preview)</h3>
+  <div id="anomalies-wrap" style="margin-top:14px;">
     {% if anomalies %}
-    <table>
+    <table style="width:100%;border-collapse:collapse;">
       <thead>
-        <tr><th>Date</th><th style="text-align:right;">Amount</th><th>Reason</th><th>Detail</th></tr>
+        <tr style="text-align:left;border-bottom:1px solid #e2e8f0;">
+          <th style="padding:8px 0;">Date</th>
+          <th style="padding:8px 0;text-align:right;">Amount</th>
+          <th style="padding:8px 0;">Reason</th>
+          <th style="padding:8px 0;">Detail</th>
+        </tr>
       </thead>
       <tbody>
         {% for a in anomalies %}
-        <tr>
-          <td>{{ a.date }}</td>
-          <td style="text-align:right;font-weight:700;">${{ "%.2f"|format(a.amount) }}</td>
-          <td>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 0;">{{ a.date }}</td>
+          <td style="padding:10px 0;text-align:right;font-weight:700;">${{ "%.2f"|format(a.amount) }}</td>
+          <td style="padding:10px 0;">
             <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:12px;">
               {{ a.reason }}
             </span>
           </td>
-          <td style="color:#334155;font-size:13px;">{{ a.detail }}</td>
+          <td style="padding:10px 0;color:#334155;font-size:13px;">{{ a.detail }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     {% else %}
-      <div style="color:#64748b;font-size:13px;">No anomalies detected for {{ month }}.</div>
+      <div style="padding:14px 0;color:#64748b;font-size:13px;">No anomalies detected for {{ month }} yet.</div>
     {% endif %}
-    <div style="margin-top:10px;color:#64748b;font-size:12px;">Not financial advice.</div>
   </div>
+</div>
 {% endblock %}
-

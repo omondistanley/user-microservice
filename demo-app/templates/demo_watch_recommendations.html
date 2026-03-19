@@ -1,31 +1,35 @@
-{% extends "demo_watch_shell.html" %}
-{% block watch_title %}Watch — Recommendations{% endblock %}
-{% block watch_content %}
-  <div class="hero">
-    <h2>Recommendations <span class="pill">preview</span></h2>
-    <p>“Run analysis” is preview-only in watch mode. Results are computed server-side from sandbox data.</p>
-  </div>
+{% extends "base_demo_watch.html" %}
+{% block title %}Recommendations — Watch demo{% endblock %}
+{% block content %}
+<div class="page-header" style="margin-bottom:16px;">
+  <h1 style="font-size:22px;margin:0 0 8px 0;">Recommendations <span class="badge-preview" style="margin-left:8px;">{{ month }}</span></h1>
+  <p style="color:#64748b;font-size:14px;margin:0;">Deterministic demo recommendations (read-only). <a href="/demo/start">Run analysis in interactive demo</a>.</p>
+</div>
 
-  <div class="card">
-    <div style="font-weight:800;margin-bottom:8px;">Portfolio summary</div>
-    <div style="color:#334155;font-size:14px;line-height:1.5;">{{ portfolio_summary }}</div>
+<div class="card">
+  <h2 style="font-size:15px;margin-bottom:10px;">Latest results</h2>
+  <div id="rec-portfolio-summary" style="color:#334155;font-size:14px;margin-bottom:12px;">
+    {{ portfolio_summary }}
   </div>
-
-  <div class="card">
-    <div style="font-weight:800;margin-bottom:10px;">Top recommendations</div>
+  <div id="rec-list">
     {% if recommendations %}
       {% for r in recommendations %}
       <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:10px;background:#fff;">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
           <div style="font-weight:800;color:#0f172a;font-size:14px;">{{ r.title }}</div>
-          <div style="font-size:12px;color:#64748b;">score: {{ r.score }}</div>
+          {% if r.score is defined %}
+          <span style="display:inline-block;padding:4px 10px;border-radius:999px;font-weight:700;font-size:12px;
+            {% if r.score >= 0.7 %}background:#ecfdf5;color:#065f46;{% elif r.score >= 0.5 %}background:#fffbeb;color:#92400e;{% else %}background:#fff1f2;color:#9f1239;{% endif %}">
+            {% if r.score >= 0.7 %}high{% elif r.score >= 0.5 %}medium{% else %}low{% endif %}
+          </span>
+          {% endif %}
         </div>
-        <div style="margin-top:8px;color:#334155;font-size:13px;line-height:1.45;">{{ r.why }}</div>
+        <div style="margin-top:8px;color:#334155;font-size:13px;line-height:1.4;">{{ r.why }}</div>
       </div>
       {% endfor %}
     {% else %}
       <div style="color:#64748b;font-size:13px;padding:8px 0;">No recommendations for {{ month }}.</div>
     {% endif %}
   </div>
+</div>
 {% endblock %}
-

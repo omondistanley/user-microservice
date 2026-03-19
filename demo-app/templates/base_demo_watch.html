@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6366F1" />
+  <title>{% block title %}Watch demo — pocketii{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/demo-overrides.css" />
+  <link rel="stylesheet" href="/static/css/watch-overrides.css" />
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="app-shell-page watch-mode {% block body_class %}{% endblock %}" id="app-body">
+  <a href="#main-content" class="skip-to-content">Skip to main content</a>
+
+  <div class="demo-banner">Watch demo · Read-only tour · <a href="/demo/start">Skip to interactive</a></div>
+
+  <div class="app-shell" id="app-shell">
+    <aside class="sidebar" aria-label="App navigation">
+      <div class="sb-logo">
+        <a href="/demo/watch/app/dashboard" class="sb-logo-text" style="text-decoration:none;">pocketii</a>
+        <div class="sb-logo-sub">Personal · Watch</div>
+      </div>
+
+      <nav class="sb-nav">
+        <div class="sb-section">Overview</div>
+        <a href="/demo/watch/app/dashboard" class="sb-link {% if request.url.path == '/demo/watch/app/dashboard' %}active{% endif %}">
+          <span class="icon">📊</span> Dashboard
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">💎</span> Net Worth
+        </a>
+        <div class="sb-section">Money</div>
+        <a href="/demo/watch/app/expenses" class="sb-link {% if request.url.path.startswith('/demo/watch/app/expenses') %}active{% endif %}">
+          <span class="icon">💸</span> Expenses
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">💰</span> Income
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">🔄</span> Recurring
+        </a>
+        <a href="/demo/watch/app/budgets" class="sb-link {% if request.url.path.startswith('/demo/watch/app/budgets') %}active{% endif %}">
+          <span class="icon">🎯</span> Budgets
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">⭐</span> Goals
+        </a>
+        <div class="sb-section">Analytics</div>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">📋</span> Reports
+        </a>
+        <a href="/demo/watch/app/insights" class="sb-link {% if request.url.path == '/demo/watch/app/insights' %}active{% endif %}">
+          <span class="icon">✨</span> Insights
+        </a>
+        <a href="/demo/watch/app/investments" class="sb-link {% if request.url.path.startswith('/demo/watch/app/investments') %}active{% endif %}">
+          <span class="icon">📈</span> Investments
+        </a>
+        <a href="/demo/watch/app/recommendations" class="sb-link {% if request.url.path.startswith('/demo/watch/app/recommendations') %}active{% endif %}">
+          <span class="icon">🤖</span> Recommendations
+        </a>
+        <div class="sb-section">Account</div>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">🔔</span> Notifications
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">👥</span> Household
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">🔐</span> Sessions
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">👤</span> Profile
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">⚙️</span> Settings
+        </a>
+        <div class="sb-section">Integrations</div>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">📌</span> Saved Views
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">🔌</span> Integrations
+        </a>
+        <a href="/demo/start" class="sb-link">
+          <span class="icon">🏦</span> Link Bank
+        </a>
+      </nav>
+
+      <div class="sb-user" id="sidebar-user-block">
+        <div class="sb-avatar" id="sidebar-avatar">?</div>
+        <div>
+          <div class="sb-user-name" id="sidebar-user-name">Watch</div>
+          <div class="sb-user-email" id="sidebar-user-email">read-only</div>
+        </div>
+        <a href="/demo/start" class="sb-user-icon" aria-label="Profile">⋯</a>
+      </div>
+    </aside>
+
+    <main class="app-main" id="app-main-area">
+      <header class="topbar">
+        <span class="topbar-greeting" id="topbar-greeting">Watch mode</span>
+        <span class="topbar-date" id="topbar-date"></span>
+        <a href="/demo/start" class="topbar-bell" aria-label="Notifications" style="text-decoration:none;color:inherit;">🔔</a>
+        <a href="/demo/start" class="btn btn-primary btn-sm" style="margin-left:8px;">Skip to interactive</a>
+      </header>
+      <div class="content-area" id="main-content" tabindex="-1">
+        {% block back_link %}{% endblock %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Mobile navigation">
+    <ul class="bottom-nav-items">
+      <li class="bottom-nav-item">
+        <a href="/demo/watch/app/dashboard" class="bottom-nav-link {% if request.url.path == '/demo/watch/app/dashboard' %}active{% endif %}">
+          <span class="bottom-nav-icon">🏠</span><span>Home</span>
+        </a>
+      </li>
+      <li class="bottom-nav-item">
+        <a href="/demo/watch/app/expenses" class="bottom-nav-link {% if request.url.path.startswith('/demo/watch/app/expenses') %}active{% endif %}">
+          <span class="bottom-nav-icon">💳</span><span>Expenses</span>
+        </a>
+      </li>
+      <li class="bottom-nav-item bottom-nav-item-fab">
+        <a href="/demo/start" class="bottom-nav-fab m-fab" style="text-decoration:none;color:inherit;display:flex;align-items:center;justify-content:center;">+</a>
+      </li>
+      <li class="bottom-nav-item">
+        <a href="/demo/watch/app/budgets" class="bottom-nav-link {% if request.url.path.startswith('/demo/watch/app/budgets') %}active{% endif %}">
+          <span class="bottom-nav-icon">🎯</span><span>Budgets</span>
+        </a>
+      </li>
+      <li class="bottom-nav-item">
+        <a href="#" class="bottom-nav-link" id="bottom-nav-menu-toggle">
+          <span class="bottom-nav-icon">☰</span><span>More</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <div class="action-sheet-overlay" id="more-overlay" aria-hidden="true"></div>
+  <div class="action-sheet action-sheet-more" id="more-sheet" role="dialog" aria-modal="true" aria-label="More options">
+    <div class="action-sheet-handle"></div>
+    <div class="action-sheet-title">More</div>
+    <div class="action-sheet-items">
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">👤</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Profile</span>
+          <span class="action-sheet-item-desc">View profile</span>
+        </div>
+      </a>
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(100,116,139,0.12);color:#64748B;">⚙️</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Settings</span>
+          <span class="action-sheet-item-desc">View settings</span>
+        </div>
+      </a>
+      <div class="action-sheet-section-label">Analytics</div>
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">💰</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Net Worth</span>
+          <span class="action-sheet-item-desc">Assets &amp; liabilities</span>
+        </div>
+      </a>
+      <a href="/demo/watch/app/investments" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">📈</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Investments</span>
+          <span class="action-sheet-item-desc">Portfolio preview</span>
+        </div>
+      </a>
+      <a href="/demo/watch/app/recommendations" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(139,92,246,0.12);color:#8B5CF6;">🤖</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Recommendations</span>
+          <span class="action-sheet-item-desc">Deterministic analysis</span>
+        </div>
+      </a>
+      <a href="/demo/watch/app/insights" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(56,189,248,0.12);color:#38BDF8;">💡</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Insights</span>
+          <span class="action-sheet-item-desc">Forecast &amp; anomalies</span>
+        </div>
+      </a>
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">📊</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Reports</span>
+          <span class="action-sheet-item-desc">Spending by category</span>
+        </div>
+      </a>
+      <div class="action-sheet-section-label">Account</div>
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">🏠</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Household</span>
+          <span class="action-sheet-item-desc">Sample household</span>
+        </div>
+      </a>
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;">🔒</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Sessions</span>
+          <span class="action-sheet-item-desc">Watch session</span>
+        </div>
+      </a>
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">🔗</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Integrations</span>
+          <span class="action-sheet-item-desc">Preview only</span>
+        </div>
+      </a>
+      <a href="/demo/start" class="action-sheet-item">
+        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">🔔</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Notifications</span>
+          <span class="action-sheet-item-desc">Sample alerts</span>
+        </div>
+      </a>
+      <a href="/demo/start" class="action-sheet-item" style="border-top:1px solid var(--s200);margin-top:8px;padding-top:12px;">
+        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.2);color:#10B981;">✓</span>
+        <div class="action-sheet-item-text">
+          <span class="action-sheet-item-label">Skip to interactive demo</span>
+          <span class="action-sheet-item-desc">Add expenses &amp; budgets</span>
+        </div>
+      </a>
+    </div>
+    <button type="button" class="action-sheet-cancel" id="more-sheet-cancel">Cancel</button>
+  </div>
+
+  <script>
+  (function() {
+    function openSheet(sheetId, overlayId) {
+      var sheet = document.getElementById(sheetId);
+      var overlay = document.getElementById(overlayId);
+      if (!sheet || !overlay) return;
+      overlay.classList.add('active');
+      sheet.classList.add('active');
+      sheet.setAttribute('aria-hidden', 'false');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSheet(sheetId, overlayId) {
+      var sheet = document.getElementById(sheetId);
+      var overlay = document.getElementById(overlayId);
+      if (!sheet || !overlay) return;
+      overlay.classList.remove('active');
+      sheet.classList.remove('active');
+      sheet.setAttribute('aria-hidden', 'true');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+    var moreBtn = document.getElementById('bottom-nav-menu-toggle');
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function() {
+        var isOpen = document.getElementById('more-sheet').classList.contains('active');
+        closeSheet('more-sheet', 'more-overlay');
+        if (!isOpen) openSheet('more-sheet', 'more-overlay');
+      });
+    }
+    document.getElementById('more-sheet-cancel') && document.getElementById('more-sheet-cancel').addEventListener('click', function() { closeSheet('more-sheet', 'more-overlay'); });
+    document.getElementById('more-overlay') && document.getElementById('more-overlay').addEventListener('click', function() { closeSheet('more-sheet', 'more-overlay'); });
+    var dateEl = document.getElementById('topbar-date');
+    if (dateEl) {
+      var d = new Date();
+      var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      dateEl.textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+    }
+  })();
+  </script>
+
+  <div class="watch-controls-bar" role="region" aria-label="Demo narration">
+    <div class="watch-controls-narration">
+      <div id="watch-narration-title"></div>
+      <div id="watch-narration-body"></div>
+      <div id="watch-caption" aria-live="polite" class="sr-only"></div>
+    </div>
+    <div class="watch-controls-actions">
+      <span id="watch-progress"></span>
+      <button type="button" id="watch-pause" aria-pressed="false">Pause</button>
+      <button type="button" id="watch-next">Next</button>
+      <a href="/demo/start" id="watch-skip-interactive" class="btn-watch-skip">Skip to interactive</a>
+    </div>
+  </div>
+
+  <script>window.DEMO_SCENES = {{ scenes|tojson }};</script>
+  <script src="/static/js/watch.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
