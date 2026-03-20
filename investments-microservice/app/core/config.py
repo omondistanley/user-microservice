@@ -8,8 +8,11 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-load_dotenv(_env_path)
+_service_root = Path(__file__).resolve().parent.parent.parent
+_repo_root = _service_root.parent
+# Service-local .env first; repo root .env fills missing keys (Docker often injects env, local dev may only use root .env).
+load_dotenv(_service_root / ".env")
+load_dotenv(_repo_root / ".env", override=False)
 
 SECRET_KEY: str = os.environ.get("SECRET_KEY", "")
 ALGORITHM: str = os.environ.get("ALGORITHM", "HS256")

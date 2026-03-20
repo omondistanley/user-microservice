@@ -83,6 +83,10 @@ class MarketDataRouter:
                 continue
             try:
                 quote = await adapter.get_quote(symbol)
+                if quote.change_pct is None:
+                    pct = await self._try_change_pct_from_other_providers(sym, skip_provider=name)
+                    if pct is not None:
+                        quote = quote.model_copy(update={"change_pct": pct})
                 # Discrepancy check: compare to last known price
                 provenance: Optional[Dict[str, Any]] = None
                 if sym in _quote_cache:
@@ -113,6 +117,24 @@ class MarketDataRouter:
         if last_error:
             raise last_error
         raise RuntimeError("No market data providers configured")
+
+    async def _try_change_pct_from_other_providers(
+        self, symbol: str, skip_provider: str
+    ) -> Optional[Decimal]:
+        """Alpaca and some adapters omit daily %; try other configured providers for display-only change."""
+        for name in self._order:
+            if name == skip_provider:
+                continue
+            adapter = self._get_adapter(name)
+            if adapter is None:
+                continue
+            try:
+                q = await adapter.get_quote(symbol)
+                if q.change_pct is not None:
+                    return q.change_pct
+            except Exception:
+                continue
+        return None
 
     async def get_bars(
         self,

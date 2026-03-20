@@ -126,7 +126,27 @@
         html += '<li><strong>Volatility (annual)</strong>: ' + escapeHtml(formatNum2(p.volatility_annual)) + '</li>';
         html += '<li><strong>Max drawdown</strong>: ' + escapeHtml(formatNum2(p.max_drawdown)) + '</li>';
         html += '<li><strong>Top position weight</strong>: ' + escapeHtml(formatNum2(p.top1_weight)) + '</li>';
+        if (p.top3_weight != null && p.top3_weight !== '') {
+            html += '<li><strong>Top 3 weight</strong>: ' + escapeHtml(formatNum2(p.top3_weight)) + '</li>';
+        }
+        if (p.hhi != null && p.hhi !== '') {
+            html += '<li><strong>Concentration (HHI)</strong>: ' + escapeHtml(formatNum2(p.hhi)) + '</li>';
+        }
+        if (p.position_count != null && p.position_count !== '') {
+            html += '<li><strong>Positions</strong>: ' + escapeHtml(String(p.position_count)) + '</li>';
+        }
+        if (p.snapshot_date) {
+            html += '<li><strong>Snapshot as of</strong>: ' + escapeHtml(String(p.snapshot_date)) + '</li>';
+        }
         html += '</ul>';
+        if (p.holdings_top && p.holdings_top.length) {
+            html += '<h4 style="margin:1rem 0 0.5rem;font-size:0.95rem;">Largest positions</h4><ul class="portfolio-holdings-top" style="font-size:0.875rem;padding-left:1.1rem;">';
+            p.holdings_top.slice(0, 8).forEach(function (h) {
+                html += '<li><strong>' + escapeHtml(h.symbol || '—') + '</strong> — weight ' + escapeHtml(formatNum2(h.weight))
+                    + (h.source ? ' · ' + escapeHtml(h.source) : '') + '</li>';
+            });
+            html += '</ul>';
+        }
         summaryEl.innerHTML = html;
     }
 
@@ -252,28 +272,50 @@
                 if (en.data_freshness && en.data_freshness.provider) html += '<li><strong>Provider</strong>: ' + escapeHtml(String(en.data_freshness.provider)) + '</li>';
                 html += '</ul>';
                 if (en.recent_news && en.recent_news.length) {
-                    html += '<p class="rec-enrichment-news"><strong>Recent news</strong></p><ul class="rec-news-list">';
+                    html += '<p class="rec-enrichment-news"><strong>Recent news</strong> <span class="muted">(provider tags where available)</span></p><ul class="rec-news-list">';
                     en.recent_news.forEach(function (n) {
                         var title = (n.title || 'Headline').substring(0, 80);
                         if ((n.title || '').length > 80) title += '…';
                         var link = n.url ? '<a href="' + escapeHtml(n.url) + '" target="_blank" rel="noopener">' + escapeHtml(title) + '</a>' : escapeHtml(title);
-                        html += '<li>' + link + (n.published_at ? ' <span class="muted">' + escapeHtml(String(n.published_at)) + '</span>' : '') + '</li>';
+                        var prov = n.source_provider ? ' <span class="muted">[' + escapeHtml(String(n.source_provider)) + ']</span>' : '';
+                        html += '<li>' + link + prov + (n.published_at ? ' <span class="muted">' + escapeHtml(String(n.published_at)) + '</span>' : '') + '</li>';
                     });
                     html += '</ul>';
                 }
             }
+            html += '<h4>Market sentiment</h4>';
             if (ex.sentiment_summary) {
-                html += '<h4>Market sentiment</h4><p>' + escapeHtml(String(ex.sentiment_summary)) + '</p>';
-                if (ex.sentiment_trend_7d && ex.sentiment_trend_7d.daily_scores && ex.sentiment_trend_7d.daily_scores.length) {
-                    html += '<p class="muted" style="font-size:0.85rem;">7-day rolling average: ' + (ex.sentiment_trend_7d.rolling_avg_7d != null ? escapeHtml(Number(ex.sentiment_trend_7d.rolling_avg_7d).toFixed(2)) : '—') + '</p>';
+                html += '<p>' + escapeHtml(String(ex.sentiment_summary)) + '</p>';
+                if (ex.sentiment_context) {
+                    html += '<p class="muted" style="font-size:0.8rem;">Source: ' + escapeHtml(String(ex.sentiment_context)) + '</p>';
                 }
-            } else if (ex.sentiment_trend_7d) {
-                html += '<h4>Market sentiment</h4><p class="muted">No sentiment data for this symbol.</p>';
+                if (ex.sentiment_trend_7d && ex.sentiment_trend_7d.daily_scores && ex.sentiment_trend_7d.daily_scores.length) {
+                    html += '<p class="muted" style="font-size:0.85rem;">7-day rolling average (stored scores): ' + (ex.sentiment_trend_7d.rolling_avg_7d != null ? escapeHtml(Number(ex.sentiment_trend_7d.rolling_avg_7d).toFixed(2)) : '—') + '</p>';
+                }
+            } else if (ex.sentiment_trend_7d && ex.sentiment_trend_7d.daily_scores && ex.sentiment_trend_7d.daily_scores.length) {
+                html += '<p class="muted">Summarizing from trend…</p>';
+            } else {
+                html += '<p class="muted">No 7-day sentiment series returned; see News &amp; events for headline context (Benzinga / Finnhub / other configured feeds).</p>';
             }
-            if (ex.why_selected && ex.why_selected.length) {
-                html += '<h4>Why selected</h4><ul>';
+            if (ex.why_selected_evidence && ex.why_selected_evidence.length) {
+                html += '<h4>Why this appeared in your list (data &amp; settings)</h4><ul class="rec-evidence-list">';
+                ex.why_selected_evidence.forEach(function (row) {
+                    var src = row.source || 'Input';
+                    var det = row.detail || '';
+                    html += '<li><strong>' + escapeHtml(String(src)) + '</strong>: ' + escapeHtml(String(det)) + '</li>';
+                });
+                html += '</ul>';
+            } else if (ex.why_selected && ex.why_selected.length) {
+                html += '<h4>Why this appeared in your list</h4><ul>';
                 ex.why_selected.forEach(function (s) {
                     html += '<li>' + escapeHtml(String(s)) + '</li>';
+                });
+                html += '</ul>';
+            }
+            if (ex.risk_return_narrative && ex.risk_return_narrative.length) {
+                html += '<h4>Risk &amp; return (how we use these metrics)</h4><ul>';
+                ex.risk_return_narrative.forEach(function (line) {
+                    html += '<li>' + escapeHtml(String(line)) + '</li>';
                 });
                 html += '</ul>';
             }
@@ -282,7 +324,7 @@
                 var sharpeStr = rm.sharpe != null && String(rm.sharpe).indexOf('N/A') === -1 ? formatNum2(rm.sharpe) : (rm.sharpe != null ? String(rm.sharpe) : '—');
                 var volStr = rm.volatility_annual != null && String(rm.volatility_annual).indexOf('N/A') === -1 ? formatNum2(rm.volatility_annual) : (rm.volatility_annual != null ? String(rm.volatility_annual) : '—');
                 var mddStr = rm.max_drawdown != null && String(rm.max_drawdown).indexOf('N/A') === -1 ? formatNum2(rm.max_drawdown) : (rm.max_drawdown != null ? String(rm.max_drawdown) : '—');
-                html += '<h4>Risk & return</h4><ul>';
+                html += '<h4>Risk &amp; return (numbers)</h4><ul>';
                 html += '<li><strong>Sharpe</strong>: ' + escapeHtml(sharpeStr) + '</li>';
                 html += '<li><strong>Volatility (annual)</strong>: ' + escapeHtml(volStr) + '</li>';
                 html += '<li><strong>Max drawdown</strong>: ' + escapeHtml(mddStr) + '</li>';
@@ -301,28 +343,45 @@
             if (ex.confidence) {
                 html += '<h4>Confidence</h4><p>Confidence index: ' + formatPct(ex.confidence.value) + '</p>';
             }
-            if (ex.analyst_note) {
-                html += '<h4>Analyst note</h4><p>' + escapeHtml(String(ex.analyst_note)) + '</p>';
+            if (ex.analyst_note_detail || ex.analyst_note) {
+                html += '<h4>Analyst-style note</h4><p style="white-space:pre-wrap;">' + escapeHtml(String(ex.analyst_note_detail || ex.analyst_note)) + '</p>';
             }
             if (ex.narrative) {
                 html += '<h4>Summary</h4><p>' + escapeHtml(String(ex.narrative)) + '</p>';
             }
             if (ex.news_factors) {
-                html += '<h4>News & events</h4>';
+                html += '<h4>News &amp; events</h4>';
                 if (ex.news_factors.recent_news && ex.news_factors.recent_news.length) {
                     html += '<ul class="rec-news-list">';
                     ex.news_factors.recent_news.forEach(function (n) {
                         var title = (n.title || 'Headline').substring(0, 80);
                         if ((n.title || '').length > 80) title += '…';
                         var link = n.url ? '<a href="' + escapeHtml(n.url) + '" target="_blank" rel="noopener">' + escapeHtml(title) + '</a>' : escapeHtml(title);
-                        html += '<li>' + link + (n.published_at ? ' <span class="muted">' + escapeHtml(String(n.published_at)) + '</span>' : '') + '</li>';
+                        var prov = n.source_provider ? ' <span class="muted">[' + escapeHtml(String(n.source_provider)) + ']</span>' : '';
+                        html += '<li>' + link + prov + (n.published_at ? ' <span class="muted">' + escapeHtml(String(n.published_at)) + '</span>' : '') + '</li>';
                     });
                     html += '</ul>';
                 } else if (ex.news_factors.event_flags && ex.news_factors.event_flags.length) {
                     html += '<p>Events: ' + escapeHtml(ex.news_factors.event_flags.join(', ')) + '</p>';
                 } else {
-                    html += '<p class="muted">No specific news factors recorded.</p>';
+                    html += '<p class="muted">No headlines returned for this symbol in the current window. Check Benzinga / Finnhub / Alpha Vantage / Twelve Data keys in environment.</p>';
                 }
+            }
+            if (ex.news_provider_status) {
+                var nps = ex.news_provider_status;
+                html += '<p class="muted" style="font-size:0.8rem;">';
+                html += 'Provider diagnostics: ';
+                if (nps.provider_order && nps.provider_order.length) {
+                    html += 'order=' + escapeHtml(String(nps.provider_order.join(','))) + '; ';
+                }
+                if (nps.configured_keys) {
+                    var cfg = [];
+                    Object.keys(nps.configured_keys).forEach(function (k) {
+                        cfg.push(k + '=' + (nps.configured_keys[k] ? 'configured' : 'missing'));
+                    });
+                    html += escapeHtml(cfg.join(', '));
+                }
+                html += '</p>';
             }
             bodyEl.innerHTML = html;
         }).catch(function () {
@@ -441,7 +500,7 @@
             var hasRun = data && data.run;
             var hasItems = data && data.items && data.items.length > 0;
             if (summaryEl) {
-                if (hasRun && hasItems) renderSummary(summaryEl, data);
+                if (hasRun && (hasItems || (data && data.portfolio))) renderSummary(summaryEl, data);
                 else renderSummary(summaryEl, null);
             }
         }).catch(function () {

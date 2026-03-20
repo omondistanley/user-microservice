@@ -146,7 +146,7 @@
                 if (list.length === 0) {
                     containerEl.innerHTML = 'No expenses yet. Add one to get started.';
                     containerEl.classList.add('empty-state');
-                    if (balanceEl) balanceEl.textContent = 'Running balance: 0.00';
+                    if (balanceEl) balanceEl.textContent = 'Balance: 0.00';
                     return;
                 }
                 containerEl.classList.remove('empty-state');
@@ -195,7 +195,7 @@
                     var first = list[0];
                     var bal = first.balance_after != null ? first.balance_after : '';
                     var balStr = window.Expenses && window.Expenses.formatAmount ? window.Expenses.formatAmount(bal) : (bal !== '' ? Number(bal).toFixed(2) : '');
-                    balanceEl.textContent = balStr !== '' ? 'Running balance: ' + balStr : '';
+                    balanceEl.textContent = balStr !== '' ? 'Current balance: ' + balStr : '';
                 }
                 var total = (data && data.total != null) ? data.total : list.length;
                 var page = (opts && opts.page) ? parseInt(opts.page, 10) : 1;
@@ -227,7 +227,7 @@
             request('/api/v1/expenses/balance').then(function(data) {
                 var bal = data && data.balance_after != null ? data.balance_after : null;
                 var str = bal != null && window.Expenses.formatAmount ? window.Expenses.formatAmount(bal) : (bal != null ? Number(bal).toFixed(2) : '');
-                balanceEl.textContent = str !== '' ? 'Running balance: ' + str : '';
+                balanceEl.textContent = str !== '' ? 'Current balance: ' + str : '';
             }).catch(function() {
                 balanceEl.textContent = '';
             });

@@ -5,9 +5,10 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Expenses</h1>
+        <p class="page-meta" id="expenses-current-balance"></p>
         <p class="page-meta" id="expenses-balance"></p>
     </div>
-    <a href="/expenses/add" class="btn btn-primary">+ Add Expense</a>
+    <a href="/expenses/add" class="btn btn-primary">+ Add</a>
 </div>
 
 <div id="expenses-added-msg" class="auth-alert auth-alert--success" style="display:none;margin-bottom:16px;"></div>
@@ -98,6 +99,7 @@
 (function() {
     var listEl        = document.getElementById('expenses-list');
     var balanceEl     = document.getElementById('expenses-balance');
+    var currentBalanceEl = document.getElementById('expenses-current-balance');
     var addedMsg      = document.getElementById('expenses-added-msg');
     var paginationEl  = document.getElementById('expenses-pagination');
     var paginationInfo = document.getElementById('pagination-info');
@@ -150,6 +152,14 @@
 
     function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
     function fmt(v) { var n = parseFloat(v); return isNaN(n) ? '—' : '$' + n.toFixed(2); }
+
+    function setCurrentBudgetBalanceText(amount) {
+        if (!currentBalanceEl) return;
+        var n = Number(amount || 0);
+        var safe = n >= 0;
+        currentBalanceEl.textContent = 'Current balance (budgets − expenses): $' + n.toFixed(2);
+        currentBalanceEl.style.color = safe ? 'var(--success)' : 'var(--danger)';
+    }
 
     function prefill() {
         set('filter-date-from', params.get('date_from'));
@@ -263,6 +273,7 @@
             if (!cats.length) {
                 if (summaryByCategory) summaryByCategory.innerHTML = '<p>No data.</p>';
                 if (summaryEl) summaryEl.style.display = 'block';
+                setCurrentBudgetBalanceText(0);
                 return;
             }
             var effectiveDate = to || today;
@@ -277,8 +288,23 @@
                         .catch(function() { return { item: i, budget: null }; });
                 })).then(function(r) { renderCategorySummary(cats, r); });
             }
+
+            // Current balance on this page: total active budgets - total expenses in range.
+            var totalExpenses = cats.reduce(function(s, i) { return s + Number(i.total_amount || 0); }, 0);
+            if (window.Budgets && window.Budgets.getList) {
+                window.Budgets.getList({ include_inactive: false, page: 1, page_size: 1000 })
+                    .then(function(bres) {
+                        var bitems = (bres && bres.items) ? bres.items : [];
+                        var totalBudgets = bitems.reduce(function(s, b) { return s + Number(b.amount || 0); }, 0);
+                        setCurrentBudgetBalanceText(totalBudgets - totalExpenses);
+                    })
+                    .catch(function() { setCurrentBudgetBalanceText(0 - totalExpenses); });
+            } else {
+                setCurrentBudgetBalanceText(0 - totalExpenses);
+            }
         }).catch(function() {
             if (summaryByCategory) summaryByCategory.innerHTML = '<p>Summary unavailable.</p>';
+            setCurrentBudgetBalanceText(0);
         });
     }
 

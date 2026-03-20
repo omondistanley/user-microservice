@@ -4,7 +4,6 @@
 {% block head_extra %}
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
   tailwind.config = {
     darkMode: "class",
@@ -29,11 +28,10 @@
 {% endblock %}
 {% block content %}
 <div class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
-  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
   <!-- Top Navigation Bar -->
   <div class="flex items-center p-4 justify-between bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-primary/10">
-    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-primary/20 transition-colors" aria-label="Back to dashboard">
-      <span class="material-symbols-outlined" aria-hidden="true">arrow_back_ios</span>
+    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-primary/20 transition-colors text-lg leading-none" aria-label="Back to dashboard">
+      <span aria-hidden="true">←</span>
     </a>
     <h2 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center">Bank Connection</h2>
     <div class="size-10"></div>
@@ -43,7 +41,7 @@
     <div class="relative mb-10">
       <div class="radar-pulse w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center">
         <div class="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center">
-          <span class="material-symbols-outlined text-primary text-5xl">check_circle</span>
+          <span class="text-primary text-5xl leading-none select-none" aria-hidden="true" role="img">✅</span>
         </div>
       </div>
     </div>
@@ -55,7 +53,7 @@
     </div>
     <div class="w-full mb-10">
       <div class="flex justify-between items-center mb-2">
-        <span class="text-sm font-semibold text-primary">Import Complete</span>
+        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Import complete</span>
         <span class="text-sm font-medium text-slate-500">100%</span>
       </div>
       <div class="h-2.5 w-full bg-slate-200 dark:bg-primary/10 rounded-full overflow-hidden">
@@ -64,7 +62,7 @@
     </div>
     <div class="w-full mb-8">
       <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
-        <span class="material-symbols-outlined text-primary text-xl">account_balance_wallet</span>
+        <span class="text-primary text-xl leading-none select-none" aria-hidden="true">🏦</span>
         Connected accounts
       </h3>
       <p class="text-xs text-slate-500 dark:text-slate-400 mb-2 max-w-md mx-auto text-center">Each linked bank account (checking, savings, etc.) appears below. Use <strong>Plaid sync</strong> on Expenses to import transactions.</p>
@@ -77,7 +75,7 @@
   <div class="p-6 bg-background-light dark:bg-background-dark">
     <a href="/dashboard" class="block w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 text-center">
       Return to Dashboard
-      <span class="material-symbols-outlined text-xl">arrow_forward</span>
+      <span class="text-xl leading-none" aria-hidden="true">→</span>
     </a>
     <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
       Security powered by BankSync v2.4 Microservices
@@ -107,23 +105,67 @@
     if (statusEl) statusEl.textContent = msg || '';
   }
 
-  var icons = ['payments', 'savings', 'trending_up', 'account_balance'];
+  function expenseApiBase() {
+    return (window.EXPENSE_API_BASE !== undefined && window.EXPENSE_API_BASE !== '')
+      ? window.EXPENSE_API_BASE
+      : (window.API_BASE || '');
+  }
+
+  var icons = ['💳', '🏦', '📊', '💰'];
   var hadHostedLinkToken = false;
   try { hadHostedLinkToken = !!localStorage.getItem('plaid_hosted_link_token'); } catch (e) { hadHostedLinkToken = false; }
 
   function renderItems(items, provider) {
     return items.map(function(item, i) {
-      var name = item.institution_name || item.institution_id || 'Linked account';
+      var name = item.institution_name || item.institution_id || item.enrollment_id || 'Linked account';
       var icon = icons[i % icons.length];
-      var badge = provider === 'teller' ? 'TELLER' : 'PLAID';
-      var badgeClass = provider === 'teller' ? 'text-emerald-500' : 'text-primary';
+      var badge = provider === 'teller' ? 'Teller' : 'Plaid';
+      var badgeClass = provider === 'teller'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-emerald-700 dark:text-primary';
       return '<div class="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-primary/5 border border-slate-200 dark:border-primary/10">' +
         '<div class="flex items-center gap-3">' +
-        '<div class="p-2 bg-white dark:bg-background-dark rounded-lg"><span class="material-symbols-outlined text-primary">' + icon + '</span></div>' +
-        '<div><p class="font-bold text-sm">' + (name.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</p>' +
-        '<p class="text-xs text-slate-500 dark:text-slate-400">Linked via ' + badge + '</p></div>' +
+        '<div class="p-2 bg-white dark:bg-background-dark rounded-lg text-xl leading-none select-none" aria-hidden="true">' + icon + '</div>' +
+        '<div><p class="font-bold text-sm text-slate-900 dark:text-slate-100">' + (name.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</p>' +
+        '<p class="text-xs text-slate-600 dark:text-slate-400">Linked via ' + badge + '</p></div>' +
         '</div><div class="text-right"><span class="' + badgeClass + ' text-xs font-bold uppercase tracking-wider">' + badge + '</span></div></div>';
     }).join('');
+  }
+
+  function mergePlaidRows(apiItems, bankRows) {
+    var map = {};
+    (apiItems || []).forEach(function(i) {
+      var id = (i.item_id != null && i.item_id !== '') ? String(i.item_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+    });
+    (bankRows || []).forEach(function(i) {
+      var id = (i.institution_id != null && i.institution_id !== '') ? String(i.institution_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      if (!map[key]) map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+    });
+    return Object.keys(map).map(function(k) { return map[k]; });
+  }
+
+  function mergeTellerRows(apiItems, bankRows) {
+    var map = {};
+    (apiItems || []).forEach(function(i) {
+      var id = (i.enrollment_id != null && i.enrollment_id !== '') ? String(i.enrollment_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+    });
+    (bankRows || []).forEach(function(i) {
+      var id = (i.institution_id != null && i.institution_id !== '') ? String(i.institution_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      if (!map[key]) map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+    });
+    return Object.keys(map).map(function(k) { return map[k]; });
+  }
+
+  function renderProvisionalHtml(plaidRows, tellerRows) {
+    var ph = renderItems(plaidRows, 'plaid');
+    var th = tellerRows.length ? '<div class="mt-4">' + renderItems(tellerRows, 'teller') + '</div>' : '';
+    return ph + th;
   }
 
   function loadPlaidItems() {
@@ -211,7 +253,7 @@
   }
 
   function loadBankItemsFallback() {
-    var API = window.API_BASE || '';
+    var API = expenseApiBase();
     if (!API) return Promise.resolve([]);
     var doFetch = (window.Auth && window.Auth.requestWithRefresh)
       ? function() { return window.Auth.requestWithRefresh(API + '/api/v1/bank/items', { method: 'GET' }); }
@@ -316,6 +358,20 @@
   }
 
   setStatus('Preparing…');
+
+  /* Show institutions as soon as unified /bank/items or provider lists respond (no need to wait for Plaid finalize). */
+  Promise.all([loadBankItemsFallback(), loadPlaidItems(), loadTellerItems()])
+    .then(function(results) {
+      var bankItems = results[0] || [];
+      var split = bankRowsToPlaidTeller(bankItems);
+      var plaidMerged = mergePlaidRows(results[1] || [], split.plaid);
+      var tellerMerged = mergeTellerRows(results[2] || [], split.teller);
+      if (!plaidMerged.length && !tellerMerged.length) return;
+      setStatus(hadHostedLinkToken ? 'Finalizing bank connection with Plaid…' : 'Loading account details…');
+      container.innerHTML = renderProvisionalHtml(plaidMerged, tellerMerged);
+    })
+    .catch(function() { /* non-fatal */ });
+
   finalizeHostedPlaidIfNeeded().then(function() {
     return loadAllLinkedWithRetry(24, 2500);
   }).then(function(bundle) {

@@ -9,6 +9,7 @@ from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel, Field
 
 from app.core.config import (
+    BUDGET_SERVICE_URL,
     DB_HOST,
     DB_NAME,
     DB_PASSWORD,
@@ -64,8 +65,14 @@ class NetWorthLiabilityResponse(BaseModel):
 
 
 async def _fetch_expense_components(request: Request) -> Dict[str, Any]:
+    """Return expense-side net worth components. Never raises 401 — avoids logging the user out when the
+    expense service rejects forwarded auth; caller still has investments + manual totals."""
     if not EXPENSE_SERVICE_URL:
-        raise HTTPException(status_code=503, detail="Expense service not configured")
+        return {
+            "assets": {},
+            "liabilities": {},
+            "metadata": {"warning": "expense_service_not_configured"},
+        }
     headers: dict[str, str] = {}
     auth = request.headers.get("authorization")
     if auth:
@@ -76,14 +83,30 @@ async def _fetch_expense_components(request: Request) -> Dict[str, Any]:
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.get(f"{EXPENSE_SERVICE_URL}/api/v1/net-worth/components", headers=headers)
     if resp.status_code == 401:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        return {
+            "assets": {},
+            "liabilities": {},
+            "metadata": {"warning": "expense_components_unauthorized"},
+        }
     if resp.status_code >= 500:
-        raise HTTPException(status_code=502, detail="Expense service unavailable")
+        return {
+            "assets": {},
+            "liabilities": {},
+            "metadata": {"warning": "expense_service_unavailable"},
+        }
     if not resp.is_success:
-        raise HTTPException(status_code=resp.status_code, detail="Failed to fetch expense components")
+        return {
+            "assets": {},
+            "liabilities": {},
+            "metadata": {"warning": f"expense_http_{resp.status_code}"},
+        }
     data = resp.json()
     if not isinstance(data, dict):
-        raise HTTPException(status_code=502, detail="Invalid expense components payload")
+        return {
+            "assets": {},
+            "liabilities": {},
+            "metadata": {"warning": "invalid_expense_payload"},
+        }
     return data
 
 
@@ -108,6 +131,35 @@ async def _fetch_investments_portfolio(request: Request) -> Optional[Dict[str, A
     if not isinstance(data, dict):
         return None
     return data
+
+
+async def _fetch_budget_totals(request: Request) -> Optional[Dict[str, Decimal]]:
+    """Fetch active budgets and sum amounts for portfolio-style context in net worth."""
+    if not BUDGET_SERVICE_URL:
+        return None
+    headers: dict[str, str] = {}
+    auth = request.headers.get("authorization")
+    if auth:
+        headers["authorization"] = auth
+    request_id = getattr(request.state, "request_id", None)
+    if request_id:
+        headers["x-request-id"] = str(request_id)
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{BUDGET_SERVICE_URL}/api/v1/budgets?page=1&page_size=1000&include_inactive=false",
+                headers=headers,
+            )
+        if not resp.is_success:
+            return None
+        data = resp.json()
+        items = data.get("items") if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            return None
+        budget_total = sum((_to_decimal(it.get("amount")) for it in items if isinstance(it, dict)), Decimal("0"))
+        return {"active_budget_total": budget_total}
+    except Exception:
+        return None
 
 
 def _to_decimal(value: Any) -> Decimal:
@@ -153,6 +205,7 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
     """Aggregate net-worth components from expense, investments, and manual assets/liabilities."""
     expense_components = await _fetch_expense_components(request)
     investments_portfolio = await _fetch_investments_portfolio(request)
+    budget_totals = await _fetch_budget_totals(request)
     user_id = int(current_user["id"])
     manual_assets_total, manual_liabilities_total = _get_manual_totals(user_id)
 
@@ -160,6 +213,8 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
     liabilities_in = expense_components.get("liabilities") or {}
 
     cash = _to_decimal(assets_in.get("cash"))
+    income_window_total = _to_decimal(assets_in.get("income_window_total"))
+    budget_total = _to_decimal((budget_totals or {}).get("active_budget_total"))
     debt_placeholder = _to_decimal(liabilities_in.get("spending_obligation"))
 
     investment_value = Decimal("0")
@@ -169,10 +224,13 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
     assets = {
         "cash": cash,
         "investments": investment_value,
+        "income": income_window_total,
+        "budgets": budget_total,
         "manual": manual_assets_total,
     }
     liabilities = {
-        "debt": debt_placeholder,
+        "debt": Decimal("0"),
+        "expenses": debt_placeholder,
         "manual": manual_liabilities_total,
     }
 
@@ -188,6 +246,8 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
         metadata["expense_metadata"] = exp_meta
     if investments_portfolio is not None:
         metadata["investments_metadata"] = investments_portfolio.get("metadata")
+    if budget_totals is not None:
+        metadata["budget_metadata"] = {"active_budget_total": str(budget_total)}
 
     return {
         "net_worth": net_worth,

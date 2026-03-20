@@ -13,6 +13,15 @@
         <h2 class="stat-label" style="margin-bottom: 18px;">Preferences</h2>
         <div style="display: grid; gap: 16px;">
             <div class="form-group">
+                <label class="form-label" for="settings-theme">Appearance</label>
+                <select id="settings-theme" class="form-select theme-select-control" aria-label="Theme" style="max-width: 220px;">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="system">Match system</option>
+                </select>
+                <p class="form-hint">Same as the menu panel theme control; stored on this device.</p>
+            </div>
+            <div class="form-group">
                 <label class="form-label" for="settings-currency">Default currency</label>
                 <select id="settings-currency" class="form-select" style="max-width: 140px;">
                     <option value="USD">USD — US Dollar</option>
@@ -155,6 +164,10 @@
             if (settings && settings.budget_alert_threshold != null) {
                 var ba = document.getElementById('settings-budget-alert');
                 if (ba) ba.value = settings.budget_alert_threshold;
+            }
+            var themeSel = document.getElementById('settings-theme');
+            if (themeSel && window.Theme && typeof window.Theme.get === 'function') {
+                themeSel.value = window.Theme.get();
             }
         }).catch(function() {});
     }

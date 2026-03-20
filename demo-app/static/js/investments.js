@@ -119,36 +119,12 @@
         return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    var INV_GAINS_DAYS = 90;
-
     function fetchGainsHistory(days) {
-        var url = apiUrl('/api/v1/portfolio/gains-history?days=' + (days || INV_GAINS_DAYS));
+        var url = apiUrl('/api/v1/portfolio/gains-history?days=' + (days || 90));
         return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
             if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || 'Failed to load gains history'); });
             return r.json();
         });
-    }
-
-    function placeholderGainsData(message) {
-        var dates = [];
-        var zeros = [];
-        var i;
-        for (i = INV_GAINS_DAYS - 1; i >= 0; i--) {
-            var d = new Date();
-            d.setUTCDate(d.getUTCDate() - i);
-            dates.push(d.toISOString().slice(0, 10));
-            zeros.push(0);
-        }
-        return {
-            dates: dates,
-            series: {
-                total: { gain_loss: zeros.slice() },
-                manual: { gain_loss: zeros.slice() },
-                alpaca: { gain_loss: zeros.slice() },
-            },
-            note: message || 'No P/L history for this window yet — add or sync holdings to build the curve.',
-            _placeholder: true,
-        };
     }
 
     var invGainsChartInstance = null;
@@ -164,7 +140,9 @@
             invGainsChartInstance = null;
         }
         if (!data || !data.dates || data.dates.length === 0) {
-            data = placeholderGainsData(data && data.note ? data.note : null);
+            container.innerHTML = '<p class="muted" style="padding:1.5rem;">' + (data && data.note ? data.note : 'Add holdings to see gains over time.') + '</p>';
+            if (noteEl) { noteEl.textContent = data && data.note ? data.note : ''; noteEl.style.display = data && data.note ? 'block' : 'none'; }
+            return;
         }
         var series = [];
         if (visible.total && data.series && data.series.total && data.series.total.gain_loss) {
@@ -182,16 +160,14 @@
                 series.push({ name: 'Total', data: data.series.total.gain_loss });
             }
             if (series.length === 0) {
-                series.push({ name: 'Total', data: data.dates.map(function () { return 0; }) });
+                container.innerHTML = '<p class="muted" style="padding:1.5rem;">Select at least one series (Total, Manual, or Alpaca).</p>';
+                if (noteEl) noteEl.style.display = 'none';
+                return;
             }
             var tcb = document.getElementById('inv-gains-total');
             if (tcb) tcb.checked = true;
         }
         container.innerHTML = '';
-        var gridColor = 'rgba(148,163,184,0.2)';
-        if (typeof window !== 'undefined' && document.body && document.body.classList.contains('theme-dark')) {
-            gridColor = 'rgba(255,255,255,0.06)';
-        }
         var opts = {
             chart: { type: 'line', zoom: { enabled: false }, fontFamily: 'Inter, sans-serif', toolbar: { show: false }, background: 'transparent' },
             series: series,
@@ -203,7 +179,7 @@
             stroke: { curve: 'smooth', width: 2 },
             dataLabels: { enabled: false },
             legend: { position: 'top' },
-            grid: { borderColor: gridColor },
+            grid: { borderColor: 'rgba(255,255,255,0.06)' },
             colors: ['#6366f1', '#10b981', '#f59e0b']
         };
         if (typeof ApexCharts !== 'undefined') {
@@ -211,20 +187,20 @@
             invGainsChartInstance.render();
         }
         if (noteEl) {
-            noteEl.textContent = (data && data.note) ? data.note : 'Based on current holdings and historical prices.';
+            noteEl.textContent = data.note || 'Based on current holdings and historical prices.';
             noteEl.style.display = 'block';
         }
     }
 
-    function loadGainsChart() {
-        fetchGainsHistory(INV_GAINS_DAYS).then(function (data) {
+    function loadGainsChart(days) {
+        days = days || 90;
+        fetchGainsHistory(days).then(function (data) {
             invGainsLastData = data;
             var visible = invGainsVisible();
             renderGainsChart(data, visible);
         }).catch(function () {
-            invGainsLastData = placeholderGainsData('Could not load gains history — showing a placeholder axis. Try again later.');
-            var visible = invGainsVisible();
-            renderGainsChart(invGainsLastData, visible);
+            var container = document.getElementById('inv-gains-chart');
+            if (container) container.innerHTML = '<p class="muted" style="padding:1.5rem;">Could not load gains history.</p>';
         });
     }
 
@@ -385,27 +361,20 @@
             }
         }).catch(function () { loadHoldings(); });
 
-        loadGainsChart();
+        loadGainsChart(90);
 
-        var gainsCollapse = document.getElementById('inv-gains-collapse-toggle');
-        var gainsBody = document.getElementById('inv-gains-body');
-        if (gainsCollapse && gainsBody) {
-            gainsCollapse.addEventListener('click', function () {
-                var hidden = gainsBody.getAttribute('data-collapsed') === '1';
-                if (hidden) {
-                    gainsBody.style.display = '';
-                    gainsBody.setAttribute('data-collapsed', '0');
-                    gainsCollapse.textContent = 'Hide chart';
-                    gainsCollapse.setAttribute('aria-expanded', 'true');
-                    if (invGainsLastData) renderGainsChart(invGainsLastData, invGainsVisible());
-                } else {
-                    gainsBody.style.display = 'none';
-                    gainsBody.setAttribute('data-collapsed', '1');
-                    gainsCollapse.textContent = 'Show chart';
-                    gainsCollapse.setAttribute('aria-expanded', 'false');
-                }
+        document.querySelectorAll('.inv-gains-days').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var days = parseInt(btn.getAttribute('data-days'), 10) || 90;
+                document.querySelectorAll('.inv-gains-days').forEach(function (b) {
+                    b.classList.remove('btn-primary');
+                    b.classList.add('btn-ghost');
+                });
+                btn.classList.remove('btn-ghost');
+                btn.classList.add('btn-primary');
+                loadGainsChart(days);
             });
-        }
+        });
 
         ['inv-gains-total', 'inv-gains-manual', 'inv-gains-alpaca'].forEach(function (id) {
             var el = document.getElementById(id);

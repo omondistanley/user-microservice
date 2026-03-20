@@ -4,23 +4,21 @@
 {% block content %}
 <div class="content-inner">
 
-  <!-- Page Header -->
   <div class="page-header">
     <h1 class="page-title">Net Worth</h1>
   </div>
 
-  <!-- Stat Row -->
   <div class="stat-row">
     <div class="stat-card">
-      <div class="stat-label">Net Worth</div>
+      <div class="stat-label">Net worth</div>
       <div class="stat-value" id="nw-total">$0.00</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Assets</div>
+      <div class="stat-label">Total assets</div>
       <div class="stat-value" id="nw-assets">$0.00</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Liabilities</div>
+      <div class="stat-label">Total liabilities</div>
       <div class="stat-value" id="nw-liabilities">$0.00</div>
     </div>
     <div class="stat-card">
@@ -29,17 +27,36 @@
     </div>
   </div>
 
-  <!-- Two-column layout -->
-  <div class="net-worth-two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1.25rem;">
+  <div class="nw-tabs" role="tablist" aria-label="Net worth sections">
+    <button type="button" class="nw-tab nw-tab-active" role="tab" id="nw-tab-assets" aria-selected="true" aria-controls="nw-panel-assets" data-nw-tab="assets">Assets</button>
+    <button type="button" class="nw-tab" role="tab" id="nw-tab-liabilities" aria-selected="false" aria-controls="nw-panel-liabilities" data-nw-tab="liabilities">Liabilities</button>
+  </div>
 
-    <!-- Assets Card -->
+  <div id="nw-panel-assets" class="nw-tab-panel" role="tabpanel" aria-labelledby="nw-tab-assets">
+    <div class="card" style="margin-bottom:1.25rem;">
+      <h2 class="nw-section-title">What we count as assets</h2>
+      <p class="form-hint" style="margin-top:0;margin-bottom:1rem;">Cash, linked investments, income in the current window, active budget totals, and manual entries you add below.</p>
+      <div class="table-wrap">
+        <table class="nw-summary-table">
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th style="text-align:right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="nw-summary-assets-body">
+            <tr><td colspan="2" class="muted" style="font-size:0.875rem;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-        <h2 style="font-size:1rem;font-weight:600;margin:0;">Assets</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+        <h2 class="nw-section-title" style="margin:0;">Manual asset records</h2>
         <button type="button" class="btn btn-ghost" id="nw-toggle-add-asset" aria-expanded="false" aria-controls="nw-add-asset-form">+ Add</button>
       </div>
 
-      <!-- Add Asset Form (inline toggle) -->
       <form id="nw-add-asset-form" style="display:none;margin-bottom:1rem;" novalidate>
         <div class="form-group">
           <label class="form-label" for="nw-asset-name">Name</label>
@@ -65,7 +82,6 @@
         <p id="nw-asset-form-error" style="color:var(--color-danger,#ef4444);font-size:0.8rem;margin-top:0.4rem;display:none;"></p>
       </form>
 
-      <!-- Assets Table -->
       <div class="table-wrap">
         <table id="nw-assets-list">
           <thead>
@@ -77,21 +93,39 @@
           </thead>
           <tbody id="nw-assets-list-body">
             <tr id="nw-assets-empty-row">
-              <td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Loading…</td>
+              <td colspan="3" class="muted" style="font-size:0.875rem;">Loading…</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
+  </div>
 
-    <!-- Liabilities Card -->
+  <div id="nw-panel-liabilities" class="nw-tab-panel nw-tab-panel-hidden" role="tabpanel" aria-labelledby="nw-tab-liabilities" hidden>
+    <div class="card" style="margin-bottom:1.25rem;">
+      <h2 class="nw-section-title">What we count as liabilities</h2>
+      <p class="form-hint" style="margin-top:0;margin-bottom:1rem;">Spending obligations from your expense profile and any manual debts you track.</p>
+      <div class="table-wrap">
+        <table class="nw-summary-table">
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th style="text-align:right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="nw-summary-liabilities-body">
+            <tr><td colspan="2" class="muted" style="font-size:0.875rem;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-        <h2 style="font-size:1rem;font-weight:600;margin:0;">Liabilities</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+        <h2 class="nw-section-title" style="margin:0;">Manual liability records</h2>
         <button type="button" class="btn btn-ghost" id="nw-toggle-add-liability" aria-expanded="false" aria-controls="nw-add-liability-form">+ Add</button>
       </div>
 
-      <!-- Add Liability Form (inline toggle) -->
       <form id="nw-add-liability-form" style="display:none;margin-bottom:1rem;" novalidate>
         <div class="form-group">
           <label class="form-label" for="nw-liability-name">Name</label>
@@ -117,7 +151,6 @@
         <p id="nw-liability-form-error" style="color:var(--color-danger,#ef4444);font-size:0.8rem;margin-top:0.4rem;display:none;"></p>
       </form>
 
-      <!-- Liabilities Table -->
       <div class="table-wrap">
         <table id="nw-liabilities-list">
           <thead>
@@ -129,26 +162,37 @@
           </thead>
           <tbody id="nw-liabilities-list-body">
             <tr id="nw-liabilities-empty-row">
-              <td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Loading…</td>
-            </tr>
+              <td colspan="3" class="muted" style="font-size:0.875rem;">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+  </div>
 
-  </div><!-- end two-column grid -->
-</div><!-- end content-inner -->
+</div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
-  var totalEl      = document.getElementById('nw-total');
-  var assetsEl     = document.getElementById('nw-assets');
+  var totalEl       = document.getElementById('nw-total');
+  var assetsEl      = document.getElementById('nw-assets');
   var liabilitiesEl = document.getElementById('nw-liabilities');
-  var changeEl     = document.getElementById('nw-change');
-  /* legacy IDs kept for backward-compat with any other script that might reference them */
-  var cashEl       = document.getElementById('net-worth-cash');
+  var changeEl      = document.getElementById('nw-change');
+  var cashEl        = document.getElementById('net-worth-cash');
+
+  var ASSET_LABELS = {
+    cash: 'Cash & accounts',
+    investments: 'Investments (holdings)',
+    income: 'Income (current window)',
+    budgets: 'Active budgets (planned)',
+    manual: 'Manual assets (rolled up)'
+  };
+  var LIAB_LABELS = {
+    debt: 'Debt',
+    expenses: 'Spending / obligations',
+    manual: 'Manual liabilities (rolled up)'
+  };
 
   function fmt(val) {
     if (val == null || val === '') return '0.00';
@@ -156,7 +200,6 @@
     return isNaN(n) ? '0.00' : n.toFixed(2);
   }
 
-  /* ---- inline-toggle helpers ---- */
   function wireToggle(toggleBtnId, formId, cancelBtnId) {
     var toggleBtn = document.getElementById(toggleBtnId);
     var form      = document.getElementById(formId);
@@ -182,6 +225,49 @@
     return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
   }
 
+  function renderSummaryAssetsRows(assets) {
+    var tbody = document.getElementById('nw-summary-assets-body');
+    if (!tbody) return;
+    if (!assets || typeof assets !== 'object') {
+      tbody.innerHTML = '<tr><td colspan="2" class="muted" style="font-size:0.875rem;">No asset breakdown.</td></tr>';
+      return;
+    }
+    var keys = ['cash', 'investments', 'income', 'budgets', 'manual'];
+    var html = '';
+    keys.forEach(function(key) {
+      var value = parseFloat(assets[key] || 0);
+      var label = ASSET_LABELS[key] || key.replace(/_/g, ' ');
+      html += '<tr><td>' + label + '</td><td style="text-align:right;font-weight:600;">$' + fmt(value) + '</td></tr>';
+    });
+    if (!html) {
+      tbody.innerHTML = '<tr><td colspan="2" class="muted" style="font-size:0.875rem;">No asset components yet.</td></tr>';
+    } else {
+      tbody.innerHTML = html;
+    }
+    if (cashEl) cashEl.textContent = '$' + fmt(assets.cash || 0);
+  }
+
+  function renderSummaryLiabilitiesRows(liabilities) {
+    var tbody = document.getElementById('nw-summary-liabilities-body');
+    if (!tbody) return;
+    if (!liabilities || typeof liabilities !== 'object') {
+      tbody.innerHTML = '<tr><td colspan="2" class="muted" style="font-size:0.875rem;">No liability breakdown.</td></tr>';
+      return;
+    }
+    var keys = ['debt', 'expenses', 'manual'];
+    var html = '';
+    keys.forEach(function(key) {
+      var value = parseFloat(liabilities[key] || 0);
+      var label = LIAB_LABELS[key] || key.replace(/_/g, ' ');
+      html += '<tr><td>' + label + '</td><td style="text-align:right;font-weight:600;color:var(--rose);">$' + fmt(value) + '</td></tr>';
+    });
+    if (!html) {
+      tbody.innerHTML = '<tr><td colspan="2" class="muted" style="font-size:0.875rem;">No liability components yet.</td></tr>';
+    } else {
+      tbody.innerHTML = html;
+    }
+  }
+
   function loadAssetsList() {
     var API = window.API_BASE || '';
     var headers = getAuthHeaders();
@@ -191,7 +277,7 @@
       .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
       .then(function(items) {
         if (!items || !items.length) {
-          tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No assets recorded.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3" class="muted" style="font-size:0.875rem;">No manual assets yet.</td></tr>';
           return;
         }
         tbody.innerHTML = items.map(function(a) {
@@ -200,7 +286,7 @@
         }).join('');
       })
       .catch(function() {
-        tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Failed to load assets.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="muted" style="font-size:0.875rem;">Failed to load manual assets.</td></tr>';
       });
   }
 
@@ -213,75 +299,19 @@
       .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
       .then(function(items) {
         if (!items || !items.length) {
-          tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No liabilities recorded.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3" class="muted" style="font-size:0.875rem;">No manual liabilities yet.</td></tr>';
           return;
         }
         tbody.innerHTML = items.map(function(l) {
           var val = l.value != null ? Number(l.value) : 0;
-          return '<tr><td>' + (l.name || '').replace(/</g, '&lt;') + '</td><td><span class="badge-rose">' + (l.type || '').replace(/</g, '&lt;') + '</span></td><td style="text-align:right;font-weight:600;color:var(--color-danger,#ef4444);">-$' + fmt(val) + '</td></tr>';
+          return '<tr><td>' + (l.name || '').replace(/</g, '&lt;') + '</td><td><span class="badge-rose">' + (l.type || '').replace(/</g, '&lt;') + '</span></td><td style="text-align:right;font-weight:600;color:var(--rose);">$' + fmt(val) + '</td></tr>';
         }).join('');
       })
       .catch(function() {
-        tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">Failed to load liabilities.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="muted" style="font-size:0.875rem;">Failed to load manual liabilities.</td></tr>';
       });
   }
 
-  /* ---- render helpers ---- */
-  function renderAssetsTable(assets) {
-    var tbody = document.getElementById('nw-assets-list-body');
-    if (!tbody) return;
-    if (!assets || Object.keys(assets).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No assets recorded.</td></tr>';
-      return;
-    }
-    var typeLabels = { cash: 'Cash / Checking', savings: 'Savings', investment: 'Investment' };
-    var html = '';
-    Object.keys(assets).forEach(function(key) {
-      var value = parseFloat(assets[key] || 0);
-      if (value <= 0 && key !== 'cash') return;
-      var label = typeLabels[key] || key.replace(/_/g, ' ');
-      html += '<tr>'
-        + '<td>' + label + '</td>'
-        + '<td><span class="badge-emerald">' + (typeLabels[key] ? key : 'other') + '</span></td>'
-        + '<td style="text-align:right;font-weight:600;">$' + fmt(value) + '</td>'
-        + '</tr>';
-    });
-    if (!html) {
-      tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No assets recorded.</td></tr>';
-    } else {
-      tbody.innerHTML = html;
-    }
-    /* legacy cash element */
-    if (cashEl) cashEl.textContent = '$' + fmt(assets.cash || 0);
-  }
-
-  function renderLiabilitiesTable(liabilities) {
-    var tbody = document.getElementById('nw-liabilities-list-body');
-    if (!tbody) return;
-    var hasAny = false;
-    var html = '';
-    if (liabilities) {
-      Object.keys(liabilities).forEach(function(key) {
-        var value = parseFloat(liabilities[key] || 0);
-        if (value > 0) {
-          hasAny = true;
-          var label = key === 'debt' ? 'Debt & obligations' : key.replace(/_/g, ' ');
-          html += '<tr>'
-            + '<td>' + label + '</td>'
-            + '<td><span class="badge-rose">' + key + '</span></td>'
-            + '<td style="text-align:right;font-weight:600;color:var(--color-danger,#ef4444);">-$' + fmt(value) + '</td>'
-            + '</tr>';
-        }
-      });
-    }
-    if (!hasAny) {
-      tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-muted,#6b7280);font-size:0.875rem;">No liabilities recorded.</td></tr>';
-    } else {
-      tbody.innerHTML = html;
-    }
-  }
-
-  /* ---- main load ---- */
   function loadBalance() {
     var api = window.API_BASE || '';
     var h = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
@@ -293,17 +323,16 @@
       .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
       .then(function(summary) {
         if (!summary) summary = {};
-        var netWorth        = summary.net_worth         != null ? summary.net_worth         : 0;
-        var assetsTotal     = summary.assets_total      != null ? summary.assets_total      : 0;
+        var netWorth = summary.net_worth != null ? summary.net_worth : 0;
+        var assetsTotal = summary.assets_total != null ? summary.assets_total : 0;
         var liabilitiesTotal = summary.liabilities_total != null ? summary.liabilities_total : 0;
-        var assets          = summary.assets      || {};
-        var liabilities     = summary.liabilities  || {};
+        var assets = summary.assets || {};
+        var liabilities = summary.liabilities || {};
 
         if (totalEl)       totalEl.textContent       = '$' + fmt(netWorth);
         if (assetsEl)      assetsEl.textContent      = '$' + fmt(assetsTotal);
         if (liabilitiesEl) liabilitiesEl.textContent = '$' + fmt(liabilitiesTotal);
 
-        /* change stat: positive = up, negative = down */
         if (changeEl) {
           var change = summary.change != null ? summary.change : null;
           if (change != null) {
@@ -316,8 +345,8 @@
           }
         }
 
-        renderAssetsTable(assets);
-        renderLiabilitiesTable(liabilities);
+        renderSummaryAssetsRows(assets);
+        renderSummaryLiabilitiesRows(liabilities);
         loadAssetsList();
         loadLiabilitiesList();
       })
@@ -326,12 +355,33 @@
         if (assetsEl)      assetsEl.textContent      = '$0.00';
         if (liabilitiesEl) liabilitiesEl.textContent = '$0.00';
         if (changeEl)      changeEl.textContent      = '—';
-        renderAssetsTable({});
-        renderLiabilitiesTable({});
+        renderSummaryAssetsRows({});
+        renderSummaryLiabilitiesRows({});
         loadAssetsList();
         loadLiabilitiesList();
       });
   }
+
+  document.querySelectorAll('[data-nw-tab]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var tab = btn.getAttribute('data-nw-tab');
+      var assetsPanel = document.getElementById('nw-panel-assets');
+      var liabPanel = document.getElementById('nw-panel-liabilities');
+      document.querySelectorAll('.nw-tab').forEach(function(b) {
+        b.classList.remove('nw-tab-active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      btn.classList.add('nw-tab-active');
+      btn.setAttribute('aria-selected', 'true');
+      if (tab === 'assets') {
+        if (assetsPanel) { assetsPanel.hidden = false; assetsPanel.classList.remove('nw-tab-panel-hidden'); }
+        if (liabPanel) { liabPanel.hidden = true; liabPanel.classList.add('nw-tab-panel-hidden'); }
+      } else {
+        if (assetsPanel) { assetsPanel.hidden = true; assetsPanel.classList.add('nw-tab-panel-hidden'); }
+        if (liabPanel) { liabPanel.hidden = false; liabPanel.classList.remove('nw-tab-panel-hidden'); }
+      }
+    });
+  });
 
   var assetForm = document.getElementById('nw-add-asset-form');
   var assetError = document.getElementById('nw-asset-form-error');
@@ -421,8 +471,6 @@
 
   if (window.Auth && window.Auth.getAuthHeaders) {
     loadBalance();
-    loadAssetsList();
-    loadLiabilitiesList();
   }
 })();
 </script>

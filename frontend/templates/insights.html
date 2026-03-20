@@ -98,6 +98,24 @@
             document.getElementById('forecast-content').textContent = 'Failed to load forecast.';
         });
 
+    var ANOMALY_REASON_LABELS = {
+        high_amount: 'Unusually large amount',
+        unusual_frequency: 'Unusual spending frequency',
+        unusual_pattern: 'Unusual pattern',
+        merchant_spike: 'Merchant spending spike',
+        category_spike: 'Category spending spike',
+        budget_breach: 'Over related budget',
+        statistical_outlier: 'Statistical outlier',
+        duplicate_suspected: 'Possible duplicate'
+    };
+    function formatAnomalyReason(code) {
+        if (!code) return 'Flagged';
+        var key = String(code).toLowerCase().replace(/\s+/g, '_');
+        var human = ANOMALY_REASON_LABELS[key];
+        if (human) return human;
+        return String(code).replace(/[_-]+/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    }
+
     function renderAnomalies(list) {
         var el = document.getElementById('anomalies-content');
         if (!el) return;
@@ -106,9 +124,10 @@
             return;
         }
         var rows = list.slice(0, 10).map(function(a) {
+            var label = formatAnomalyReason(a.reason);
             var badge = a.reason === 'high_amount'
-                ? '<span class="badge-rose">' + (a.reason || '') + '</span>'
-                : '<span class="badge-amber">' + (a.reason || '') + '</span>';
+                ? '<span class="badge-rose">' + label + '</span>'
+                : '<span class="badge-amber">' + label + '</span>';
             var expenseId = a.expense_id || a.expenseId || a.id || '';
             var actions = expenseId
                 ? '<button type="button" class="btn btn-ghost btn-xs anomaly-action" data-expense-id="' + expenseId + '" data-feedback="valid">Mark valid</button>' +

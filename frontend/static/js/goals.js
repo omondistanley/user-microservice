@@ -30,11 +30,11 @@
             options = options || {};
             var container = document.getElementById(containerId);
             if (!container) return Promise.resolve();
-            container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>';
+            container.innerHTML = '<p class="muted" style="font-size:14px;">Loading…</p>';
             var self = this;
             return this.list().then(function(goals) {
                 if (!goals.length) {
-                    container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">No goals yet. Add one to get started.</p>';
+                    container.innerHTML = '<p class="muted" style="font-size:14px;">No goals yet. Add one to get started.</p>';
                     if (options.onTotals) options.onTotals({ totalSaved: 0, totalTarget: 0, count: 0 });
                     return;
                 }
@@ -44,6 +44,10 @@
                         return { goal: g, progress: p };
                     }).catch(function() { return { goal: g, progress: null }; });
                 })).then(function(withProgress) {
+                    function fmtMoney(n) {
+                        var v = Number(n) || 0;
+                        return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
                     var html = '';
                     withProgress.forEach(function(x) {
                         var g = x.goal;
@@ -53,22 +57,31 @@
                         totalTarget += target;
                         totalSaved += current;
                         var pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
-                        html += '<a href="/goals/' + encodeURIComponent(g.goal_id) + '" class="block bg-white dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 hover:border-primary/30">' +
-                            '<div class="flex items-center gap-3">' +
-                            '<div class="size-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center">' +
-                            '<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">savings</span></div>' +
-                            '<div class="flex-1 min-w-0">' +
-                            '<p class="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">' + (g.name || 'Goal') + '</p>' +
-                            '<p class="text-xs text-slate-500 dark:text-slate-400">$' + current.toLocaleString() + ' / $' + target.toLocaleString() + '</p>' +
-                            '</div></div>' +
-                            '<div class="mt-3 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">' +
-                            '<div class="h-full rounded-full bg-primary" style="width:' + pct + '%"></div></div></a>';
+                        var name = (g.name || 'Goal').replace(/</g, '&lt;');
+                        var left = target - current;
+                        var leftText = left <= 0 ? 'Target reached' : (fmtMoney(left) + ' to go');
+                        var fillClass = pct >= 100 ? 'green' : (pct >= 75 ? 'amber' : 'green');
+                        html += '<a href="/goals/' + encodeURIComponent(g.goal_id) + '" class="card goal-card-budget" style="text-decoration:none;color:inherit;display:block;">' +
+                            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+                            '<div style="display:flex;align-items:center;gap:10px;">' +
+                            '<div style="width:40px;height:40px;border-radius:10px;background:var(--s100);display:flex;align-items:center;justify-content:center;font-size:18px;">⭐</div>' +
+                            '<span style="font-size:14px;font-weight:700;color:var(--text-primary);">' + name + '</span>' +
+                            '</div>' +
+                            '<span class="badge badge-emerald">' + pct + '%</span>' +
+                            '</div>' +
+                            '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">' +
+                            '<span style="font-size:18px;font-weight:800;color:var(--text-primary);">' + fmtMoney(current) + '</span>' +
+                            '<span style="font-size:12px;color:var(--text-muted);">of ' + fmtMoney(target) + '</span>' +
+                            '</div>' +
+                            '<div class="progress-bar"><div class="progress-fill ' + fillClass + '" style="width:' + pct + '%;"></div></div>' +
+                            '<div style="font-size:12px;font-weight:500;margin-top:6px;color:var(--text-secondary);">' + leftText + '</div>' +
+                            '</a>';
                     });
                     container.innerHTML = html;
                     if (options.onTotals) options.onTotals({ totalSaved: totalSaved, totalTarget: totalTarget, count: goals.length });
                 });
             }).catch(function(err) {
-                container.innerHTML = '<p class="text-red-500 text-sm">' + (err.message || 'Failed to load goals') + '</p>';
+                container.innerHTML = '<p style="color:var(--rose);font-size:14px;">' + (err.message || 'Failed to load goals') + '</p>';
             });
         },
     };

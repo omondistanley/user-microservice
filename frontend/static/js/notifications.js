@@ -24,14 +24,11 @@
         });
     }
 
-    function renderNotificationList(items) {
-        var listEl = document.getElementById('notifications-list');
-        if (!listEl) return;
+    function notificationItemsHtml(items) {
         if (!Array.isArray(items) || items.length === 0) {
-            listEl.innerHTML = 'No notifications yet.';
-            return;
+            return 'No notifications yet.';
         }
-        listEl.innerHTML = items.map(function(item) {
+        return items.map(function(item) {
             var stateClass = item.is_read ? 'is-read' : 'is-unread';
             var createdAt = item.created_at ? String(item.created_at).replace('T', ' ').slice(0, 16) : '';
             return (
@@ -42,6 +39,14 @@
                 '</div>'
             );
         }).join('');
+    }
+
+    function renderNotificationList(items) {
+        var html = notificationItemsHtml(items);
+        var listEl = document.getElementById('notifications-list');
+        var topbarList = document.getElementById('topbar-notifications-list');
+        if (listEl) listEl.innerHTML = html;
+        if (topbarList) topbarList.innerHTML = html;
     }
 
     function renderUnreadCount(unread) {
@@ -111,8 +116,9 @@
             });
         }
 
-        if (listEl) {
-            listEl.addEventListener('click', function(e) {
+        function bindListReadHandler(el) {
+            if (!el) return;
+            el.addEventListener('click', function(e) {
                 var target = e.target;
                 if (!target) return;
                 var row = target.closest ? target.closest('.notification-item') : null;
@@ -122,6 +128,17 @@
                 request('/api/v1/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PATCH' })
                     .then(function() { refresh(); })
                     .catch(function() {});
+            });
+        }
+        bindListReadHandler(listEl);
+        bindListReadHandler(document.getElementById('topbar-notifications-list'));
+
+        var topbarMarkAll = document.getElementById('topbar-notif-mark-all');
+        if (topbarMarkAll) {
+            topbarMarkAll.addEventListener('click', function() {
+                request('/api/v1/notifications/read-all', { method: 'PATCH' }).then(function() {
+                    refresh();
+                }).catch(function() {});
             });
         }
     }

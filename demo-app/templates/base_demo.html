@@ -107,7 +107,7 @@
         <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
         <span class="topbar-date" id="topbar-date"></span>
         <a href="/demo/app/notifications" class="topbar-bell" aria-label="Notifications" style="text-decoration:none;color:inherit;">🔔</a>
-        <a href="/demo/app/expenses/add" class="btn btn-primary btn-sm" style="margin-left:8px;">+ Add Expense</a>
+        <a href="/demo/app/expenses/add" class="btn btn-primary btn-sm" style="margin-left:8px;">+ Add</a>
       </header>
       <div class="content-area" id="main-content" tabindex="-1">
         {% block back_link %}{% endblock %}
@@ -130,15 +130,7 @@
         </a>
       </li>
       <li class="bottom-nav-item bottom-nav-item-fab">
-        <div class="fab-wrapper">
-          <button type="button" class="bottom-nav-fab m-fab" id="fab-toggle" aria-label="Add" aria-haspopup="true" aria-expanded="false">+</button>
-          <div id="fab-menu" class="fab-menu" role="menu" aria-hidden="true">
-            <a href="/demo/app/expenses/add" class="fab-menu-item" role="menuitem">Add Expense</a>
-            <a href="/demo/app/budgets/add" class="fab-menu-item" role="menuitem">Add Budget</a>
-            <a href="/demo/app/link-bank" class="fab-menu-item" role="menuitem">Link Bank</a>
-          </div>
-        </div>
-        <div id="fab-backdrop" class="fab-backdrop" aria-hidden="true" style="display:none;"></div>
+        <button type="button" class="bottom-nav-fab m-fab" id="fab-toggle" aria-label="Add" aria-haspopup="dialog" aria-expanded="false">+</button>
       </li>
       <li class="bottom-nav-item">
         <a href="/demo/app/budgets" class="bottom-nav-link {% if request.url.path.startswith('/demo/app/budgets') %}active{% endif %}">
@@ -151,7 +143,6 @@
         </a>
       </li>
     </ul>
-    <button type="button" class="bottom-nav-fab" id="bottom-nav-fab" aria-label="Add new item"><span class="bottom-nav-fab-icon">+</span></button>
   </nav>
 
   <!-- FAB Action Sheet -->
@@ -309,7 +300,8 @@
     }
     var moreBtn = document.getElementById('bottom-nav-menu-toggle');
     if (moreBtn) {
-      moreBtn.addEventListener('click', function() {
+      moreBtn.addEventListener('click', function(e) {
+        e.preventDefault();
         var isOpen = document.getElementById('more-sheet').classList.contains('active');
         closeAllSheets();
         if (!isOpen) openSheet('more-sheet', 'more-overlay');
@@ -319,33 +311,19 @@
     document.getElementById('more-sheet-cancel') && document.getElementById('more-sheet-cancel').addEventListener('click', function() { closeSheet('more-sheet', 'more-overlay'); });
     document.getElementById('fab-overlay') && document.getElementById('fab-overlay').addEventListener('click', function() { closeSheet('fab-sheet', 'fab-overlay'); });
     document.getElementById('more-overlay') && document.getElementById('more-overlay').addEventListener('click', function() { closeSheet('more-sheet', 'more-overlay'); });
-    document.getElementById('bottom-nav-fab') && document.getElementById('bottom-nav-fab').addEventListener('click', function() { openSheet('fab-sheet', 'fab-overlay'); });
     var fabToggle = document.getElementById('fab-toggle');
-    var fabMenu = document.getElementById('fab-menu');
-    var fabBackdrop = document.getElementById('fab-backdrop');
-    function closeFabMenu() {
-      if (fabMenu) { fabMenu.classList.remove('fab-menu-open'); fabMenu.setAttribute('aria-hidden', 'true'); }
-      if (fabToggle) fabToggle.setAttribute('aria-expanded', 'false');
-      if (fabBackdrop) { fabBackdrop.style.display = 'none'; fabBackdrop.setAttribute('aria-hidden', 'true'); }
-    }
-    function openFabMenu() {
-      if (fabMenu) { fabMenu.classList.add('fab-menu-open'); fabMenu.setAttribute('aria-hidden', 'false'); }
-      if (fabToggle) fabToggle.setAttribute('aria-expanded', 'true');
-      if (fabBackdrop) { fabBackdrop.style.display = 'block'; fabBackdrop.setAttribute('aria-hidden', 'false'); }
-    }
-    if (fabToggle && fabMenu) {
+    if (fabToggle) {
       fabToggle.addEventListener('click', function(e) {
         e.preventDefault();
-        if (fabMenu.classList.contains('fab-menu-open')) closeFabMenu(); else openFabMenu();
+        var open = document.getElementById('fab-sheet') && document.getElementById('fab-sheet').classList.contains('active');
+        closeSheet('more-sheet', 'more-overlay');
+        if (open) { closeSheet('fab-sheet', 'fab-overlay'); fabToggle.setAttribute('aria-expanded', 'false'); }
+        else { openSheet('fab-sheet', 'fab-overlay'); fabToggle.setAttribute('aria-expanded', 'true'); }
       });
     }
-    if (fabBackdrop) fabBackdrop.addEventListener('click', closeFabMenu);
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { closeFabMenu(); closeAllSheets(); }
+      if (e.key === 'Escape') { closeAllSheets(); }
     });
-    if (fabMenu) {
-      fabMenu.querySelectorAll('.fab-menu-item').forEach(function(link) { link.addEventListener('click', closeFabMenu); });
-    }
     var dateEl = document.getElementById('topbar-date');
     if (dateEl) {
       var d = new Date();

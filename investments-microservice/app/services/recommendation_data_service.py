@@ -93,6 +93,40 @@ class RecommendationDataService:
         finally:
             conn.close()
 
+    def get_run_for_user(self, run_id: UUID, user_id: int) -> Optional[Dict[str, Any]]:
+        """Return run row only if it belongs to user_id (for explain API authorization)."""
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{RUN_TABLE}" '
+                f"WHERE run_id = %s::uuid AND user_id = %s",
+                (str(run_id), user_id),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def update_run_portfolio_snapshot(self, run_id: UUID, portfolio: Dict[str, Any]) -> None:
+        """Persist portfolio metrics for the run (column added in migration 014; no-op if missing)."""
+        if not portfolio:
+            return
+        conn = self._get_connection()
+        conn.autocommit = False
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{RUN_TABLE}" '
+                f"SET portfolio_snapshot = %s::jsonb WHERE run_id = %s::uuid",
+                (json.dumps(portfolio, default=str), str(run_id)),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        finally:
+            conn.close()
+
     def list_items_for_run(self, run_id: UUID) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         try:

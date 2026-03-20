@@ -292,27 +292,31 @@ class RecommendationEngine:
             notes="No-holdings starter portfolio suggestions",
         )
         run_id = run.get("run_id")
+        zero = Decimal("0")
+        port_snap = {
+            "total_value": str(zero),
+            "total_cost_basis": str(zero),
+            "unrealized_pl": str(zero),
+            "realized_pl": str(zero),
+            "sharpe": str(zero),
+            "volatility_annual": str(zero),
+            "max_drawdown": str(zero),
+            "top1_weight": str(zero),
+            "top3_weight": str(zero),
+            "hhi": str(zero),
+            "position_count": "0",
+            "holdings_top": [],
+        }
         if run_id:
             self.rec_svc.insert_items(run_id, items_with_scores)
-        zero = Decimal("0")
+            self.rec_svc.update_run_portfolio_snapshot(run_id, port_snap)
         return {
             "run": run,
             "items": [
                 {"symbol": i["symbol"], "score": str(i["score"]), "confidence": float(i["confidence"])}
                 for i in items_with_scores
             ],
-            "portfolio": {
-                "total_value": str(zero),
-                "total_cost_basis": str(zero),
-                "unrealized_pl": str(zero),
-                "realized_pl": str(zero),
-                "sharpe": str(zero),
-                "volatility_annual": str(zero),
-                "max_drawdown": str(zero),
-                "top1_weight": str(zero),
-                "top3_weight": str(zero),
-                "hhi": str(zero),
-            },
+            "portfolio": port_snap,
         }
 
     def run_for_user(self, user_id: int, auth_header: Optional[str] = None) -> Dict[str, Any]:
@@ -362,6 +366,23 @@ class RecommendationEngine:
         if total_value > 0:
             weights = [pv / total_value for pv in position_values]
         top1, top3, hhi = concentration_metrics(weights)
+
+        holdings_breakdown: List[Dict[str, Any]] = []
+        wlist = weights or [Decimal("0")] * len(holdings_rows)
+        for row, w in zip(holdings_rows, wlist):
+            holdings_breakdown.append(
+                {
+                    "symbol": str(row.get("symbol") or "").upper(),
+                    "weight": str(w),
+                    "source": str(row.get("source") or "manual").lower(),
+                    "quantity": str(row.get("quantity") or "0"),
+                    "avg_cost": str(row.get("avg_cost") or "0"),
+                }
+            )
+        holdings_breakdown.sort(
+            key=lambda x: Decimal(str(x["weight"])) if x.get("weight") else Decimal("0"),
+            reverse=True,
+        )
 
         # For this initial version, approximate portfolio returns via PL changes
         # using a simple two-point series: this is just to feed Sharpe/vol logic.
@@ -579,8 +600,26 @@ class RecommendationEngine:
             notes=None,
         )
         run_id = run.get("run_id")
+        portfolio_out = {
+            "total_value": str(total_value),
+            "total_cost_basis": str(total_cost_basis),
+            "unrealized_pl": str(unrealized_pl),
+            "realized_pl": str(realized_pl),
+            "sharpe": str(sharpe),
+            "volatility_annual": str(vol_annual),
+            "max_drawdown": str(mdd),
+            "top1_weight": str(top1),
+            "top3_weight": str(top3),
+            "hhi": str(hhi),
+            "position_count": str(len(holdings_rows)),
+            "holdings_top": holdings_breakdown[:10],
+            "snapshot_date": str(snapshot.get("snapshot_date"))
+            if snapshot and snapshot.get("snapshot_date")
+            else None,
+        }
         if run_id:
             self.rec_svc.insert_items(run_id, items_with_scores)
+            self.rec_svc.update_run_portfolio_snapshot(run_id, portfolio_out)
             # Audit log for governance
             try:
                 self.logger.info(
@@ -609,17 +648,6 @@ class RecommendationEngine:
                 }
                 for i in items_with_scores
             ],
-            "portfolio": {
-                "total_value": str(total_value),
-                "total_cost_basis": str(total_cost_basis),
-                "unrealized_pl": str(unrealized_pl),
-                "realized_pl": str(realized_pl),
-                "sharpe": str(sharpe),
-                "volatility_annual": str(vol_annual),
-                "max_drawdown": str(mdd),
-                "top1_weight": str(top1),
-                "top3_weight": str(top3),
-                "hhi": str(hhi),
-            },
+            "portfolio": portfolio_out,
         }
 

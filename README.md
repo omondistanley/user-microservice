@@ -501,6 +501,8 @@ python run_migration.py migrations/002_refresh_token.sql
 
 The production app runs as a single Fly.io machine with all 4 services in one container (`Dockerfile.fly`). The API gateway on port 8080 is the only exposed port. The release command automatically runs all database migrations before the new version starts serving traffic.
 
+The **web UI** is the **`frontend/`** tree (Jinja templates + `/static`); it is copied into the image next to `user-microservice`, not the `demo-app/` project. After UI changes, **redeploy/rebuild** so the new assets ship. See **[docs/MAIN_PLATFORM.md](docs/MAIN_PLATFORM.md)** for paths and keeping Fly `deploy/release.sh` investment migrations in sync with `docker-compose`.
+
 #### 1. Install Fly CLI
 
 ```bash

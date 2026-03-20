@@ -71,7 +71,9 @@ for f in /opt/investment/migrations/001_schema.sql \
          /opt/investment/migrations/009_scenarios.sql \
          /opt/investment/migrations/010_fundamental_snapshot.sql \
          /opt/investment/migrations/011_sentiment_snapshot.sql \
-         /opt/investment/migrations/012_alpaca_connection.sql; do
+         /opt/investment/migrations/012_alpaca_connection.sql \
+         /opt/investment/migrations/013_risk_profile_use_finance_data.sql \
+         /opt/investment/migrations/014_recommendation_run_portfolio_snapshot.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 

@@ -117,11 +117,11 @@
             <header class="topbar">
                 <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
                 <span class="topbar-date" id="topbar-date"></span>
-                <a href="/notifications" class="topbar-bell" aria-label="Notifications" style="text-decoration:none;color:inherit;">
+                <button type="button" class="topbar-bell" id="topbar-bell-btn" aria-label="Notifications">
                     🔔
                     <span id="topbar-notif-badge" class="topbar-badge" style="display:none;"></span>
-                </a>
-                <a href="/expenses/add" class="btn btn-primary btn-sm" style="margin-left:8px;">+ Add Expense</a>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="topbar-add-expense-btn" style="margin-left:8px;" title="Add expense, budget, goal, or link bank">+ Add</button>
             </header>
             <div class="content-area" id="main-content" tabindex="-1">
                 {% if _use_app_shell %}
@@ -248,7 +248,7 @@
             </div>
             <div class="navbar-panel-section navbar-panel-theme" style="margin-top:0.5rem;">
                 <label for="theme-select" class="navbar-panel-heading">Theme</label>
-                <select id="theme-select" class="form-select" aria-label="Theme preference">
+                <select id="theme-select" class="form-select theme-select-control" aria-label="Theme preference">
                     <option value="dark">Dark</option>
                     <option value="light">Light</option>
                     <option value="system">System</option>
@@ -285,15 +285,7 @@
                 </a>
             </li>
             <li class="bottom-nav-item bottom-nav-item-fab">
-                <div class="fab-wrapper">
-                    <button type="button" class="bottom-nav-fab m-fab" id="fab-toggle" aria-label="Add expense, budget, or link bank" aria-haspopup="true" aria-expanded="false">+</button>
-                    <div id="fab-menu" class="fab-menu" role="menu" aria-hidden="true">
-                        <a href="/expenses/add" class="fab-menu-item" role="menuitem">Add Expense</a>
-                        <a href="/budgets/add" class="fab-menu-item" role="menuitem">Add Budget</a>
-                        <a href="/link-bank" class="fab-menu-item" role="menuitem">Link Bank</a>
-                    </div>
-                </div>
-                <div id="fab-backdrop" class="fab-backdrop" aria-hidden="true" style="display:none;"></div>
+                <button type="button" class="bottom-nav-fab m-fab" id="fab-toggle" aria-label="Add expense, budget, goal, or link bank" aria-haspopup="dialog" aria-expanded="false">+</button>
             </li>
             <li class="bottom-nav-item">
                 <a href="/budgets" class="bottom-nav-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
@@ -308,11 +300,20 @@
                 </a>
             </li>
         </ul>
-        <!-- Centered FAB -->
-        <button type="button" class="bottom-nav-fab" id="bottom-nav-fab" aria-label="Add new item">
-            <span class="bottom-nav-fab-icon">+</span>
-        </button>
     </nav>
+
+    <!-- Topbar notifications sheet -->
+    <div class="action-sheet-overlay" id="notif-overlay" aria-hidden="true"></div>
+    <div class="action-sheet" id="notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div class="action-sheet-handle"></div>
+        <div class="action-sheet-title">Notifications</div>
+        <div class="notifications-sheet-toolbar" style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+            <button type="button" class="btn btn-ghost btn-sm" id="topbar-notif-mark-all">Mark all read</button>
+        </div>
+        <div id="topbar-notifications-list" class="notifications-list notifications-list--sheet">Loading…</div>
+        <a href="/notifications" class="action-sheet-item" style="margin-top:10px;text-align:center;justify-content:center;">View all notifications</a>
+        <button type="button" class="action-sheet-cancel" id="notif-sheet-cancel">Close</button>
+    </div>
 
     <!-- FAB Action Sheet -->
     <div class="action-sheet-overlay" id="fab-overlay" aria-hidden="true"></div>
@@ -478,45 +479,127 @@
         function closeAllSheets() {
             closeSheet('fab-sheet', 'fab-overlay');
             closeSheet('more-sheet', 'more-overlay');
+            closeSheet('notif-sheet', 'notif-overlay');
         }
+        window.AppShell = window.AppShell || {};
+        window.AppShell.openFabSheet = function() {
+            closeSheet('more-sheet', 'more-overlay');
+            closeSheet('notif-sheet', 'notif-overlay');
+            openSheet('fab-sheet', 'fab-overlay');
+        };
+        window.AppShell.closeFabSheet = function() {
+            closeSheet('fab-sheet', 'fab-overlay');
+        };
+        window.AppShell.openNotifSheet = function() {
+            closeSheet('fab-sheet', 'fab-overlay');
+            closeSheet('more-sheet', 'more-overlay');
+            openSheet('notif-sheet', 'notif-overlay');
+        };
+        window.AppShell.closeNotifSheet = function() {
+            closeSheet('notif-sheet', 'notif-overlay');
+        };
+
+        var fabOverlay = document.getElementById('fab-overlay');
+        if (fabOverlay) {
+            fabOverlay.addEventListener('click', function() {
+                closeSheet('fab-sheet', 'fab-overlay');
+            });
+        }
+        var fabSheetCancel = document.getElementById('fab-sheet-cancel');
+        if (fabSheetCancel) {
+            fabSheetCancel.addEventListener('click', function() {
+                closeSheet('fab-sheet', 'fab-overlay');
+            });
+        }
+        var moreOverlay = document.getElementById('more-overlay');
+        if (moreOverlay) {
+            moreOverlay.addEventListener('click', function() {
+                closeSheet('more-sheet', 'more-overlay');
+            });
+        }
+        var moreCancel = document.getElementById('more-sheet-cancel');
+        if (moreCancel) {
+            moreCancel.addEventListener('click', function() {
+                closeSheet('more-sheet', 'more-overlay');
+            });
+        }
+        var notifOverlay = document.getElementById('notif-overlay');
+        if (notifOverlay) {
+            notifOverlay.addEventListener('click', function() {
+                closeSheet('notif-sheet', 'notif-overlay');
+            });
+        }
+        var notifCancel = document.getElementById('notif-sheet-cancel');
+        if (notifCancel) {
+            notifCancel.addEventListener('click', function() {
+                closeSheet('notif-sheet', 'notif-overlay');
+            });
+        }
+
         var moreBtn = document.getElementById('bottom-nav-menu-toggle');
         if (moreBtn) {
-            moreBtn.addEventListener('click', function() {
-                var isOpen = document.getElementById('more-sheet').classList.contains('active');
+            moreBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var sheet = document.getElementById('more-sheet');
+                var isOpen = sheet && sheet.classList.contains('active');
                 closeAllSheets();
                 if (!isOpen) openSheet('more-sheet', 'more-overlay');
             });
         }
-        // FAB menu: open/close, outside click, Escape
         var fabToggle = document.getElementById('fab-toggle');
-        var fabMenu = document.getElementById('fab-menu');
-        var fabBackdrop = document.getElementById('fab-backdrop');
-        function closeFabMenu() {
-            if (fabMenu) { fabMenu.classList.remove('fab-menu-open'); fabMenu.setAttribute('aria-hidden', 'true'); }
-            if (fabToggle) fabToggle.setAttribute('aria-expanded', 'false');
-            if (fabBackdrop) { fabBackdrop.style.display = 'none'; fabBackdrop.setAttribute('aria-hidden', 'true'); }
-        }
-        function openFabMenu() {
-            if (fabMenu) { fabMenu.classList.add('fab-menu-open'); fabMenu.setAttribute('aria-hidden', 'false'); }
-            if (fabToggle) fabToggle.setAttribute('aria-expanded', 'true');
-            if (fabBackdrop) { fabBackdrop.style.display = 'block'; fabBackdrop.setAttribute('aria-hidden', 'false'); }
-        }
-        if (fabToggle && fabMenu) {
+        if (fabToggle) {
             fabToggle.addEventListener('click', function(e) {
                 e.preventDefault();
-                var isOpen = fabMenu.classList.contains('fab-menu-open');
-                if (isOpen) closeFabMenu(); else openFabMenu();
+                var open = document.getElementById('fab-sheet') && document.getElementById('fab-sheet').classList.contains('active');
+                closeSheet('more-sheet', 'more-overlay');
+                closeSheet('notif-sheet', 'notif-overlay');
+                if (open) closeSheet('fab-sheet', 'fab-overlay');
+                else openSheet('fab-sheet', 'fab-overlay');
+                fabToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
             });
         }
-        if (fabBackdrop) fabBackdrop.addEventListener('click', closeFabMenu);
+        var topbarAdd = document.getElementById('topbar-add-expense-btn');
+        if (topbarAdd) {
+            topbarAdd.addEventListener('click', function() {
+                window.AppShell.openFabSheet();
+            });
+        }
+        var topbarBell = document.getElementById('topbar-bell-btn');
+        if (topbarBell) {
+            topbarBell.addEventListener('click', function() {
+                var sheet = document.getElementById('notif-sheet');
+                var open = sheet && sheet.classList.contains('active');
+                closeSheet('fab-sheet', 'fab-overlay');
+                closeSheet('more-sheet', 'more-overlay');
+                if (open) closeSheet('notif-sheet', 'notif-overlay');
+                else window.AppShell.openNotifSheet();
+                if (window.Notifications && window.Notifications.refresh) window.Notifications.refresh();
+            });
+        }
+        var moreSheetEl = document.getElementById('more-sheet');
+        if (moreSheetEl) {
+            var dragStartY = null;
+            moreSheetEl.addEventListener('touchstart', function(ev) {
+                if (!ev.touches || !ev.touches.length) return;
+                dragStartY = ev.touches[0].clientY;
+            }, { passive: true });
+            moreSheetEl.addEventListener('touchmove', function(ev) {
+                if (dragStartY == null || !ev.touches || !ev.touches.length) return;
+                var dy = ev.touches[0].clientY - dragStartY;
+                if (moreSheetEl.scrollTop <= 0 && dy > 48) {
+                    closeSheet('more-sheet', 'more-overlay');
+                    dragStartY = null;
+                }
+            }, { passive: true });
+            moreSheetEl.addEventListener('touchend', function() { dragStartY = null; }, { passive: true });
+        }
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && fabMenu && fabMenu.classList.contains('fab-menu-open')) closeFabMenu();
+            if (e.key !== 'Escape') return;
+            if (document.getElementById('fab-sheet') && document.getElementById('fab-sheet').classList.contains('active')) {
+                closeSheet('fab-sheet', 'fab-overlay');
+                if (fabToggle) fabToggle.setAttribute('aria-expanded', 'false');
+            }
         });
-        if (fabMenu) {
-            fabMenu.querySelectorAll('.fab-menu-item').forEach(function(link) {
-                link.addEventListener('click', closeFabMenu);
-            });
-        }
         // Set topbar date
         var dateEl = document.getElementById('topbar-date');
         if (dateEl) {

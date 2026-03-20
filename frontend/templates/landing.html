@@ -109,6 +109,78 @@
     }
     .drawer-actions { display: flex; flex-direction: column; gap: 12px; }
 
+    .demo-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      background: rgba(10, 15, 30, 0.72);
+      backdrop-filter: blur(8px);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .demo-modal-overlay.open { display: flex; }
+    .demo-modal-overlay:focus { outline: none; }
+    .demo-modal {
+      background: var(--white);
+      color: var(--slate-800);
+      border-radius: 20px;
+      max-width: 420px;
+      width: 100%;
+      padding: 28px 28px 24px;
+      box-shadow: 0 32px 64px rgba(0,0,0,.35);
+      position: relative;
+    }
+    .demo-modal h2 { font-size: 22px; font-weight: 800; margin-bottom: 10px; color: var(--navy); letter-spacing: -.03em; }
+    .demo-modal > p { font-size: 15px; color: var(--slate-600); line-height: 1.55; margin-bottom: 24px; }
+    .demo-modal-actions { display: flex; flex-direction: column; gap: 10px; }
+    .demo-modal .btn-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--slate-400);
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .demo-modal .btn-close:hover { color: var(--slate-700); background: var(--slate-100); }
+    .btn-modal-primary {
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--indigo);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background .2s, transform .2s;
+    }
+    .btn-modal-primary:hover { background: var(--indigo-600); transform: translateY(-1px); }
+    .btn-modal-secondary {
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--slate-100);
+      border: 1px solid var(--slate-200);
+      color: var(--slate-800);
+      cursor: pointer;
+      text-align: center;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-modal-secondary:hover { background: var(--slate-200); border-color: var(--slate-300); }
+
     .btn-primary {
       padding: 14px 28px; border-radius: 12px; font-size: 16px; font-weight: 600;
       background: var(--indigo); border: none; color: #fff; cursor: pointer;
@@ -121,6 +193,7 @@
       background: transparent; border: 1px solid rgba(255,255,255,.22); color: #fff;
       cursor: pointer; transition: all .22s; display: inline-flex; align-items: center; gap: 8px;
       text-decoration: none;
+      font-family: inherit;
     }
     .btn-outline:hover { border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.06); }
     .btn-white {
@@ -349,6 +422,7 @@
   </style>
 </head>
 <body>
+{% set pocketii_demo_base = (demo_public_url or 'https://pocketii.onrender.com').rstrip('/') %}
 
 <a href="#main-content" class="skip-to-content">Skip to main content</a>
 
@@ -381,7 +455,7 @@
     <li><a href="#features">Features</a></li>
     <li><a href="#security">Security</a></li>
     <li><a href="#integrations">Integrations</a></li>
-    {% if demo_public_url %}<li><a href="{{ demo_public_url }}/demo" target="_blank" rel="noopener">Live demo</a></li>{% endif %}
+    <li><a href="{{ pocketii_demo_base }}" target="_blank" rel="noopener noreferrer">Live demo</a></li>
   </ul>
   <div class="nav-actions">
     <a href="/login" class="btn-ghost-sm">Sign In</a>
@@ -398,12 +472,8 @@
       <p class="hero-sub">Track every dollar, sync your bank or import CSV, set budgets and savings goals, and see net worth and investments — all in one clean dashboard.</p>
       <div class="hero-ctas">
         <a href="/register" class="btn-primary">Start for Free →</a>
-        {% if demo_public_url %}
-        <a href="{{ demo_public_url }}/demo/watch" class="btn-outline" target="_blank" rel="noopener noreferrer">▷ Watch demo</a>
-        <a href="{{ demo_public_url }}/demo/start" class="btn-outline" target="_blank" rel="noopener noreferrer" style="margin-left:8px;">Try live demo</a>
-        {% else %}
-        <a href="#how-it-works" class="btn-outline">▷ Watch Demo</a>
-        {% endif %}
+        <button type="button" class="btn-outline" id="watch-demo-btn" aria-haspopup="dialog" aria-controls="demo-choice-modal" onclick="openDemoChoiceModal()">▷ Watch demo</button>
+        <a href="{{ pocketii_demo_base }}/demo/start" class="btn-outline" target="_blank" rel="noopener noreferrer">Try live demo</a>
       </div>
       <div class="hero-proof">
         <span>Self-hosted</span>
@@ -742,6 +812,18 @@
   </div>
 </footer>
 
+<div class="demo-modal-overlay" id="demo-modal-overlay" aria-hidden="true">
+  <div class="demo-modal" id="demo-choice-modal" role="dialog" aria-modal="true" aria-labelledby="demo-choice-title" onclick="event.stopPropagation()">
+    <button type="button" class="btn-close" onclick="closeDemoChoiceModal()" aria-label="Close dialog">✕</button>
+    <h2 id="demo-choice-title">How would you like to explore?</h2>
+    <p>Open the <strong>live sandbox</strong> (sample data, resets periodically), or stay here and jump to <strong>How it works</strong> below.</p>
+    <div class="demo-modal-actions">
+      <a class="btn-modal-primary" href="{{ pocketii_demo_base }}" target="_blank" rel="noopener noreferrer" id="demo-modal-open-live" onclick="closeDemoChoiceModal()">Open live demo</a>
+      <button type="button" class="btn-modal-secondary" id="demo-choice-how-it-works">See how it works on this page</button>
+    </div>
+  </div>
+</div>
+
 <script>
   window.addEventListener('scroll', function() {
     document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
@@ -756,6 +838,46 @@
   }
   document.getElementById('drawer').addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeDrawer();
+  });
+
+  var demoModalOverlay = document.getElementById('demo-modal-overlay');
+  var watchDemoBtn = document.getElementById('watch-demo-btn');
+  var demoHowBtn = document.getElementById('demo-choice-how-it-works');
+
+  function openDemoChoiceModal() {
+    if (!demoModalOverlay) return;
+    demoModalOverlay.classList.add('open');
+    demoModalOverlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    var openLive = document.getElementById('demo-modal-open-live');
+    if (openLive) openLive.focus();
+  }
+
+  function closeDemoChoiceModal() {
+    if (!demoModalOverlay) return;
+    demoModalOverlay.classList.remove('open');
+    demoModalOverlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (watchDemoBtn) watchDemoBtn.focus();
+  }
+
+  if (demoModalOverlay) {
+    demoModalOverlay.addEventListener('click', function(e) {
+      if (e.target === demoModalOverlay) closeDemoChoiceModal();
+    });
+  }
+
+  if (demoHowBtn) {
+    demoHowBtn.addEventListener('click', function() {
+      closeDemoChoiceModal();
+      var section = document.getElementById('how-it-works');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    if (demoModalOverlay && demoModalOverlay.classList.contains('open')) closeDemoChoiceModal();
   });
 </script>
 </body>
