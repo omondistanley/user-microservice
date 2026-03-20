@@ -89,9 +89,9 @@
     <div class="m-sidebar-hide" style="display:flex;flex-direction:column;gap:16px;">
         <!-- Receipt upload -->
         <div class="card">
-            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:12px;">📎 Receipt</div>
+            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:12px;"><span class="material-symbols-rounded">attach_file</span> Receipt</div>
             <label for="receipt-file" style="display:block;border:2px dashed var(--s200);border-radius:10px;padding:24px 16px;text-align:center;cursor:pointer;transition:border-color .15s;" id="receipt-dropzone">
-                <div style="font-size:28px;margin-bottom:8px;">📄</div>
+                <div style="font-size:28px;margin-bottom:8px;"><span class="material-symbols-rounded">description</span></div>
                 <div style="font-size:13px;font-weight:600;color:var(--s600);">Drag & drop or click</div>
                 <div style="font-size:11px;color:var(--s400);margin-top:4px;">JPG, PNG, PDF — max 10 MB</div>
                 <input type="file" id="receipt-file" name="file" accept="image/*,.pdf" style="display:none;">
@@ -101,7 +101,7 @@
 
         <!-- Recurring toggle -->
         <div class="card">
-            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:12px;">🔄 Recurring</div>
+            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:12px;"><span class="material-symbols-rounded">sync</span> Recurring</div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
                 <input type="checkbox" id="is-recurring" style="accent-color:var(--indigo);width:16px;height:16px;">
                 <label for="is-recurring" style="font-size:13px;color:var(--s600);cursor:pointer;">Make this a recurring expense</label>
@@ -118,7 +118,7 @@
 
         <!-- Tips -->
         <div class="card" style="background:var(--s50);border-color:var(--s100);">
-            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:10px;">💡 Tips</div>
+            <div style="font-size:13px;font-weight:700;color:var(--s700);margin-bottom:10px;"><span class="material-symbols-rounded">lightbulb</span> Tips</div>
             <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;">
                 <li style="font-size:12px;color:var(--s500);">• Use tags to group related expenses across categories</li>
                 <li style="font-size:12px;color:var(--s500);">• Attach receipts for easy record-keeping</li>
@@ -159,7 +159,7 @@
         receiptFile.addEventListener('change', function() {
             var f = receiptFile.files && receiptFile.files[0];
             if (f) {
-                receiptFilename.textContent = '📎 ' + f.name;
+                receiptFilename.textContent = '<span class="material-symbols-rounded">attach_file</span> ' + f.name;
                 receiptFilename.style.display = 'block';
                 if (receiptDropzone) receiptDropzone.style.borderColor = 'var(--indigo)';
             }

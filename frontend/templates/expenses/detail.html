@@ -98,7 +98,7 @@
 
 <!-- Receipts -->
 <div class="card">
-    <h2 style="font-size:16px;font-weight:700;color:var(--s900);margin-bottom:16px;">📎 Receipts</h2>
+    <h2 style="font-size:16px;font-weight:700;color:var(--s900);margin-bottom:16px;"><span class="material-symbols-rounded">attach_file</span> Receipts</h2>
     <div id="receipts-list" style="margin-bottom:16px;font-size:14px;color:var(--s500);">Loading…</div>
     <form id="receipt-upload-form">
         <div class="form-group">
@@ -198,7 +198,7 @@
                 var downBtn = '<button type="button" class="btn btn-ghost btn-sm download-receipt" data-receipt-id="' + r.receipt_id + '" data-file-name="' + (r.file_name||'receipt').replace(/"/g,'&quot;') + '">Download</button>';
                 var ocrBtn = window.Expenses.runReceiptOcr ? '<button type="button" class="btn btn-ghost btn-sm ocr-receipt" data-receipt-id="' + r.receipt_id + '">Run OCR</button>' : '';
                 var applyBtn = window.Expenses.applyReceiptExtraction ? '<button type="button" class="btn btn-ghost btn-sm apply-ocr" data-receipt-id="' + r.receipt_id + '">Apply OCR</button>' : '';
-                return '<li style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--s50);border-radius:8px;"><span style="flex:1;font-size:13px;color:var(--s700);">📎 ' + name + '</span>' + downBtn + ocrBtn + applyBtn + delBtn + '</li>';
+                return '<li style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--s50);border-radius:8px;"><span style="flex:1;font-size:13px;color:var(--s700);"><span class="material-symbols-rounded">attach_file</span> ' + name + '</span>' + downBtn + ocrBtn + applyBtn + delBtn + '</li>';
             }).join('') + '</ul>';
             receiptsList.querySelectorAll('.download-receipt').forEach(function(btn) {
                 btn.addEventListener('click', function() {

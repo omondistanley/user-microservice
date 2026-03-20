@@ -32,6 +32,20 @@
     <p id="notifications-empty" class="muted" style="display: none; margin-top: 1rem;">No notifications yet.</p>
 </div>
 
+<!-- Recommendation / rebalance details modal -->
+<div id="notif-rec-modal-wrap" class="modal-wrap" style="display:none;" aria-hidden="true">
+    <div class="modal-backdrop" id="notif-rec-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-labelledby="notif-rec-modal-title" aria-modal="true" style="max-width:34rem;">
+        <h3 id="notif-rec-modal-title" class="modal-title">Notification details</h3>
+        <div id="notif-rec-modal-body" class="explain-body">
+            <!-- Filled by JS -->
+        </div>
+        <div class="form-actions">
+            <button type="button" id="notif-rec-modal-close" class="btn btn-ghost">Close</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
@@ -45,12 +59,89 @@
     }
 
     var allItems = [];
+    var itemsById = {};
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        var str = String(s);
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function closeRecModal() {
+        var wrap = document.getElementById('notif-rec-modal-wrap');
+        if (!wrap) return;
+        wrap.style.display = 'none';
+        wrap.setAttribute('aria-hidden', 'true');
+    }
+
+    function openRecModal(n) {
+        var wrap = document.getElementById('notif-rec-modal-wrap');
+        var bodyEl = document.getElementById('notif-rec-modal-body');
+        var titleEl = document.getElementById('notif-rec-modal-title');
+        if (!wrap || !bodyEl) return;
+        var payload = (n && (n.payload_json || n.payload)) ? (n.payload_json || n.payload) : {};
+        var scenario = payload.scenario || '';
+        var phase = payload.phase || '';
+        var executed = payload.executed != null ? !!payload.executed : null;
+
+        if (titleEl) {
+            titleEl.textContent = n.title ? ('Notification: ' + n.title) : 'Notification details';
+        }
+
+        var html = '';
+        html += '<p class="muted" style="font-size:0.875rem;margin-top:0;">';
+        if (scenario) html += 'Scenario: <strong>' + escapeHtml(scenario) + '</strong>';
+        if (phase) html += (scenario ? ' · ' : '') + 'Phase: <strong>' + escapeHtml(phase) + '</strong>';
+        if (executed !== null) html += (scenario || phase ? ' · ' : '') + 'Executed: <strong>' + escapeHtml(String(executed)) + '</strong>';
+        html += '</p>';
+
+        if (payload.why_lines && payload.why_lines.length) {
+            html += '<h4 style="margin:1rem 0 0.5rem;">Why this was selected</h4><ul style="margin:0;padding-left:1.1rem;">';
+            payload.why_lines.forEach(function (line) {
+                html += '<li>' + escapeHtml(String(line)) + '</li>';
+            });
+            html += '</ul>';
+        }
+
+        var changes = payload.changes || {};
+        if (changes.sell_orders && changes.sell_orders.length) {
+            html += '<h4 style="margin:1rem 0 0.5rem;">Sell orders</h4><ul style="margin:0;padding-left:1.1rem;">';
+            changes.sell_orders.forEach(function (o) {
+                html += '<li><strong>' + escapeHtml(o.symbol || '—') + '</strong> · qty ' + escapeHtml(String(o.qty || '—')) + '</li>';
+            });
+            html += '</ul>';
+        }
+        if (changes.buy_orders && changes.buy_orders.length) {
+            html += '<h4 style="margin:1rem 0 0.5rem;">Buy orders</h4><ul style="margin:0;padding-left:1.1rem;">';
+            changes.buy_orders.forEach(function (o) {
+                html += '<li><strong>' + escapeHtml(o.symbol || '—') + '</strong> · qty ' + escapeHtml(String(o.qty || '—')) +
+                    (o.order_type ? ' · ' + escapeHtml(o.order_type) : '') + '</li>';
+            });
+            html += '</ul>';
+        }
+
+        if (changes.cash_used != null && changes.cash_used !== '') {
+            html += '<p class="muted" style="margin-top:1rem;font-size:0.875rem;">Cash used: $' + escapeHtml(String(changes.cash_used)) + '</p>';
+        }
+
+        bodyEl.innerHTML = html || '<p class="muted">No details available.</p>';
+
+        wrap.style.display = 'block';
+        wrap.setAttribute('aria-hidden', 'false');
+    }
 
     function load() {
         fetch(API + '/api/v1/notifications?page=1&page_size=50', { headers: authHeaders() })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 allItems = (data && data.items) ? data.items : [];
+                itemsById = {};
+                allItems.forEach(function (n) {
+                    var nid = String(n && (n.notification_id || n.id || '') || '');
+                    if (nid) itemsById[nid] = n;
+                });
                 applyFilter();
             })
             .catch(function() {
@@ -101,10 +192,10 @@
         }
         el.innerHTML = items.map(function(n) {
             var cls = unread ? 'notif-item unread' : 'notif-item';
-            var icon = '🔔';
+            var icon = '<span class="material-symbols-rounded">notifications</span>';
             var payload = n.payload_json || n.payload || {};
-            if ((n.type || n.notification_type) === 'budget_alert') icon = '💰';
-            if ((n.type || n.notification_type) === 'recommendation') icon = '🤖';
+            if ((n.type || n.notification_type) === 'budget_alert') icon = '<span class="material-symbols-rounded">payments</span>';
+            if ((n.type || n.notification_type) === 'recommendation') icon = '<span class="material-symbols-rounded">smart_toy</span>';
             var action = '';
             if (payload.budget_id) {
                 action = '<a href="/budgets/' + payload.budget_id + '" class="btn btn-primary btn-sm" style="margin-top:8px">View Budget</a>';
@@ -125,12 +216,29 @@
         }).join('');
 
         el.querySelectorAll('.notif-mark-read').forEach(function(btn) {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function(ev) {
+                if (ev && ev.stopPropagation) ev.stopPropagation();
                 var row = btn.closest('.notif-item');
                 var nid = row && row.getAttribute('data-id');
                 if (!nid) return;
                 fetch(API + '/api/v1/notifications/' + nid + '/read', { method: 'PATCH', headers: authHeaders() })
                     .then(function(r) { if (r.ok) load(); });
+            });
+        });
+
+        // Click-to-open modal for recommendation/rebalance notifications.
+        el.querySelectorAll('.notif-item').forEach(function(row) {
+            row.addEventListener('click', function(ev) {
+                if (ev && ev.target && ev.target.closest && ev.target.closest('a')) return;
+                var nid = row.getAttribute('data-id');
+                if (!nid) return;
+                var n = itemsById[nid];
+                if (!n) return;
+                var payload = n.payload_json || n.payload || {};
+                var ntype = (n.type || n.notification_type || '');
+                var hasModalContent = payload && ((payload.why_lines && payload.why_lines.length) || (payload.changes && (payload.changes.sell_orders || payload.changes.buy_orders)));
+                if (ntype !== 'recommendation' && !hasModalContent) return;
+                openRecModal(n);
             });
         });
     }
@@ -139,6 +247,15 @@
     document.getElementById('notifications-mark-all-btn').addEventListener('click', function() {
         fetch(API + '/api/v1/notifications/read-all', { method: 'PATCH', headers: authHeaders() })
             .then(function(r) { if (r.ok) load(); });
+    });
+
+    // Modal close wiring
+    var recModalCloseBtn = document.getElementById('notif-rec-modal-close');
+    if (recModalCloseBtn) recModalCloseBtn.addEventListener('click', closeRecModal);
+    var recModalBackdrop = document.getElementById('notif-rec-modal-backdrop');
+    if (recModalBackdrop) recModalBackdrop.addEventListener('click', closeRecModal);
+    document.addEventListener('keydown', function (ev) {
+        if (ev && ev.key === 'Escape') closeRecModal();
     });
 
     // Filter tab buttons

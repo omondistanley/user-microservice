@@ -73,7 +73,7 @@
     var periodEl      = document.getElementById('budget-period');
     var listEl        = document.getElementById('budgets-categories-list');
 
-    var CAT_EMOJI = { 1:'🍕', 2:'🚗', 3:'✈️', 4:'🔧', 5:'🎭', 6:'💊', 7:'🛍️', 8:'📋' };
+    var CAT_EMOJI = { 1:'<span class="material-symbols-rounded">restaurant</span>', 2:'<span class="material-symbols-rounded">directions_car</span>', 3:'<span class="material-symbols-rounded">flight</span>', 4:'<span class="material-symbols-rounded">build</span>', 5:'<span class="material-symbols-rounded">theater_comedy</span>', 6:'<span class="material-symbols-rounded">medical_services</span>', 7:'<span class="material-symbols-rounded">shopping_bag</span>', 8:'<span class="material-symbols-rounded">assignment</span>' };
 
     function fmt(val) {
         if (val == null || val === '') return '$0.00';
@@ -83,14 +83,14 @@
 
     function getCatEmoji(code, name) {
         var n = (name || '').toLowerCase();
-        if (n.indexOf('food') !== -1 || n.indexOf('grocery') !== -1 || n.indexOf('restaurant') !== -1) return '🍕';
-        if (n.indexOf('transport') !== -1 || n.indexOf('car') !== -1) return '🚗';
-        if (n.indexOf('travel') !== -1) return '✈️';
-        if (n.indexOf('entertain') !== -1 || n.indexOf('movie') !== -1) return '🎭';
-        if (n.indexOf('health') !== -1 || n.indexOf('medical') !== -1) return '💊';
-        if (n.indexOf('shop') !== -1 || n.indexOf('cloth') !== -1) return '🛍️';
-        if (n.indexOf('hous') !== -1 || n.indexOf('rent') !== -1) return '🏠';
-        return CAT_EMOJI[code] || '📋';
+        if (n.indexOf('food') !== -1 || n.indexOf('grocery') !== -1 || n.indexOf('restaurant') !== -1) return '<span class="material-symbols-rounded">restaurant</span>';
+        if (n.indexOf('transport') !== -1 || n.indexOf('car') !== -1) return '<span class="material-symbols-rounded">directions_car</span>';
+        if (n.indexOf('travel') !== -1) return '<span class="material-symbols-rounded">flight</span>';
+        if (n.indexOf('entertain') !== -1 || n.indexOf('movie') !== -1) return '<span class="material-symbols-rounded">theater_comedy</span>';
+        if (n.indexOf('health') !== -1 || n.indexOf('medical') !== -1) return '<span class="material-symbols-rounded">medical_services</span>';
+        if (n.indexOf('shop') !== -1 || n.indexOf('cloth') !== -1) return '<span class="material-symbols-rounded">shopping_bag</span>';
+        if (n.indexOf('hous') !== -1 || n.indexOf('rent') !== -1) return '<span class="material-symbols-rounded">home</span>';
+        return CAT_EMOJI[code] || '<span class="material-symbols-rounded">assignment</span>';
     }
 
     function load() {
@@ -145,7 +145,7 @@
 
             if (budgets.length === 0) {
                 listEl.innerHTML = '<div class="card" style="text-align:center;padding:40px;grid-column:1/-1;">' +
-                    '<div style="font-size:40px;margin-bottom:12px;">🎯</div>' +
+                    '<div style="font-size:40px;margin-bottom:12px;"><span class="material-symbols-rounded">target</span></div>' +
                     '<p style="font-size:15px;font-weight:600;color:var(--s700);margin-bottom:8px;">No budgets yet</p>' +
                     '<p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Set monthly limits to track your spending.</p>' +
                     '<a href="/budgets/add" class="btn btn-primary">+ Create Budget</a></div>';

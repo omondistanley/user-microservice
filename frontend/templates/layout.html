@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/main.css">
     {% block head_extra %}{% endblock %}
 </head>
@@ -34,71 +35,71 @@
             <nav class="sb-nav">
                 <div class="sb-section">Overview</div>
                 <a href="/dashboard" class="sb-link {% if request.url.path == '/dashboard' %}active{% endif %}">
-                    <span class="icon">📊</span> Dashboard
+                    <span class="icon"><span class="material-symbols-rounded">dashboard</span></span> Dashboard
                 </a>
                 <a href="/net-worth" class="sb-link {% if request.url.path == '/net-worth' %}active{% endif %}">
-                    <span class="icon">💎</span> Net Worth
+                    <span class="icon"><span class="material-symbols-rounded">diamond</span></span> Net Worth
                 </a>
 
                 <div class="sb-section">Money</div>
                 <a href="/expenses" class="sb-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
-                    <span class="icon">💸</span> Expenses
+                    <span class="icon"><span class="material-symbols-rounded">receipt_long</span></span> Expenses
                 </a>
                 <a href="/income" class="sb-link {% if request.url.path.startswith('/income') %}active{% endif %}">
-                    <span class="icon">💰</span> Income
+                    <span class="icon"><span class="material-symbols-rounded">payments</span></span> Income
                 </a>
                 <a href="/recurring" class="sb-link {% if request.url.path.startswith('/recurring') %}active{% endif %}">
-                    <span class="icon">🔄</span> Recurring
+                    <span class="icon"><span class="material-symbols-rounded">sync</span></span> Recurring
                 </a>
                 <a href="/budgets" class="sb-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
-                    <span class="icon">🎯</span> Budgets
+                    <span class="icon"><span class="material-symbols-rounded">target</span></span> Budgets
                     <span id="sidebar-budgets-badge" class="sb-badge" style="display:none;">!</span>
                 </a>
                 <a href="/goals" class="sb-link {% if request.url.path.startswith('/goals') %}active{% endif %}">
-                    <span class="icon">⭐</span> Goals
+                    <span class="icon"><span class="material-symbols-rounded">kid_star</span></span> Goals
                 </a>
 
                 <div class="sb-section">Analytics</div>
                 <a href="/reports" class="sb-link {% if request.url.path == '/reports' or request.url.path.startswith('/reports/') %}active{% endif %}">
-                    <span class="icon">📋</span> Reports
+                    <span class="icon"><span class="material-symbols-rounded">assignment</span></span> Reports
                 </a>
                 <a href="/insights" class="sb-link {% if request.url.path == '/insights' %}active{% endif %}">
-                    <span class="icon">✨</span> Insights
+                    <span class="icon"><span class="material-symbols-rounded">auto_awesome</span></span> Insights
                 </a>
                 <a href="/investments" class="sb-link {% if request.url.path.startswith('/investments') %}active{% endif %}">
-                    <span class="icon">📈</span> Investments
+                    <span class="icon"><span class="material-symbols-rounded">trending_up</span></span> Investments
                 </a>
                 <a href="/recommendations" class="sb-link {% if request.url.path.startswith('/recommendations') %}active{% endif %}">
-                    <span class="icon">🤖</span> Recommendations
+                    <span class="icon"><span class="material-symbols-rounded">smart_toy</span></span> Recommendations
                 </a>
 
                 <div class="sb-section">Account</div>
                 <a href="/notifications" class="sb-link {% if request.url.path == '/notifications' %}active{% endif %}">
-                    <span class="icon">🔔</span> Notifications
+                    <span class="icon"><span class="material-symbols-rounded">notifications</span></span> Notifications
                     <span id="sidebar-notif-badge" class="sb-badge" style="display:none;">0</span>
                 </a>
                 <a href="/household" class="sb-link {% if request.url.path == '/household' %}active{% endif %}">
-                    <span class="icon">👥</span> Household
+                    <span class="icon"><span class="material-symbols-rounded">groups</span></span> Household
                 </a>
                 <a href="/sessions" class="sb-link {% if request.url.path == '/sessions' %}active{% endif %}">
-                    <span class="icon">🔐</span> Sessions
+                    <span class="icon"><span class="material-symbols-rounded">verified_user</span></span> Sessions
                 </a>
                 <a href="/profile" class="sb-link {% if request.url.path == '/profile' %}active{% endif %}">
-                    <span class="icon">👤</span> Profile
+                    <span class="icon"><span class="material-symbols-rounded">person</span></span> Profile
                 </a>
                 <a href="/settings" class="sb-link {% if request.url.path == '/settings' or request.url.path.startswith('/settings/') %}active{% endif %}">
-                    <span class="icon">⚙️</span> Settings
+                    <span class="icon"><span class="material-symbols-rounded">settings</span></span> Settings
                 </a>
 
                 <div class="sb-section">Integrations</div>
                 <a href="/saved-views" class="sb-link {% if request.url.path == '/saved-views' %}active{% endif %}">
-                    <span class="icon">📌</span> Saved Views
+                    <span class="icon"><span class="material-symbols-rounded">keep</span></span> Saved Views
                 </a>
                 <a href="/settings/integrations" class="sb-link {% if request.url.path == '/settings/integrations' %}active{% endif %}">
-                    <span class="icon">🔌</span> Integrations
+                    <span class="icon"><span class="material-symbols-rounded">power</span></span> Integrations
                 </a>
                 <a href="/link-bank" class="sb-link {% if request.url.path.startswith('/link-bank') %}active{% endif %}">
-                    <span class="icon">🏦</span> Link Bank
+                    <span class="icon"><span class="material-symbols-rounded">account_balance</span></span> Link Bank
                 </a>
             </nav>
 
@@ -118,7 +119,7 @@
                 <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
                 <span class="topbar-date" id="topbar-date"></span>
                 <button type="button" class="topbar-bell" id="topbar-bell-btn" aria-label="Notifications">
-                    🔔
+                    <span class="material-symbols-rounded">notifications</span>
                     <span id="topbar-notif-badge" class="topbar-badge" style="display:none;"></span>
                 </button>
                 <button type="button" class="btn btn-primary btn-sm" id="topbar-add-expense-btn" style="margin-left:8px;" title="Add expense, budget, goal, or link bank">+ Add</button>
@@ -274,13 +275,13 @@
         <ul class="bottom-nav-items">
             <li class="bottom-nav-item">
                 <a href="/dashboard" class="bottom-nav-link {% if request.url.path == '/dashboard' %}active{% endif %}">
-                    <span class="bottom-nav-icon">🏠</span>
+                    <span class="bottom-nav-icon"><span class="material-symbols-rounded">home</span></span>
                     <span>Home</span>
                 </a>
             </li>
             <li class="bottom-nav-item">
                 <a href="/expenses" class="bottom-nav-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
-                    <span class="bottom-nav-icon">💳</span>
+                    <span class="bottom-nav-icon"><span class="material-symbols-rounded">credit_card</span></span>
                     <span>Expenses</span>
                 </a>
             </li>
@@ -289,13 +290,13 @@
             </li>
             <li class="bottom-nav-item">
                 <a href="/budgets" class="bottom-nav-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
-                    <span class="bottom-nav-icon">🎯</span>
+                    <span class="bottom-nav-icon"><span class="material-symbols-rounded">target</span></span>
                     <span>Budgets</span>
                 </a>
             </li>
             <li class="bottom-nav-item">
                 <a href="#" class="bottom-nav-link" id="bottom-nav-menu-toggle">
-                    <span class="bottom-nav-icon">☰</span>
+                    <span class="bottom-nav-icon"><span class="material-symbols-rounded">menu</span></span>
                     <span>More</span>
                 </a>
             </li>
@@ -322,28 +323,28 @@
         <div class="action-sheet-title">Add New</div>
         <div class="action-sheet-items">
             <a href="/expenses/add" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;">💳</span>
+                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;"><span class="material-symbols-rounded">credit_card</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Add Expense</span>
                     <span class="action-sheet-item-desc">Record a new expense</span>
                 </div>
             </a>
             <a href="/budgets/add" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">🎯</span>
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">target</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Add Budget</span>
                     <span class="action-sheet-item-desc">Set a spending limit</span>
                 </div>
             </a>
             <a href="/goals/add" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">⭐</span>
+                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">kid_star</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Add Goal</span>
                     <span class="action-sheet-item-desc">Start saving for something</span>
                 </div>
             </a>
             <a href="/link-bank" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">🏦</span>
+                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">account_balance</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Link Bank Account</span>
                     <span class="action-sheet-item-desc">Connect via Plaid or Teller</span>
@@ -360,14 +361,14 @@
         <div class="action-sheet-title">More</div>
         <div class="action-sheet-items">
             <a href="/profile" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">👤</span>
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">person</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Profile</span>
                     <span class="action-sheet-item-desc">Edit info &amp; change password</span>
                 </div>
             </a>
             <a href="/settings" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(100,116,139,0.12);color:#64748B;">⚙️</span>
+                <span class="action-sheet-icon" style="background:rgba(100,116,139,0.12);color:#64748B;"><span class="material-symbols-rounded">settings</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Settings</span>
                     <span class="action-sheet-item-desc">Currency, notifications, theme</span>
@@ -375,35 +376,35 @@
             </a>
             <div class="action-sheet-section-label">Analytics</div>
             <a href="/net-worth" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">💰</span>
+                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">payments</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Net Worth</span>
                     <span class="action-sheet-item-desc">Assets &amp; liabilities</span>
                 </div>
             </a>
             <a href="/investments" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">📈</span>
+                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">trending_up</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Investments</span>
                     <span class="action-sheet-item-desc">Portfolio &amp; performance</span>
                 </div>
             </a>
             <a href="/recommendations" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(139,92,246,0.12);color:#8B5CF6;">🤖</span>
+                <span class="action-sheet-icon" style="background:rgba(139,92,246,0.12);color:#8B5CF6;"><span class="material-symbols-rounded">smart_toy</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Recommendations</span>
                     <span class="action-sheet-item-desc">AI-powered advice</span>
                 </div>
             </a>
             <a href="/insights" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(56,189,248,0.12);color:#38BDF8;">💡</span>
+                <span class="action-sheet-icon" style="background:rgba(56,189,248,0.12);color:#38BDF8;"><span class="material-symbols-rounded">lightbulb</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Insights</span>
                     <span class="action-sheet-item-desc">Spending patterns &amp; trends</span>
                 </div>
             </a>
             <a href="/reports" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">📊</span>
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">dashboard</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Reports</span>
                     <span class="action-sheet-item-desc">Full analytics &amp; export</span>
@@ -411,28 +412,28 @@
             </a>
             <div class="action-sheet-section-label">Account</div>
             <a href="/household" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">🏠</span>
+                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">home</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Household</span>
                     <span class="action-sheet-item-desc">Members &amp; shared scope</span>
                 </div>
             </a>
             <a href="/sessions" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;">🔒</span>
+                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;"><span class="material-symbols-rounded">lock</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Sessions</span>
                     <span class="action-sheet-item-desc">Active devices &amp; logins</span>
                 </div>
             </a>
             <a href="/settings/integrations" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">🔗</span>
+                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">link</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Integrations</span>
                     <span class="action-sheet-item-desc">Banks, webhooks &amp; more</span>
                 </div>
             </a>
             <a href="/notifications" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">🔔</span>
+                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">notifications</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Notifications</span>
                     <span class="action-sheet-item-desc">Alerts &amp; messages</span>

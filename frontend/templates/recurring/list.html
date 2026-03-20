@@ -119,12 +119,12 @@
   }
   function iconFor(name) {
     var n = (name || '').toLowerCase();
-    if (n.indexOf('netflix') !== -1 || n.indexOf('stream') !== -1) return '🎬';
-    if (n.indexOf('spotify') !== -1 || n.indexOf('music') !== -1) return '🎵';
-    if (n.indexOf('gym') !== -1 || n.indexOf('fitness') !== -1) return '🏋️';
-    if (n.indexOf('cloud') !== -1 || n.indexOf('icloud') !== -1) return '☁️';
-    if (n.indexOf('amazon') !== -1 || n.indexOf('prime') !== -1) return '📦';
-    return '🔄';
+    if (n.indexOf('netflix') !== -1 || n.indexOf('stream') !== -1) return '<span class="material-symbols-rounded">movie</span>';
+    if (n.indexOf('spotify') !== -1 || n.indexOf('music') !== -1) return '<span class="material-symbols-rounded">music_note</span>';
+    if (n.indexOf('gym') !== -1 || n.indexOf('fitness') !== -1) return '<span class="material-symbols-rounded">fitness_center</span>';
+    if (n.indexOf('cloud') !== -1 || n.indexOf('icloud') !== -1) return '<span class="material-symbols-rounded">cloud</span>';
+    if (n.indexOf('amazon') !== -1 || n.indexOf('prime') !== -1) return '<span class="material-symbols-rounded">inventory_2</span>';
+    return '<span class="material-symbols-rounded">sync</span>';
   }
   function recurrenceLabel(rule) {
     var r = String(rule || 'monthly').toLowerCase();

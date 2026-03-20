@@ -6,7 +6,7 @@
     <div class="auth-centered-card" style="text-align:center;">
         <div style="width:64px;height:64px;background:var(--indigo-100);border-radius:18px;
             display:flex;align-items:center;justify-content:center;font-size:30px;
-            margin:0 auto 20px;">📧</div>
+            margin:0 auto 20px;"><span class="material-symbols-rounded">mail</span></div>
 
         <h1 style="font-size:22px;font-weight:800;color:var(--s900);margin:0 0 10px;">Check your inbox</h1>
         <p style="font-size:14px;color:var(--s500);line-height:1.6;margin:0 0 16px;">
@@ -79,7 +79,7 @@
         .then(function(r) {
             if (r.ok || r.status === 204) {
                 msg.style.color = '#065F46';
-                msg.textContent = '✓ Verification email sent. Check your inbox.';
+                msg.textContent = '<span class="material-symbols-rounded">check</span> Verification email sent. Check your inbox.';
             } else {
                 return r.json().then(function(d) {
                     msg.style.color = '#BE123C';

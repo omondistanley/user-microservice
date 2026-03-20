@@ -27,65 +27,65 @@
       <nav class="sb-nav">
         <div class="sb-section">Overview</div>
         <a href="/demo/watch/app/dashboard" class="sb-link {% if request.url.path == '/demo/watch/app/dashboard' %}active{% endif %}">
-          <span class="icon">📊</span> Dashboard
+          <span class="icon"><span class="material-symbols-rounded">dashboard</span></span> Dashboard
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">💎</span> Net Worth
+          <span class="icon"><span class="material-symbols-rounded">diamond</span></span> Net Worth
         </a>
         <div class="sb-section">Money</div>
         <a href="/demo/watch/app/expenses" class="sb-link {% if request.url.path.startswith('/demo/watch/app/expenses') %}active{% endif %}">
-          <span class="icon">💸</span> Expenses
+          <span class="icon"><span class="material-symbols-rounded">receipt_long</span></span> Expenses
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">💰</span> Income
+          <span class="icon"><span class="material-symbols-rounded">payments</span></span> Income
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">🔄</span> Recurring
+          <span class="icon"><span class="material-symbols-rounded">sync</span></span> Recurring
         </a>
         <a href="/demo/watch/app/budgets" class="sb-link {% if request.url.path.startswith('/demo/watch/app/budgets') %}active{% endif %}">
-          <span class="icon">🎯</span> Budgets
+          <span class="icon"><span class="material-symbols-rounded">target</span></span> Budgets
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">⭐</span> Goals
+          <span class="icon"><span class="material-symbols-rounded">kid_star</span></span> Goals
         </a>
         <div class="sb-section">Analytics</div>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">📋</span> Reports
+          <span class="icon"><span class="material-symbols-rounded">assignment</span></span> Reports
         </a>
         <a href="/demo/watch/app/insights" class="sb-link {% if request.url.path == '/demo/watch/app/insights' %}active{% endif %}">
-          <span class="icon">✨</span> Insights
+          <span class="icon"><span class="material-symbols-rounded">auto_awesome</span></span> Insights
         </a>
         <a href="/demo/watch/app/investments" class="sb-link {% if request.url.path.startswith('/demo/watch/app/investments') %}active{% endif %}">
-          <span class="icon">📈</span> Investments
+          <span class="icon"><span class="material-symbols-rounded">trending_up</span></span> Investments
         </a>
         <a href="/demo/watch/app/recommendations" class="sb-link {% if request.url.path.startswith('/demo/watch/app/recommendations') %}active{% endif %}">
-          <span class="icon">🤖</span> Recommendations
+          <span class="icon"><span class="material-symbols-rounded">smart_toy</span></span> Recommendations
         </a>
         <div class="sb-section">Account</div>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">🔔</span> Notifications
+          <span class="icon"><span class="material-symbols-rounded">notifications</span></span> Notifications
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">👥</span> Household
+          <span class="icon"><span class="material-symbols-rounded">groups</span></span> Household
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">🔐</span> Sessions
+          <span class="icon"><span class="material-symbols-rounded">verified_user</span></span> Sessions
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">👤</span> Profile
+          <span class="icon"><span class="material-symbols-rounded">person</span></span> Profile
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">⚙️</span> Settings
+          <span class="icon"><span class="material-symbols-rounded">settings</span></span> Settings
         </a>
         <div class="sb-section">Integrations</div>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">📌</span> Saved Views
+          <span class="icon"><span class="material-symbols-rounded">keep</span></span> Saved Views
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">🔌</span> Integrations
+          <span class="icon"><span class="material-symbols-rounded">power</span></span> Integrations
         </a>
         <a href="/demo/start" class="sb-link">
-          <span class="icon">🏦</span> Link Bank
+          <span class="icon"><span class="material-symbols-rounded">account_balance</span></span> Link Bank
         </a>
       </nav>
 
@@ -103,7 +103,7 @@
       <header class="topbar">
         <span class="topbar-greeting" id="topbar-greeting">Watch mode</span>
         <span class="topbar-date" id="topbar-date"></span>
-        <a href="/demo/start" class="topbar-bell" aria-label="Notifications" style="text-decoration:none;color:inherit;">🔔</a>
+        <a href="/demo/start" class="topbar-bell" aria-label="Notifications" style="text-decoration:none;color:inherit;"><span class="material-symbols-rounded">notifications</span></a>
         <a href="/demo/start" class="btn btn-primary btn-sm" style="margin-left:8px;">Skip to interactive</a>
       </header>
       <div class="content-area" id="main-content" tabindex="-1">
@@ -117,12 +117,12 @@
     <ul class="bottom-nav-items">
       <li class="bottom-nav-item">
         <a href="/demo/watch/app/dashboard" class="bottom-nav-link {% if request.url.path == '/demo/watch/app/dashboard' %}active{% endif %}">
-          <span class="bottom-nav-icon">🏠</span><span>Home</span>
+          <span class="bottom-nav-icon"><span class="material-symbols-rounded">home</span></span><span>Home</span>
         </a>
       </li>
       <li class="bottom-nav-item">
         <a href="/demo/watch/app/expenses" class="bottom-nav-link {% if request.url.path.startswith('/demo/watch/app/expenses') %}active{% endif %}">
-          <span class="bottom-nav-icon">💳</span><span>Expenses</span>
+          <span class="bottom-nav-icon"><span class="material-symbols-rounded">credit_card</span></span><span>Expenses</span>
         </a>
       </li>
       <li class="bottom-nav-item bottom-nav-item-fab">
@@ -130,12 +130,12 @@
       </li>
       <li class="bottom-nav-item">
         <a href="/demo/watch/app/budgets" class="bottom-nav-link {% if request.url.path.startswith('/demo/watch/app/budgets') %}active{% endif %}">
-          <span class="bottom-nav-icon">🎯</span><span>Budgets</span>
+          <span class="bottom-nav-icon"><span class="material-symbols-rounded">target</span></span><span>Budgets</span>
         </a>
       </li>
       <li class="bottom-nav-item">
         <a href="#" class="bottom-nav-link" id="bottom-nav-menu-toggle">
-          <span class="bottom-nav-icon">☰</span><span>More</span>
+          <span class="bottom-nav-icon"><span class="material-symbols-rounded">menu</span></span><span>More</span>
         </a>
       </li>
     </ul>
@@ -147,14 +147,14 @@
     <div class="action-sheet-title">More</div>
     <div class="action-sheet-items">
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">👤</span>
+        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">person</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Profile</span>
           <span class="action-sheet-item-desc">View profile</span>
         </div>
       </a>
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(100,116,139,0.12);color:#64748B;">⚙️</span>
+        <span class="action-sheet-icon" style="background:rgba(100,116,139,0.12);color:#64748B;"><span class="material-symbols-rounded">settings</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Settings</span>
           <span class="action-sheet-item-desc">View settings</span>
@@ -162,35 +162,35 @@
       </a>
       <div class="action-sheet-section-label">Analytics</div>
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">💰</span>
+        <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">payments</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Net Worth</span>
           <span class="action-sheet-item-desc">Assets &amp; liabilities</span>
         </div>
       </a>
       <a href="/demo/watch/app/investments" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">📈</span>
+        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">trending_up</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Investments</span>
           <span class="action-sheet-item-desc">Portfolio preview</span>
         </div>
       </a>
       <a href="/demo/watch/app/recommendations" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(139,92,246,0.12);color:#8B5CF6;">🤖</span>
+        <span class="action-sheet-icon" style="background:rgba(139,92,246,0.12);color:#8B5CF6;"><span class="material-symbols-rounded">smart_toy</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Recommendations</span>
           <span class="action-sheet-item-desc">Deterministic analysis</span>
         </div>
       </a>
       <a href="/demo/watch/app/insights" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(56,189,248,0.12);color:#38BDF8;">💡</span>
+        <span class="action-sheet-icon" style="background:rgba(56,189,248,0.12);color:#38BDF8;"><span class="material-symbols-rounded">lightbulb</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Insights</span>
           <span class="action-sheet-item-desc">Forecast &amp; anomalies</span>
         </div>
       </a>
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">📊</span>
+        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">dashboard</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Reports</span>
           <span class="action-sheet-item-desc">Spending by category</span>
@@ -198,35 +198,35 @@
       </a>
       <div class="action-sheet-section-label">Account</div>
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;">🏠</span>
+        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">home</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Household</span>
           <span class="action-sheet-item-desc">Sample household</span>
         </div>
       </a>
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;">🔒</span>
+        <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;"><span class="material-symbols-rounded">lock</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Sessions</span>
           <span class="action-sheet-item-desc">Watch session</span>
         </div>
       </a>
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">🔗</span>
+        <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">link</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Integrations</span>
           <span class="action-sheet-item-desc">Preview only</span>
         </div>
       </a>
       <a href="/demo/start" class="action-sheet-item">
-        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;">🔔</span>
+        <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">notifications</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Notifications</span>
           <span class="action-sheet-item-desc">Sample alerts</span>
         </div>
       </a>
       <a href="/demo/start" class="action-sheet-item" style="border-top:1px solid var(--s200);margin-top:8px;padding-top:12px;">
-        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.2);color:#10B981;">✓</span>
+        <span class="action-sheet-icon" style="background:rgba(16,185,129,0.2);color:#10B981;"><span class="material-symbols-rounded">check</span></span>
         <div class="action-sheet-item-text">
           <span class="action-sheet-item-label">Skip to interactive demo</span>
           <span class="action-sheet-item-desc">Add expenses &amp; budgets</span>

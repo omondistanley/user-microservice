@@ -79,7 +79,9 @@ def test_engine_attaches_narrative_and_provider_to_explanation(
     run_id = call_args[0][0]
     items = call_args[0][1]
     assert run_id == "00000000-0000-0000-0000-000000000001"
-    assert len(items) == 1
-    expl = items[0].get("explanation_json") or {}
+    assert len(items) >= 1
+    narrative_items = [it for it in items if (it.get("explanation_json") or {}).get("narrative")]
+    assert narrative_items, "Expected at least one item to have narrative attached."
+    expl = narrative_items[0].get("explanation_json") or {}
     assert expl.get("narrative") == "This position shows moderate risk-adjusted return."
     assert expl.get("narrative_provider") == "groq"

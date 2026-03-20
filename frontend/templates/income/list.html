@@ -405,7 +405,7 @@
     dListEl.style.display = 'none';
     mListEl.style.display = '';
 
-    var TYPE_EMOJI = { salary:'💼', freelance:'🧑‍💻', dividend:'📈', interest:'🏦', other:'💡' };
+    var TYPE_EMOJI = { salary:'<span class="material-symbols-rounded">work</span>', freelance:'<span class="material-symbols-rounded">laptop_mac</span>', dividend:'<span class="material-symbols-rounded">trending_up</span>', interest:'<span class="material-symbols-rounded">account_balance</span>', other:'<span class="material-symbols-rounded">lightbulb</span>' };
     function esc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function fmtDate(v) {
         if (!v) return '';
@@ -427,7 +427,7 @@
             }
             mListEl.innerHTML = items.map(function(item) {
                 var type  = item.income_type || 'other';
-                var emoji = TYPE_EMOJI[type] || '💡';
+                var emoji = TYPE_EMOJI[type] || '<span class="material-symbols-rounded">lightbulb</span>';
                 var label = item.source_label || item.description || type;
                 var amt   = Number(item.amount || 0);
                 return '<li><div class="m-txn-item">' +

@@ -41,7 +41,7 @@
     <div class="relative mb-10">
       <div class="radar-pulse w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center">
         <div class="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center">
-          <span class="text-primary text-5xl leading-none select-none" aria-hidden="true" role="img">✅</span>
+          <span class="text-primary text-5xl leading-none select-none" aria-hidden="true" role="img"><span class="material-symbols-rounded">check_circle</span></span>
         </div>
       </div>
     </div>
@@ -62,7 +62,7 @@
     </div>
     <div class="w-full mb-8">
       <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
-        <span class="text-primary text-xl leading-none select-none" aria-hidden="true">🏦</span>
+        <span class="text-primary text-xl leading-none select-none" aria-hidden="true"><span class="material-symbols-rounded">account_balance</span></span>
         Connected accounts
       </h3>
       <p class="text-xs text-slate-500 dark:text-slate-400 mb-2 max-w-md mx-auto text-center">Each linked bank account (checking, savings, etc.) appears below. Use <strong>Plaid sync</strong> on Expenses to import transactions.</p>
@@ -111,7 +111,7 @@
       : (window.API_BASE || '');
   }
 
-  var icons = ['💳', '🏦', '📊', '💰'];
+  var icons = ['<span class="material-symbols-rounded">credit_card</span>', '<span class="material-symbols-rounded">account_balance</span>', '<span class="material-symbols-rounded">dashboard</span>', '<span class="material-symbols-rounded">payments</span>'];
   var hadHostedLinkToken = false;
   try { hadHostedLinkToken = !!localStorage.getItem('plaid_hosted_link_token'); } catch (e) { hadHostedLinkToken = false; }
 

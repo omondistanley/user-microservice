@@ -30,6 +30,8 @@ DB_NAME: Optional[str] = os.environ.get("DB_NAME", os.environ.get("INVESTMENTS_D
 ENCRYPTION_KEY: str = os.environ.get("ENCRYPTION_KEY", "")
 
 INTERNAL_API_KEY: str = os.environ.get("INTERNAL_API_KEY", "")
+USER_SERVICE_INTERNAL_URL: str = os.environ.get("USER_SERVICE_INTERNAL_URL", "http://localhost:8000").rstrip("/")
+LIVE_TRADING_ENABLED: bool = os.environ.get("LIVE_TRADING_ENABLED", "false").lower() in ("1", "true", "yes", "y", "on")
 CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "*")
 
 # Market data providers (both can be enabled; adapter decides routing/fallback)

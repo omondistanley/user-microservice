@@ -12,6 +12,7 @@ import httpx
 from app.core.config import (
     EXPENSE_SERVICE_URL,
     FINANCE_CONTEXT_TIMEOUT_SECONDS,
+    INTERNAL_API_KEY,
     GATEWAY_PUBLIC_URL,
 )
 
@@ -127,3 +128,42 @@ def fetch_finance_context(auth_header: Optional[str], window_months: int = 6) ->
         return None
 
     return ctx
+
+
+def fetch_finance_context_internal(user_id: int, window_months: int = 6) -> Optional[FinanceContext]:
+    """
+    Internal finance context fetch (no user JWT).
+
+    Calls expense microservice:
+      GET {EXPENSE_SERVICE_URL}/internal/v1/finance-context?user_id=...&window_months=...
+    """
+    base = _base_url()
+    if not base:
+        return None
+
+    timeout = FINANCE_CONTEXT_TIMEOUT_SECONDS
+    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    if INTERNAL_API_KEY:
+        headers["x-internal-api-key"] = INTERNAL_API_KEY
+
+    params = {"user_id": user_id, "window_months": window_months}
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            r = client.get(f"{base}/internal/v1/finance-context", params=params, headers=headers)
+        if r.status_code != 200:
+            return None
+        data = r.json() or {}
+        return FinanceContext(
+            savings_rate=data.get("savings_rate"),
+            surplus=data.get("surplus"),
+            income_total=data.get("income_total"),
+            expense_total=data.get("expense_total"),
+            active_goals_count=int(data.get("active_goals_count") or 0),
+            goal_horizon_months=data.get("goal_horizon_months"),
+            goals_behind=bool(data.get("goals_behind")),
+            goals_behind_count=int(data.get("goals_behind_count") or 0),
+            budget_over=bool(data.get("budget_over")),
+            data_fresh=bool(data.get("data_fresh")),
+        )
+    except Exception:
+        return None

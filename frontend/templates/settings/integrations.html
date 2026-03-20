@@ -14,7 +14,7 @@
         <!-- Bank accounts -->
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">🏦 Bank Accounts</h2>
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);"><span class="material-symbols-rounded">account_balance</span> Bank Accounts</h2>
                 <a href="/link-bank" class="btn btn-primary" style="font-size:13px;">Link account</a>
             </div>
             <p id="bank-status" style="font-size:13px;color:var(--s500);margin-bottom:12px;">Checking provider status…</p>
@@ -27,7 +27,7 @@
 
         <!-- Digest -->
         <div class="card">
-            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">📬 Digest</h2>
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;"><span class="material-symbols-rounded">inbox</span> Digest</h2>
             <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Configure weekly or monthly digest delivery.</p>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div class="form-group">
@@ -64,7 +64,7 @@
         <!-- Alpaca -->
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">📈 Alpaca Brokerage</h2>
+                <h2 style="font-size:15px;font-weight:700;color:var(--s900);"><span class="material-symbols-rounded">trending_up</span> Alpaca Brokerage</h2>
                 <span id="alpaca-badge" style="font-size:12px;padding:2px 8px;border-radius:12px;background:var(--s100);color:var(--s500);">Not connected</span>
             </div>
             <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Connect your Alpaca account to auto-sync holdings, view live positions, and place buy/sell orders from the Investments page.</p>
@@ -86,7 +86,7 @@
 
         <!-- Calendar reminders -->
         <div class="card">
-            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">📅 Calendar Reminders</h2>
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;"><span class="material-symbols-rounded">calendar_month</span> Calendar Reminders</h2>
             <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Subscribe via tokenized ICS URL for recurring bill reminders in any calendar app.</p>
             <div style="display:flex;gap:10px;margin-bottom:12px;">
                 <button id="calendar-generate-btn" class="btn btn-primary" type="button">Generate token</button>
@@ -100,14 +100,14 @@
 
         <!-- Webhook (hidden in-app; ops configure via env) -->
         <div class="card integrations-webhook-card" style="display:none;" aria-hidden="true">
-            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:8px;">🔗 Webhook Processing</h2>
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:8px;"><span class="material-symbols-rounded">link</span> Webhook Processing</h2>
             <p style="font-size:13px;color:var(--s600);line-height:1.5;">Provider webhook signatures and retries are enabled through background workers.</p>
             <p style="font-size:12px;color:var(--s400);margin-top:8px;">Configure <code>WEBHOOK_SECRETS_JSON</code> to enforce signature validation in non-dev environments.</p>
         </div>
 
         <!-- Export -->
         <div class="card">
-            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;">📦 Data Export</h2>
+            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:4px;"><span class="material-symbols-rounded">inventory_2</span> Data Export</h2>
             <p style="font-size:13px;color:var(--s500);margin-bottom:16px;">Portable JSON export for backup or migration to another service.</p>
             <a href="#" id="export-portable-btn" class="btn btn-primary">Download export</a>
         </div>
@@ -157,9 +157,9 @@
         fetchJson('/api/v1/bank/status').then(function(data) {
             var p = data.providers || {};
             bankStatus.textContent =
-                'Plaid: ' + (p.plaid && p.plaid.configured ? '✓ configured' : '✗ not configured') +
-                ' | Teller: ' + (p.teller && p.teller.configured ? '✓ configured' : '✗ not configured') +
-                ' | TrueLayer: ' + (p.truelayer && p.truelayer.configured ? '✓ configured' : '✗ not configured');
+                'Plaid: ' + (p.plaid && p.plaid.configured ? '<span class="material-symbols-rounded">check</span> configured' : '<span class="material-symbols-rounded">cancel</span> not configured') +
+                ' | Teller: ' + (p.teller && p.teller.configured ? '<span class="material-symbols-rounded">check</span> configured' : '<span class="material-symbols-rounded">cancel</span> not configured') +
+                ' | TrueLayer: ' + (p.truelayer && p.truelayer.configured ? '<span class="material-symbols-rounded">check</span> configured' : '<span class="material-symbols-rounded">cancel</span> not configured');
         }).catch(function() {
             bankStatus.textContent = 'Could not load provider status.';
         });

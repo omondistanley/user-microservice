@@ -4,7 +4,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from app.core.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, LIVE_TRADING_ENABLED
 from app.core.dependencies import get_current_user_id
 from app.services.alpaca_broker_client import create_order as alpaca_create_order
 from app.services.alpaca_connection_service import AlpacaConnectionService
@@ -140,8 +140,14 @@ async def alpaca_place_order(
     creds = conn_svc.get_credentials(user_id)
     if not creds:
         raise HTTPException(status_code=400, detail="Alpaca not connected. Link your account first.")
+    # Live trading safety: block live orders unless explicitly enabled.
     if payload.type == "limit" and payload.limit_price is None:
         raise HTTPException(status_code=400, detail="limit_price required for limit orders")
+    if bool(creds.get("is_paper", True)) is False and not LIVE_TRADING_ENABLED:
+        raise HTTPException(
+            status_code=403,
+            detail="Live trading is disabled. Set LIVE_TRADING_ENABLED=true to allow placing live Alpaca orders.",
+        )
     try:
         order = alpaca_create_order(
             api_key_id=creds["api_key_id"],

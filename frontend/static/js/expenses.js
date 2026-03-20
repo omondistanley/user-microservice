@@ -36,43 +36,47 @@
             .replace(/'/g, '&#39;');
     }
 
-    var CATEGORY_DEFAULT_EMOJI = {
-        food: '🍽️',
-        transportation: '🚗',
-        travel: '✈️',
-        utilities: '💡',
-        entertainment: '🎬',
-        health: '🏥',
-        shopping: '🛍️',
-        other: '📌'
+    var CATEGORY_DEFAULT_ICON = {
+        food: 'restaurant',
+        transportation: 'directions_car',
+        travel: 'flight',
+        utilities: 'lightbulb',
+        entertainment: 'movie',
+        health: 'medical_services',
+        shopping: 'shopping_bag',
+        other: 'inventory_2'
     };
-    var KEYWORD_EMOJI = [
-        [/ice\s*cream|gelato|froyo/i, '🍦'],
-        [/pizza/i, '🍕'],
-        [/burger|mcdonald|wendys|five guys/i, '🍔'],
-        [/coffee|starbucks|espresso|latte/i, '☕'],
-        [/grocery|whole foods|trader|supermarket|costco/i, '🛒'],
-        [/gas|fuel|shell|chevron|exxon|petrol/i, '⛽'],
-        [/uber|lyft|taxi|rideshare/i, '🚕'],
-        [/parking|toll/i, '🅿️'],
-        [/flight|airline|delta|united|southwest/i, '✈️'],
-        [/hotel|airbnb|lodging/i, '🏨'],
-        [/restaurant|dining|cafe|sushi|thai|mexican/i, '🍴'],
-        [/gym|fitness|peloton/i, '🏋️'],
-        [/pharmacy|cvs|walgreens|rx/i, '💊'],
-        [/netflix|spotify|hulu|streaming/i, '📺'],
-        [/electric|water\s*bill|internet|comcast|att|verizon/i, '📶']
+    var KEYWORD_ICON = [
+        [/ice\s*cream|gelato|froyo/i, 'icecream'],
+        [/pizza/i, 'lunch_dining'],
+        [/burger|mcdonald|wendys|five guys/i, 'lunch_dining'],
+        [/coffee|starbucks|espresso|latte/i, 'local_cafe'],
+        [/grocery|whole foods|trader|supermarket|costco/i, 'shopping_cart'],
+        [/gas|fuel|shell|chevron|exxon|petrol/i, 'local_gas_station'],
+        [/uber|lyft|taxi|rideshare/i, 'local_taxi'],
+        [/parking|toll/i, 'local_parking'],
+        [/flight|airline|delta|united|southwest/i, 'flight'],
+        [/hotel|airbnb|lodging/i, 'hotel'],
+        [/restaurant|dining|cafe|sushi|thai|mexican/i, 'restaurant'],
+        [/gym|fitness|peloton/i, 'fitness_center'],
+        [/pharmacy|cvs|walgreens|rx/i, 'medical_services'],
+        [/netflix|spotify|hulu|streaming/i, 'tv'],
+        [/electric|water\s*bill|internet|comcast|att|verizon/i, 'wifi']
     ];
 
-    function pickExpenseEmoji(item) {
+    function materialIcon(name) {
+        return "<span class=\"material-symbols-rounded\" aria-hidden=\"true\">" + name + "</span>";
+    }
+
+    function pickExpenseIcon(item) {
         var cat = (item.category_name || item.category || '').toLowerCase().trim();
         var text = ((item.description || '') + ' ' + (item.name || '') + ' ' + cat).toLowerCase();
-        for (var i = 0; i < KEYWORD_EMOJI.length; i++) {
-            if (KEYWORD_EMOJI[i][0].test(text)) return KEYWORD_EMOJI[i][1];
+        for (var i = 0; i < KEYWORD_ICON.length; i++) {
+            if (KEYWORD_ICON[i][0].test(text)) return KEYWORD_ICON[i][1];
         }
         var catKey = cat.replace(/[^a-z]/g, '');
-        if (catKey && CATEGORY_DEFAULT_EMOJI[catKey]) return CATEGORY_DEFAULT_EMOJI[catKey];
-        return CATEGORY_DEFAULT_EMOJI.other;
+        if (catKey && CATEGORY_DEFAULT_ICON[catKey]) return CATEGORY_DEFAULT_ICON[catKey];
+        return CATEGORY_DEFAULT_ICON.other;
     }
 
     window.Expenses = {
@@ -185,7 +189,7 @@
                                 return '<span class="tag-badge">' + escapeHtml(tag.name || tag.slug || '') + '</span>';
                             }).join(' ') + '</span>';
                         }
-                        var icon = '<span class="expense-item-emoji" aria-hidden="true">' + pickExpenseEmoji(item) + '</span> ';
+                        var icon = '<span class=\"expense-item-emoji\" aria-hidden=\"true\">' + materialIcon(pickExpenseIcon(item)) + '</span> ';
                         html += '<li>' + link + icon + '<span class="expense-item-name">' + escapeHtml(name) + '</span>' + sourceBadge + tagBadges + ' <strong class="expense-item-amount">' + amtStr + '</strong>' + linkEnd + '</li>';
                     });
                     html += '</ul></div>';

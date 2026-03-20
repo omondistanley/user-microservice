@@ -183,7 +183,7 @@
         var tag = (val('filter-tag') || '').trim();
         if (tag) {
             activeTagChips.innerHTML = '<span class="tag-badge">Tag: ' + tag +
-                ' <button type="button" id="clear-tag-filter" style="background:none;border:none;cursor:pointer;color:inherit;margin-left:4px;font-size:0.85em;">✕</button></span>';
+                ' <button type="button" id="clear-tag-filter" style="background:none;border:none;cursor:pointer;color:inherit;margin-left:4px;font-size:0.85em;"><span class="material-symbols-rounded">close</span></button></span>';
             var clearBtn = document.getElementById('clear-tag-filter');
             if (clearBtn) clearBtn.addEventListener('click', function() {
                 set('filter-tag', ''); filterOpts.page = 1; renderList(); updateUrl();
@@ -368,11 +368,11 @@
 
     if (!isMobile || !mListEl) return;
 
-    var CAT_EMOJI = {'food':'🍕','grocery':'🍕','restaurant':'🍕','transport':'🚗','car':'🚗','travel':'✈️','entertainment':'🎭','health':'💊','medical':'💊','shopping':'🛍️','housing':'🏠','rent':'🏠','utilities':'💡','salary':'💼','income':'💼'};
+    var CAT_EMOJI = {'food':'<span class="material-symbols-rounded">restaurant</span>','grocery':'<span class="material-symbols-rounded">restaurant</span>','restaurant':'<span class="material-symbols-rounded">restaurant</span>','transport':'<span class="material-symbols-rounded">directions_car</span>','car':'<span class="material-symbols-rounded">directions_car</span>','travel':'<span class="material-symbols-rounded">flight</span>','entertainment':'<span class="material-symbols-rounded">theater_comedy</span>','health':'<span class="material-symbols-rounded">medical_services</span>','medical':'<span class="material-symbols-rounded">medical_services</span>','shopping':'<span class="material-symbols-rounded">shopping_bag</span>','housing':'<span class="material-symbols-rounded">home</span>','rent':'<span class="material-symbols-rounded">home</span>','utilities':'<span class="material-symbols-rounded">lightbulb</span>','salary':'<span class="material-symbols-rounded">work</span>','income':'<span class="material-symbols-rounded">work</span>'};
     function getCatEmoji(name) {
         var n = (name || '').toLowerCase();
         for (var k in CAT_EMOJI) { if (n.indexOf(k) !== -1) return CAT_EMOJI[k]; }
-        return '📋';
+        return '<span class="material-symbols-rounded">assignment</span>';
     }
     function esc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function fmtDateShort(val) {

@@ -189,7 +189,11 @@ class RecommendationEngine:
         self.logger = logging.getLogger("investments_recommendations")
 
     def _run_no_holdings(
-        self, user_id: int, risk: Dict[str, Any], finance_ctx: Optional[Any] = None
+        self,
+        user_id: int,
+        risk: Dict[str, Any],
+        finance_ctx: Optional[Any] = None,
+        include_ai_narratives: bool = True,
     ) -> Dict[str, Any]:
         """
         Generate recommendations when user has no holdings: suggest a starter portfolio
@@ -267,7 +271,7 @@ class RecommendationEngine:
             if finance_ctx is not None:
                 explanation["personalized_with_finance_data"] = True
 
-            if ai_explainer_enabled():
+            if include_ai_narratives and ai_explainer_enabled():
                 try:
                     narrative, narrative_provider = _run_narrative_sync(explanation)
                     if narrative:
@@ -319,7 +323,13 @@ class RecommendationEngine:
             "portfolio": port_snap,
         }
 
-    def run_for_user(self, user_id: int, auth_header: Optional[str] = None) -> Dict[str, Any]:
+    def run_for_user(
+        self,
+        user_id: int,
+        auth_header: Optional[str] = None,
+        include_ai_narratives: bool = True,
+        finance_ctx: Optional[FinanceContext] = None,
+    ) -> Dict[str, Any]:
         """Generate recommendations, persist run + items, and return summary.
         Works with or without holdings: no holdings = suggest starter portfolio from analyst universe
         using industry/risk/Sharpe preferences to help user make money, save money, and avoid losses.
@@ -328,8 +338,7 @@ class RecommendationEngine:
         """
         holdings_rows = self.holdings_svc.list_all_holdings_for_user(user_id)
         risk = self.risk_svc.get_risk_profile(user_id) or {}
-        finance_ctx = None
-        if risk.get("use_finance_data_for_recommendations") and auth_header:
+        if finance_ctx is None and risk.get("use_finance_data_for_recommendations") and auth_header:
             try:
                 finance_ctx = fetch_finance_context(auth_header)
             except Exception:
@@ -337,7 +346,12 @@ class RecommendationEngine:
 
         # No-holdings path: suggest a starter portfolio from analyst universe (preference-aware).
         if not holdings_rows:
-            return self._run_no_holdings(user_id, risk, finance_ctx)
+            return self._run_no_holdings(
+                user_id,
+                risk,
+                finance_ctx,
+                include_ai_narratives=include_ai_narratives,
+            )
 
         # With-holdings path: rank existing positions + preference-aware scoring.
         snapshot = self.snapshot_svc.get_latest_snapshot(user_id)
@@ -508,7 +522,7 @@ class RecommendationEngine:
             if finance_ctx is not None:
                 explanation["personalized_with_finance_data"] = True
 
-            if ai_explainer_enabled():
+            if include_ai_narratives and ai_explainer_enabled():
                 try:
                     narrative, narrative_provider = _run_narrative_sync(explanation)
                     if narrative:
