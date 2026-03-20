@@ -233,6 +233,14 @@
                 return;
             }
             var ex = match.explanation;
+            if (!ex || typeof ex !== 'object') ex = {};
+            // Robust defaults so the drawer can render placeholders even when the backend returns partial data.
+            if (!ex.data_freshness) ex.data_freshness = { provider: 'Unavailable', stale_seconds: null };
+            if (!ex.market) ex.market = {};
+            if (!ex.enrichment) ex.enrichment = {};
+            if (!ex.sentiment_trend_7d) ex.sentiment_trend_7d = { daily_scores: [], rolling_avg_7d: null };
+            if (!ex.news_factors) ex.news_factors = { recent_news: [] };
+            if (!ex.news_provider_status) ex.news_provider_status = { provider_order: [], configured_keys: {}, message: 'No diagnostics returned by backend' };
             var html = '';
             if (ex.personalized_with_finance_data) {
                 html += '<p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">Personalized using your savings, goals, and budget data.</p>';
@@ -380,6 +388,9 @@
                         cfg.push(k + '=' + (nps.configured_keys[k] ? 'configured' : 'missing'));
                     });
                     html += escapeHtml(cfg.join(', '));
+                }
+                if ((!nps.provider_order || !nps.provider_order.length) && (!nps.configured_keys || Object.keys(nps.configured_keys).length === 0) && nps.message) {
+                    html += escapeHtml(String(nps.message));
                 }
                 html += '</p>';
             }

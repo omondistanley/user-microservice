@@ -558,6 +558,33 @@ fly secrets set \
   --app pocketii
 ```
 
+**Recommendations & market data (same Fly machine — investment service on `:3003`):**  
+Provider **URLs** and default **provider order** are in `fly.toml` `[env]`. You must set **API keys** as Fly secrets so they are injected into the container (there is no `investments-microservice/.env` file in the image).
+
+Variable names match `investments-microservice/app/core/config.py` / `investments-microservice/.env.example`:
+
+```bash
+fly secrets set \
+  FINNHUB_API_KEY=your-finnhub-token \
+  BENZINGA_API_KEY=your-benzinga-token \
+  TWELVEDATA_API_KEY=your-twelvedata-key \
+  ALPHAVANTAGE_API_KEY=your-alphavantage-key \
+  --app pocketii
+```
+
+Optional overrides (defaults already in `fly.toml`):
+
+```bash
+fly secrets set \
+  NEWS_PROVIDER_ORDER=benzinga,finnhub,alphavantage \
+  MARKET_DATA_PROVIDER_ORDER=alpaca,finnhub,twelvedata,alphavantage \
+  --app pocketii
+```
+
+Bulk import template (do not commit real values): see [`deploy/fly-investment-providers.example.env`](deploy/fly-investment-providers.example.env), then run `fly secrets import --app pocketii < your-local.env`.
+
+After changing secrets, redeploy or restart machines so new values load: `fly deploy --app pocketii` or `fly machines restart --app pocketii`.
+
 #### 5. Deploy
 
 ```bash

@@ -19,7 +19,6 @@ from app.core.config import (
     NEWS_PROVIDER_ORDER,
     RECOMMENDATIONS_PAGE_SIZE,
     SENTIMENT_LOOKBACK_DAYS,
-    TWELVEDATA_API_KEY,
 )
 from app.core.dependencies import get_current_user_id
 from app.services.analyst_universe import get_security_info
@@ -70,11 +69,14 @@ def _db_context() -> Dict[str, Any]:
 
 
 def _configured_news_providers() -> Dict[str, bool]:
+    """
+    Headline/news integrations only. TwelveData is used for market quotes/bars, not the news router.
+    Alpha Vantage key is shown for parity with NEWS_PROVIDER_ORDER; wire-up in news_router is optional.
+    """
     return {
-        "benzinga": bool(BENZINGA_API_KEY),
-        "finnhub": bool(FINNHUB_API_KEY),
-        "alphavantage": bool(ALPHAVANTAGE_API_KEY),
-        "twelvedata": bool(TWELVEDATA_API_KEY),
+        "benzinga": bool((BENZINGA_API_KEY or "").strip()),
+        "finnhub": bool((FINNHUB_API_KEY or "").strip()),
+        "alphavantage": bool((ALPHAVANTAGE_API_KEY or "").strip()),
     }
 
 
@@ -111,6 +113,25 @@ async def _enrich_explanation_for_symbol(
     """Attach market, enrichment, news, and sentiment blocks for one ticker (mutates expl)."""
     if not enrich_sym:
         return
+
+    # Initialize presence keys so the frontend can render placeholders consistently.
+    providers = [p.strip().lower() for p in (NEWS_PROVIDER_ORDER or "").split(",") if p.strip()]
+    conf = _configured_news_providers()
+    expl.setdefault("data_freshness", {"provider": "Unavailable", "stale_seconds": None})
+    expl.setdefault("market", {})
+    expl.setdefault("enrichment", {"data_freshness": expl["data_freshness"]})
+    expl.setdefault("news_factors", {"recent_news": []})
+    expl.setdefault("sentiment_trend_7d", {"daily_scores": [], "rolling_avg_7d": None})
+    expl.setdefault(
+        "news_provider_status",
+        {
+            "provider_order": providers,
+            "configured_keys": conf,
+            "message": "Unavailable",
+        },
+    )
+
+    # 1) Market quote + trend (best effort)
     try:
         quote, _, _ = await asyncio.wait_for(
             market_router.get_quote_with_meta(enrich_sym),
@@ -120,22 +141,30 @@ async def _enrich_explanation_for_symbol(
             "provider": quote.provider,
             "stale_seconds": quote.stale_seconds,
         }
+
         market: Dict[str, Any] = {
             "current_price": str(quote.price),
             "as_of": quote.as_of.isoformat() if quote.as_of else None,
         }
         if getattr(quote, "change_pct", None) is not None:
             market["change_pct"] = float(quote.change_pct)
-        bars_30d = await asyncio.wait_for(
-            market_router.get_bars(enrich_sym, "1d", start_30d, end_dt),
-            timeout=BARS_ENRICH_TIMEOUT,
-        )
-        if bars_30d and len(bars_30d) >= 2:
-            first_close = float(bars_30d[0].close)
-            last_close = float(bars_30d[-1].close)
-            if first_close and first_close > 0:
-                trend_1m = (last_close - first_close) / first_close
-                market["trend_1m_pct"] = round(trend_1m * 100, 2)
+
+        # 30d trend
+        try:
+            bars_30d = await asyncio.wait_for(
+                market_router.get_bars(enrich_sym, "1d", start_30d, end_dt),
+                timeout=BARS_ENRICH_TIMEOUT,
+            )
+            if bars_30d and len(bars_30d) >= 2:
+                first_close = float(bars_30d[0].close)
+                last_close = float(bars_30d[-1].close)
+                if first_close and first_close > 0:
+                    trend_1m = (last_close - first_close) / first_close
+                    market["trend_1m_pct"] = round(trend_1m * 100, 2)
+        except Exception:
+            pass
+
+        # 52w range
         try:
             bars_1y = await asyncio.wait_for(
                 market_router.get_bars(enrich_sym, "1d", start_1y, end_dt),
@@ -148,8 +177,9 @@ async def _enrich_explanation_for_symbol(
                 market["52w_low"] = round(low_52w, 2)
         except Exception:
             pass
+
         expl["market"] = market
-        enrichment: Dict[str, Any] = {
+        expl["enrichment"] = {
             "quote": {
                 "price": str(quote.price),
                 "as_of": quote.as_of.isoformat() if quote.as_of else None,
@@ -162,11 +192,20 @@ async def _enrich_explanation_for_symbol(
             "52w_low": market.get("52w_low"),
             "data_freshness": expl["data_freshness"],
         }
-        expl["enrichment"] = enrichment
-    except Exception:
-        pass
+    except Exception as exc:
+        # Keep initialized defaults; optionally record error for observability.
+        expl["data_freshness"] = {
+            "provider": "Unavailable",
+            "stale_seconds": None,
+            "error": str(exc),
+        }
+        if isinstance(expl.get("enrichment"), dict):
+            expl["enrichment"]["data_freshness"] = expl["data_freshness"]
+
+    # 2) News (best effort + diagnostics)
     try:
         news_items = get_news_for_symbol(enrich_sym, limit=5)
+        recent: List[Dict[str, Any]] = []
         if news_items:
             recent = [
                 {
@@ -177,23 +216,34 @@ async def _enrich_explanation_for_symbol(
                 }
                 for n in news_items
             ]
-            if expl.get("news_factors") is None:
-                expl["news_factors"] = {}
-            if not isinstance(expl["news_factors"], dict):
-                expl["news_factors"] = {}
-            expl["news_factors"]["recent_news"] = recent
-            if expl.get("enrichment") is not None and isinstance(expl["enrichment"], dict):
-                expl["enrichment"]["recent_news"] = recent
+        expl["news_factors"] = {"recent_news": recent}
+        if isinstance(expl.get("enrichment"), dict):
+            expl["enrichment"]["recent_news"] = recent
+
+        if recent:
+            expl["news_provider_status"] = {
+                "provider_order": providers,
+                "configured_keys": conf,
+                "message": f"Fetched {len(recent)} headlines for this symbol.",
+            }
         else:
-            providers = [p.strip().lower() for p in (NEWS_PROVIDER_ORDER or "").split(",") if p.strip()]
-            conf = _configured_news_providers()
             expl["news_provider_status"] = {
                 "provider_order": providers,
                 "configured_keys": conf,
                 "message": "No headlines returned in current window for this symbol.",
             }
-    except Exception:
-        pass
+    except Exception as exc:
+        expl["news_factors"] = {"recent_news": []}
+        if isinstance(expl.get("enrichment"), dict):
+            expl["enrichment"]["recent_news"] = []
+        expl["news_provider_status"] = {
+            "provider_order": providers,
+            "configured_keys": conf,
+            "message": "News fetch failed for this symbol.",
+            "error": str(exc),
+        }
+
+    # 3) Sentiment trend (best effort)
     try:
         ctx = _db_context()
         today = date(end_dt.year, end_dt.month, end_dt.day)
@@ -206,8 +256,8 @@ async def _enrich_explanation_for_symbol(
         }
         if summary_str:
             expl["sentiment_summary"] = summary_str
-    except Exception:
-        pass
+    except Exception as exc:
+        expl["sentiment_trend_7d"] = {"daily_scores": [], "rolling_avg_7d": None, "error": str(exc)}
 
 
 async def _fetch_quote_safe(router: MarketDataRouter, symbol: str) -> Optional[Dict[str, Any]]:

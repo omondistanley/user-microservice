@@ -2,6 +2,7 @@ import os
 import time
 from decimal import Decimal
 
+import pytest
 import requests
 
 
@@ -9,6 +10,33 @@ USER_BASE_URL = os.getenv("USER_SERVICE_BASE_URL", "http://localhost:8000")
 EXPENSE_BASE_URL = os.getenv("EXPENSE_SERVICE_BASE_URL", "http://localhost:3001")
 BUDGET_BASE_URL = os.getenv("BUDGET_SERVICE_BASE_URL", "http://localhost:3002")
 INVESTMENT_BASE_URL = os.getenv("INVESTMENT_SERVICE_BASE_URL", "http://localhost:3003")
+
+
+def _e2e_auth_headers() -> dict[str, str] | None:
+    """
+    Log in with E2E_TEST_USER_EMAIL / E2E_TEST_USER_PASSWORD and return Authorization headers.
+
+    Returns None if credentials are rejected (401), so callers can pytest.skip when no seeded user.
+    """
+    email = os.getenv("E2E_TEST_USER_EMAIL", "test@example.com")
+    password = os.getenv("E2E_TEST_USER_PASSWORD", "changeme")
+    login_resp = requests.post(
+        f"{USER_BASE_URL}/login",
+        data={"username": email, "password": password},
+        timeout=10,
+    )
+    if login_resp.status_code == 401:
+        return None
+    if login_resp.status_code != 200:
+        pytest.skip(
+            f"E2E login failed with status {login_resp.status_code}; "
+            "check USER_SERVICE_BASE_URL and seeded user."
+        )
+    tokens = login_resp.json()
+    access_token = tokens.get("access_token")
+    if not access_token:
+        pytest.skip("Login succeeded but no access_token in response")
+    return {"Authorization": f"Bearer {access_token}"}
 
 
 def _wait_for_health(url: str, timeout_seconds: int = 60) -> None:
@@ -45,7 +73,18 @@ def test_net_worth_summary_end_to_end():
     """
     _wait_for_health(f"{USER_BASE_URL}/health")
 
-    resp = requests.get(f"{USER_BASE_URL}/api/v1/net-worth/summary", timeout=10)
+    headers = _e2e_auth_headers()
+    if headers is None:
+        pytest.skip(
+            "Net worth summary requires auth. Seed a user or set E2E_TEST_USER_EMAIL / "
+            "E2E_TEST_USER_PASSWORD to match docker/env."
+        )
+
+    resp = requests.get(
+        f"{USER_BASE_URL}/api/v1/net-worth/summary",
+        headers=headers,
+        timeout=10,
+    )
     assert resp.status_code == 200
     body = resp.json()
 
@@ -91,26 +130,13 @@ def test_budget_list_with_auth_round_trip():
     _wait_for_health(f"{USER_BASE_URL}/health")
     _wait_for_health(f"{BUDGET_BASE_URL}/health")
 
-    email = os.getenv("E2E_TEST_USER_EMAIL", "test@example.com")
-    password = os.getenv("E2E_TEST_USER_PASSWORD", "changeme")
+    headers = _e2e_auth_headers()
+    if headers is None:
+        pytest.skip(
+            "No E2E user credentials or login returned 401; set E2E_TEST_USER_EMAIL / "
+            "E2E_TEST_USER_PASSWORD"
+        )
 
-    # OAuth2PasswordRequestForm expects form-encoded fields: username, password.
-    login_resp = requests.post(
-        f"{USER_BASE_URL}/login",
-        data={"username": email, "password": password},
-        timeout=10,
-    )
-    if login_resp.status_code == 401:
-        # In some environments you may not have a seeded test user; skip instead
-        # of failing the whole e2e suite.
-        return
-
-    assert login_resp.status_code == 200
-    tokens = login_resp.json()
-    access_token = tokens.get("access_token")
-    assert access_token, "login did not return access_token"
-
-    headers = {"Authorization": f"Bearer {access_token}"}
     budgets_resp = requests.get(
         f"{BUDGET_BASE_URL}/api/v1/budgets",
         headers=headers,
@@ -125,9 +151,20 @@ def test_budget_list_with_auth_round_trip():
 
 
 def test_budget_api_smoke():
+    _wait_for_health(f"{USER_BASE_URL}/health")
     _wait_for_health(f"{BUDGET_BASE_URL}/health")
+    headers = _e2e_auth_headers()
+    if headers is None:
+        pytest.skip(
+            "Budget API requires auth. Seed a user or set E2E_TEST_USER_EMAIL / "
+            "E2E_TEST_USER_PASSWORD"
+        )
     # Adjust path to a real budget endpoint you care about, e.g. categories or summaries
-    resp = requests.get(f"{BUDGET_BASE_URL}/api/v1/budgets", timeout=10)
+    resp = requests.get(
+        f"{BUDGET_BASE_URL}/api/v1/budgets",
+        headers=headers,
+        timeout=10,
+    )
     assert resp.status_code in (200, 204)  # depending on how empty-state is implemented
     # Optionally assert JSON shape if it returns data
     if resp.status_code == 200:

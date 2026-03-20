@@ -40,6 +40,48 @@
     </div>
   </div>
 
+  <!-- Edit goal modal -->
+  <div id="goals-edit-modal-wrap" class="modal-wrap" style="display:none;" aria-hidden="true">
+    <div class="modal-backdrop" id="goals-edit-backdrop" aria-hidden="true"></div>
+    <div class="modal-card" role="dialog" aria-labelledby="goals-edit-title" aria-modal="true">
+      <h3 id="goals-edit-title" class="modal-title">Edit goal</h3>
+      <div id="goals-edit-msg" style="display:none;color:var(--rose);font-size:13px;margin-bottom:12px;"></div>
+      <form id="goals-edit-form">
+        <input type="hidden" id="goals-edit-goal-id" />
+
+        <div class="form-group">
+          <label for="goals-edit-name">Goal name</label>
+          <input type="text" id="goals-edit-name" class="form-input" required maxlength="255" placeholder="e.g. Emergency fund">
+        </div>
+
+        <div class="form-group">
+          <label for="goals-edit-target-amount">Target amount</label>
+          <input type="number" id="goals-edit-target-amount" class="form-input" step="0.01" min="0" required placeholder="0.00">
+        </div>
+
+        <div class="form-group">
+          <label for="goals-edit-target-currency">Currency</label>
+          <input type="text" id="goals-edit-target-currency" class="form-input" maxlength="3" required placeholder="USD">
+        </div>
+
+        <div class="form-group">
+          <label for="goals-edit-target-date">Target date (optional)</label>
+          <input type="date" id="goals-edit-target-date" class="form-input">
+        </div>
+
+        <div class="form-group">
+          <label for="goals-edit-start-amount">Starting amount</label>
+          <input type="number" id="goals-edit-start-amount" class="form-input" step="0.01" min="0" required placeholder="0.00">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="goals-edit-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="goals-edit-save">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 {% block scripts %}

@@ -80,81 +80,104 @@
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
-  // Mock data per goal_id — no goals API; backend required for persistence.
-  var MOCK_GOALS = {
-    '1': { id: '1', name: 'New Tesla Model 3', saved: 15000, target: 20000, icon: 'directions_car', monthly: 500, remainingDays: 120, linkedAccount: '—', milestones: [
-      { label: 'Starter Fund', target: 5000, done: true },
-      { label: 'Halfway Point', target: 10000, done: true },
-      { label: 'Full 6-Month Coverage', target: 20000, done: false },
-    ]},
-    '2': { id: '2', name: 'Emergency Fund', saved: 6500, target: 10000, icon: 'emergency', monthly: 350, remainingDays: 100, linkedAccount: '—', milestones: [
-      { label: 'Starter Fund', target: 2000, done: true },
-      { label: 'Halfway Point', target: 5000, done: true },
-      { label: 'Full 6-Month Coverage', target: 10000, done: false },
-    ]},
-    '3': { id: '3', name: 'Vacation to Japan', saved: 3850, target: 6000, icon: 'flight', monthly: 200, remainingDays: 110, linkedAccount: '—', milestones: [
-      { label: 'Flights', target: 2000, done: true },
-      { label: 'Halfway', target: 3000, done: true },
-      { label: 'Full trip', target: 6000, done: false },
-    ]},
-  };
+  var API = window.API_BASE || '';
   var goalId = {{ goal_id | tojson }};
-  var g = MOCK_GOALS[String(goalId)] || { name: 'Goal', saved: 0, target: 1, monthly: 0, remainingDays: 0, linkedAccount: '—', milestones: [] };
 
-  var saved = Number(g.saved) || 0;
-  var target = Number(g.target) || 1;
-  var pct = Math.min(100, Math.round((saved / target) * 100));
-
-  var elName = document.getElementById('goal-name');
-  var elAmount = document.getElementById('goal-current-amount');
-  var elTarget = document.getElementById('goal-target');
-  var elPct = document.getElementById('goal-pct');
-  var elBar = document.getElementById('goal-progress-bar');
-  var elMonthly = document.getElementById('goal-monthly');
-  var elDays = document.getElementById('goal-remaining-days');
-  var elDaysBadge = document.getElementById('goal-days-remaining-badge');
-  var elLinked = document.getElementById('goal-linked-account');
-
-  if (elName) elName.textContent = g.name || 'Goal';
-  if (elAmount) elAmount.textContent = '$' + saved.toLocaleString();
-  if (elTarget) elTarget.textContent = '$' + target.toLocaleString();
-  if (elPct) elPct.textContent = pct + '%';
-  if (elBar) elBar.style.width = pct + '%';
-  if (elMonthly) elMonthly.textContent = '$' + (Number(g.monthly) || 0);
-  if (elDays) elDays.textContent = (g.remainingDays != null ? g.remainingDays : '—') + ' days';
-  if (elDaysBadge) elDaysBadge.textContent = (g.remainingDays != null ? g.remainingDays : '—') + ' days remaining';
-  if (elLinked) elLinked.textContent = g.linkedAccount || '—';
-
-  // Also update the SVG ring if it exists (kept for progressive enhancement)
-  var ring = document.getElementById('goal-progress-ring');
-  if (ring) {
-    var circ = 100;
-    var dash = (pct * circ / 100) + ' ' + circ;
-    ring.setAttribute('stroke-dasharray', dash);
-    ring.setAttribute('stroke-dashoffset', '0');
+  function authHeaders() {
+    return window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
   }
-  var detailTitle = document.getElementById('goal-detail-title');
-  if (detailTitle) detailTitle.textContent = g.name || 'Goal';
 
-  var milestonesEl = document.getElementById('goal-milestones');
-  var milestones = g.milestones || [];
-  if (milestones.length === 0) {
-    milestonesEl.innerHTML = '<p style="color: var(--text-muted);">No milestones.</p>';
-  } else {
-    milestonesEl.innerHTML = milestones.map(function(m) {
-      var done = m.done === true;
+  function escHtml(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function fmtMoney(n) {
+    var v = Number(n);
+    if (!isFinite(v)) v = 0;
+    return '$' + v.toLocaleString();
+  }
+
+  function fmtMoney2(n) {
+    var v = Number(n);
+    if (!isFinite(v)) v = 0;
+    return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function renderGoal(goal, progress, contributions) {
+    var elName = document.getElementById('goal-name');
+    var elAmount = document.getElementById('goal-current-amount');
+    var elTarget = document.getElementById('goal-target');
+    var elPct = document.getElementById('goal-pct');
+    var elBar = document.getElementById('goal-progress-bar');
+    var elMonthly = document.getElementById('goal-monthly');
+    var elDays = document.getElementById('goal-remaining-days');
+    var elDaysBadge = document.getElementById('goal-days-remaining-badge');
+    var elLinked = document.getElementById('goal-linked-account');
+
+    var pct = progress && progress.percent_complete != null ? Number(progress.percent_complete) : 0;
+    var current = progress && progress.current_amount != null ? Number(progress.current_amount) : 0;
+    var target = goal && goal.target_amount != null ? Number(goal.target_amount) : (progress && progress.target_amount != null ? Number(progress.target_amount) : 0);
+    var suggestedMonthly = progress && progress.suggested_monthly != null ? Number(progress.suggested_monthly) : 0;
+    var daysRemaining = progress && progress.days_remaining != null ? progress.days_remaining : null;
+
+    if (elName) elName.textContent = goal && goal.name ? goal.name : 'Goal';
+    if (elAmount) elAmount.textContent = fmtMoney(current);
+    if (elTarget) elTarget.textContent = fmtMoney(target);
+    if (elPct) elPct.textContent = pct.toFixed(0) + '%';
+    if (elBar) elBar.style.width = pct.toFixed(0) + '%';
+    if (elMonthly) elMonthly.textContent = fmtMoney2(suggestedMonthly);
+
+    if (elDays) elDays.textContent = (daysRemaining != null ? daysRemaining : '—') + ' days';
+    if (elDaysBadge) elDaysBadge.textContent = (daysRemaining != null ? daysRemaining : '—') + ' days remaining';
+
+    // No explicit "linked account name" on the goals model; show household id when present.
+    if (elLinked) elLinked.textContent = goal && goal.household_id ? String(goal.household_id) : '—';
+
+    var milestonesEl = document.getElementById('goal-milestones');
+    var list = contributions && contributions.contributions ? contributions.contributions : [];
+    if (!milestonesEl) return;
+    if (!list.length) {
+      milestonesEl.innerHTML = '<p style="color: var(--text-muted);">No contributions yet.</p>';
+      return;
+    }
+    milestonesEl.innerHTML = list.map(function(c) {
+      var done = c.amount != null && Number(c.amount) > 0;
       var checkmark = done ? '&#10003;' : '&#9675;';
-      var labelStyle = done ? 'text-decoration: line-through; color: var(--text-muted);' : 'font-weight: 500;';
-      return '<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color, #e5e7eb);">' +
-        '<span style="font-size: 1.1rem; color: ' + (done ? '#10b981' : 'var(--text-muted)') + ';">' + checkmark + '</span>' +
-        '<div style="flex: 1;">' +
-          '<p style="margin: 0; font-size: 0.9rem; ' + labelStyle + '">' + (m.label || '') + '</p>' +
-          (m.target != null ? '<p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">$' + Number(m.target).toLocaleString() + '</p>' : '') +
+      return '<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color, #e5e7eb);">' +
+        '<div style="display:flex;align-items:center;gap:0.75rem;">' +
+          '<span style="font-size: 1.1rem; color: ' + (done ? '#10b981' : 'var(--text-muted)') + ';">' + checkmark + '</span>' +
+          '<div style="display:flex;flex-direction:column;">' +
+            '<p style="margin:0;font-size:0.9rem;font-weight:600;color:var(--text-primary);">' + escHtml(String(c.source || 'contribution')) + '</p>' +
+            '<p style="margin:0;font-size:0.8rem;color:var(--text-muted);">' + escHtml(String(c.contribution_date || '')) + '</p>' +
+          '</div>' +
         '</div>' +
-        '<span class="' + (done ? 'badge-emerald' : 'badge-amber') + '">' + (done ? 'Complete' : 'Pending') + '</span>' +
+        '<span class="' + (done ? 'badge-emerald' : 'badge-amber') + '" style="white-space:nowrap;">' + fmtMoney2(c.amount || 0) + '</span>' +
         '</div>';
     }).join('');
   }
+
+  function loadGoal() {
+    var headers = authHeaders();
+    var gid = String(goalId);
+
+    return Promise.all([
+      fetch(API + '/api/v1/goals/' + encodeURIComponent(gid), { headers: headers }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d){ throw new Error(d.detail || 'Failed to load goal'); }); }),
+      fetch(API + '/api/v1/goals/' + encodeURIComponent(gid) + '/progress', { headers: headers }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d){ throw new Error(d.detail || 'Failed to load goal progress'); }); }),
+      fetch(API + '/api/v1/goals/' + encodeURIComponent(gid) + '/contributions', { headers: headers }).then(function(r) { return r.ok ? r.json() : Promise.resolve({ contributions: [] }); })
+    ]).then(function(res) {
+      renderGoal(res[0], res[1], res[2]);
+    }).catch(function(err) {
+      var milestonesEl = document.getElementById('goal-milestones');
+      if (milestonesEl) milestonesEl.innerHTML = '<p style="color: var(--rose);">Could not load goal.</p>';
+    });
+  }
+
+  loadGoal();
 
   // Contribution form handler
   var contribForm = document.getElementById('goal-contribution-form');

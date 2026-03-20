@@ -24,6 +24,15 @@ primary_region = "ewr"
   EXPENSE_DB_PORT = "5432"
   EXPENSE_DB_USER = "postgres"
   EXPENSE_DB_NAME = "expenses_db"
+  # Investment service (quotes, bars, news enrichment): public defaults only.
+  # Set API keys with `fly secrets set` / `fly secrets import` — same names as investments-microservice/.env.example
+  MARKET_DATA_PROVIDER_ORDER = "alpaca,finnhub,twelvedata,alphavantage"
+  NEWS_PROVIDER_ORDER = "benzinga,finnhub,alphavantage"
+  FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
+  TWELVEDATA_BASE_URL = "https://api.twelvedata.com"
+  ALPHAVANTAGE_BASE_URL = "https://www.alphavantage.co"
+  BENZINGA_BASE_URL = "https://api.benzinga.com"
+  ALPACA_DATA_BASE_URL = "https://data.alpaca.markets"
 
 [http_service]
   internal_port = 8080
