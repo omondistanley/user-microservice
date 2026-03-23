@@ -8,3 +8,11 @@ python-multipart
 cryptography>=42.0.0
 httpx>=0.27.0
 redis>=5.0.0
+rapidfuzz>=3.6.0
+# Sprint 2: ML layer
+sentence-transformers>=2.7.0
+statsmodels>=0.14.0
+prophet>=1.1.5
+scikit-learn>=1.4.0
+numpy>=1.24.0
+pandas>=2.0.0

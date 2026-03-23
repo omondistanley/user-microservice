@@ -94,7 +94,9 @@ services:
              python run_migration.py migrations/019_user_alert_preferences.sql &&
              python run_migration.py migrations/020_expense_match.sql &&
              python run_migration.py migrations/021_receipt_expense_nullable.sql &&
-             python run_migration.py migrations/022_plaid_link_token.sql"
+             python run_migration.py migrations/022_plaid_link_token.sql &&
+             python run_migration.py migrations/023_income_apple_wallet_idempotency.sql &&
+             python run_migration.py migrations/024_apple_wallet_sync_state.sql"
     restart: "no"
 
   budget-migrations:

@@ -10,3 +10,10 @@ numpy>=1.24.0
 redis>=5.0.0
 transformers>=4.30.0
 torch>=2.0.0
+# Sprint 2: LightGBM reranker + SHAP explainability
+lightgbm>=4.3.0
+shap>=0.45.0
+scikit-learn>=1.4.0
+pandas>=2.0.0
+# Sprint 3: EDGAR insider data
+requests>=2.31.0

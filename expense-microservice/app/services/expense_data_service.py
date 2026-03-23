@@ -30,6 +30,7 @@ NO_INCOME_SENT_TABLE = "no_income_notification_sent"
 USER_ALERT_PREFERENCE_TABLE = "user_alert_preference"
 LOW_PROJECTED_BALANCE_SENT_TABLE = "low_projected_balance_sent"
 EXPENSE_MATCH_TABLE = "expense_match"
+APPLE_WALLET_SYNC_STATE_TABLE = "apple_wallet_sync_state"
 
 
 def _dict_row(row: Any) -> Optional[Dict]:
@@ -1326,7 +1327,7 @@ class ExpenseDataService:
     def create_income(self, data: Dict[str, Any]) -> Dict[str, Any]:
         cols = [
             "user_id", "amount", "date", "currency", "income_type",
-            "source_label", "description", "created_at", "updated_at",
+            "source_label", "description", "apple_wallet_transaction_id", "created_at", "updated_at",
         ]
         keys = [k for k in cols if k in data]
         columns = ",".join(f'"{k}"' for k in keys)
@@ -1353,6 +1354,23 @@ class ExpenseDataService:
                 f'SELECT * FROM "{SCHEMA}"."{INCOME_TABLE}" '
                 "WHERE income_id = %s::uuid AND user_id = %s AND deleted_at IS NULL",
                 (income_id, user_id),
+            )
+            return _dict_row(cur.fetchone())
+        finally:
+            conn.close()
+
+    def get_income_by_apple_wallet_transaction_id(
+        self, user_id: int, apple_wallet_transaction_id: str
+    ) -> Optional[Dict]:
+        if not apple_wallet_transaction_id:
+            return None
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{INCOME_TABLE}" '
+                "WHERE user_id = %s AND apple_wallet_transaction_id = %s AND deleted_at IS NULL",
+                (user_id, apple_wallet_transaction_id),
             )
             return _dict_row(cur.fetchone())
         finally:
@@ -2482,5 +2500,87 @@ class ExpenseDataService:
                 (user_id, sent_date),
             )
             return cur.fetchone() is not None
+        finally:
+            conn.close()
+
+    # --- Apple Wallet sync state ---
+
+    def get_apple_wallet_last_sync(self, user_id: int) -> Optional[datetime]:
+        """Return the timestamp of the last /since-last-sync call for this user, or None."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT last_sync_at FROM "{SCHEMA}"."{APPLE_WALLET_SYNC_STATE_TABLE}" WHERE user_id = %s',
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if row:
+                return row["last_sync_at"]
+            return None
+        finally:
+            conn.close()
+
+    def update_apple_wallet_last_sync(self, user_id: int, ts: datetime) -> None:
+        """Upsert the last-sync timestamp for this user."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                INSERT INTO "{SCHEMA}"."{APPLE_WALLET_SYNC_STATE_TABLE}" (user_id, last_sync_at, updated_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                    SET last_sync_at = EXCLUDED.last_sync_at,
+                        updated_at   = EXCLUDED.updated_at
+                """,
+                (user_id, ts, ts),
+            )
+        finally:
+            conn.close()
+
+    def get_expenses_since(self, user_id: int, since: Optional[datetime]) -> List[Dict]:
+        """Return all apple_wallet expenses created after `since` (or all if since is None)."""
+        conditions = [
+            'user_id = %s',
+            'deleted_at IS NULL',
+            "source = 'apple_wallet'",
+        ]
+        params: List[Any] = [user_id]
+        if since:
+            conditions.append('created_at > %s')
+            params.append(since)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{TABLE}" WHERE {where} ORDER BY date DESC, created_at DESC',
+                params,
+            )
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_income_since(self, user_id: int, since: Optional[datetime]) -> List[Dict]:
+        """Return all apple_wallet income created after `since` (or all if since is None)."""
+        conditions = [
+            'user_id = %s',
+            'deleted_at IS NULL',
+            'apple_wallet_transaction_id IS NOT NULL',
+        ]
+        params: List[Any] = [user_id]
+        if since:
+            conditions.append('created_at > %s')
+            params.append(since)
+        where = " AND ".join(conditions)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{INCOME_TABLE}" WHERE {where} ORDER BY date DESC, created_at DESC',
+                params,
+            )
+            return [dict(r) for r in cur.fetchall()]
         finally:
             conn.close()

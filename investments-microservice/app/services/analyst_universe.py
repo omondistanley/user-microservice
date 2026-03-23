@@ -150,8 +150,93 @@ def _get_static_universe() -> List[Dict[str, Any]]:
     return DEFAULT_UNIVERSE
 
 
+# ---------------------------------------------------------------------------
+# ETF overlap deduplication (Sprint 1)
+# ---------------------------------------------------------------------------
+# Groups of ETFs that are substantially identical (track the same index or
+# near-identical index with > ~90% overlap).  When multiple members of a group
+# appear in the universe list, we keep only the first one encountered so the
+# recommendation engine does not surface redundant suggestions.
+#
+# Ordering within each group matters: the *first* symbol is the preferred
+# representative (lowest cost, highest liquidity, broadest adoption).
+# ---------------------------------------------------------------------------
+HIGH_OVERLAP_GROUPS: List[List[str]] = [
+    # S&P 500
+    ["VOO", "IVV", "SPY", "SPLG", "CSPX"],
+    # US total market
+    ["VTI", "ITOT", "SPTM", "SCHB"],
+    # Emerging markets
+    ["VWO", "IEMG", "EEM"],
+    # Developed ex-US (EAFE-family)
+    ["VEA", "IEFA", "EFA", "SCHF"],
+    # Semiconductors
+    ["SOXX", "SMH"],
+    # US total bond
+    ["BND", "AGG", "SCHZ"],
+    # High dividend
+    ["VYM", "HDV", "DVY"],
+    # Technology
+    ["VGT", "XLK", "IYW"],
+    # Healthcare
+    ["VHT", "XLV"],
+    # US growth
+    ["VUG", "IWF", "SCHG"],
+    # US value
+    ["VTV", "IWD", "SCHV"],
+    # Real estate
+    ["VNQ", "IYR", "SCHH"],
+    # Clean energy
+    ["ICLN", "QCLN"],
+    # Energy sector
+    ["XLE", "VDE"],
+    # Financial sector
+    ["XLF", "VFH"],
+]
+
+# Build a fast lookup: symbol → preferred representative in its group
+_OVERLAP_PREFERRED: Dict[str, str] = {}
+for _group in HIGH_OVERLAP_GROUPS:
+    _preferred = _group[0]
+    for _sym in _group[1:]:
+        _OVERLAP_PREFERRED[_sym] = _preferred
+
+
+def deduplicate_universe(universe: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Remove ETFs that are substantially identical to another already-included entry.
+
+    Logic: iterate in order; if a symbol is a non-preferred member of an overlap
+    group AND the preferred representative for that group is already in the list,
+    drop the duplicate.  This keeps the preferred ticker and discards the rest.
+
+    Result: cleaner suggestions — the user sees "VOO" once, not "VOO + IVV + SPY".
+    """
+    seen_symbols: set = set()
+    seen_preferred: set = set()
+    result: List[Dict[str, Any]] = []
+
+    for entry in universe:
+        sym = (entry.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        preferred = _OVERLAP_PREFERRED.get(sym)
+        if preferred is not None:
+            # This symbol is a non-preferred duplicate; skip if preferred is already included
+            if preferred in seen_preferred or preferred in seen_symbols:
+                continue
+        if sym not in seen_symbols:
+            seen_symbols.add(sym)
+            if preferred is None:
+                # This symbol is either a preferred rep or not in any overlap group
+                seen_preferred.add(sym)
+            result.append(entry)
+
+    return result
+
+
 def get_analyst_universe() -> List[Dict[str, Any]]:
-    """Return the analyst universe. Prefer security_universe table if populated (Option C); else static list."""
+    """Return the analyst universe, deduplicated for ETF overlap. Prefer security_universe table if populated (Option C); else static list."""
     try:
         from app.services.service_factory import ServiceFactory
         universe_svc = ServiceFactory.get_service("UniverseDataService")
@@ -159,10 +244,10 @@ def get_analyst_universe() -> List[Dict[str, Any]]:
             from app.core.config import MAX_RECOMMENDATIONS
             rows = universe_svc.list_universe(limit=MAX_RECOMMENDATIONS or 500)
             if rows:
-                return rows
+                return deduplicate_universe(rows)
     except Exception:
         pass
-    return _get_static_universe()
+    return deduplicate_universe(_get_static_universe())
 
 
 def get_security_info(symbol: str) -> Optional[Dict[str, Any]]:
