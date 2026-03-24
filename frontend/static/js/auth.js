@@ -121,6 +121,33 @@
                 });
             });
         },
+        /**
+         * GET/POST JSON against API_BASE (gateway). Uses requestWithRefresh when available.
+         * Use for investments, net worth, and other gateway-routed paths — not for direct expense/budget service URLs.
+         */
+        fetchGatewayJson: function(path, options) {
+            options = options || {};
+            var base = (typeof window !== 'undefined' && window.API_BASE) ? window.API_BASE : API;
+            var url = (base || '') + path;
+            options.headers = Object.assign({}, this.getAuthHeaders(), options.headers || {});
+            if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(options.body);
+            }
+            var self = this;
+            var run = self.requestWithRefresh
+                ? function() { return self.requestWithRefresh(url, options); }
+                : function() { return fetch(url, options); };
+            return run().then(function(r) {
+                if (!r.ok) {
+                    return getJson(r).then(function(data) {
+                        return Promise.reject(new Error(getErrorDetail(r, data)));
+                    });
+                }
+                if (r.status === 204) return null;
+                return getJson(r);
+            });
+        },
         /** POST /user — JSON: email, first_name, last_name, password (min 8). Returns UserInfo. */
         register: function(email, first_name, last_name, password) {
             var base = (typeof window !== 'undefined' && window.API_BASE !== undefined) ? window.API_BASE : API;

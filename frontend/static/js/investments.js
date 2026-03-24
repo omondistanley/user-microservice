@@ -1,9 +1,13 @@
 (function () {
     'use strict';
+    var invState = {
+        holdings: [],
+        quotes: {},
+    };
 
-    var API_BASE = '';
+    /** Holdings/market/alpaca/portfolio APIs are routed via the API gateway — always use API_BASE, never EXPENSE_API_BASE. */
     function apiUrl(path) {
-        var base = (typeof window !== 'undefined' && window.EXPENSE_API_BASE) ? window.EXPENSE_API_BASE : API_BASE;
+        var base = (typeof window !== 'undefined' && window.API_BASE) ? window.API_BASE : '';
         return (base || '') + path;
     }
 
@@ -20,21 +24,35 @@
         return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
     }
 
+    /** Gateway JSON with token refresh (falls back to fetch if Auth not loaded). */
+    function gatewayJson(path, options) {
+        options = options || {};
+        if (window.Auth && window.Auth.fetchGatewayJson) {
+            return window.Auth.fetchGatewayJson(path, options);
+        }
+        var url = apiUrl(path);
+        var headers = Object.assign({}, getAuthHeaders(), options.headers || {});
+        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+            headers['Content-Type'] = 'application/json';
+            options = Object.assign({}, options, { headers: headers, body: JSON.stringify(options.body) });
+        } else {
+            options = Object.assign({}, options, { headers: headers });
+        }
+        return fetch(url, options).then(function (r) {
+            if (!r.ok) throw new Error(r.statusText || 'Request failed');
+            return r.json().catch(function () { return null; });
+        });
+    }
+
     function fetchHoldings() {
-        var url = apiUrl('/api/v1/holdings') + '?page=1&page_size=100';
-        return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
-            if (!r.ok) throw new Error('Failed to load holdings');
-            return r.json();
+        return gatewayJson('/api/v1/holdings?page=1&page_size=100').then(function (data) {
+            if (!data) throw new Error('Failed to load holdings');
+            return data;
         });
     }
 
     function fetchQuote(symbol) {
-        return fetch(apiUrl('/api/v1/market/quote/' + encodeURIComponent(symbol)), {
-            headers: getAuthHeaders(),
-        }).then(function (r) {
-            if (!r.ok) return null;
-            return r.json();
-        }).catch(function () { return null; });
+        return gatewayJson('/api/v1/market/quote/' + encodeURIComponent(symbol)).catch(function () { return null; });
     }
 
     function fetchAllQuotes(symbols) {
@@ -50,50 +68,28 @@
     }
 
     function createHolding(payload) {
-        return fetch(apiUrl('/api/v1/holdings'), {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(payload),
-        }).then(function (r) {
-            if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || 'Failed to add holding'); });
-            return r.json();
+        return gatewayJson('/api/v1/holdings', { method: 'POST', body: payload }).then(function (data) {
+            if (!data) throw new Error('Failed to add holding');
+            return data;
         });
     }
 
     function deleteHolding(holdingId) {
-        return fetch(apiUrl('/api/v1/holdings/' + holdingId), {
-            method: 'DELETE',
-            headers: getAuthHeaders(),
-        }).then(function (r) {
-            if (!r.ok) throw new Error('Failed to delete');
-        });
+        return gatewayJson('/api/v1/holdings/' + holdingId, { method: 'DELETE' }).then(function () {});
     }
 
     function fetchAlpacaStatus() {
-        return fetch(apiUrl('/api/v1/alpaca/status'), { headers: getAuthHeaders() }).then(function (r) {
-            if (!r.ok) return { connected: false };
-            return r.json();
-        }).catch(function () { return { connected: false }; });
+        return gatewayJson('/api/v1/alpaca/status').catch(function () { return { connected: false }; });
     }
 
     function alpacaSync() {
-        return fetch(apiUrl('/api/v1/alpaca/sync'), {
-            method: 'POST',
-            headers: getAuthHeaders(),
-        }).then(function (r) {
-            if (!r.ok) throw new Error('Sync failed');
-            return r.json();
-        });
+        return gatewayJson('/api/v1/alpaca/sync', { method: 'POST' });
     }
 
     function placeOrder(symbol, qty, side) {
-        return fetch(apiUrl('/api/v1/alpaca/orders'), {
+        return gatewayJson('/api/v1/alpaca/orders', {
             method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ symbol: symbol, qty: Number(qty), side: side, type: 'market' }),
-        }).then(function (r) {
-            if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || 'Order failed'); });
-            return r.json();
+            body: { symbol: symbol, qty: Number(qty), side: side, type: 'market' },
         });
     }
 
@@ -122,11 +118,7 @@
     var INV_GAINS_DAYS = 90;
 
     function fetchGainsHistory(days) {
-        var url = apiUrl('/api/v1/portfolio/gains-history?days=' + (days || INV_GAINS_DAYS));
-        return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
-            if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || 'Failed to load gains history'); });
-            return r.json();
-        });
+        return gatewayJson('/api/v1/portfolio/gains-history?days=' + (days || INV_GAINS_DAYS));
     }
 
     function placeholderGainsData(message) {
@@ -193,7 +185,7 @@
             gridColor = 'rgba(255,255,255,0.06)';
         }
         var opts = {
-            chart: { type: 'line', zoom: { enabled: false }, fontFamily: 'Inter, sans-serif', toolbar: { show: false }, background: 'transparent' },
+            chart: { type: 'line', zoom: { enabled: false }, fontFamily: "'Source Sans 3', sans-serif", toolbar: { show: false }, background: 'transparent' },
             series: series,
             xaxis: { categories: data.dates, labels: { rotate: -45, formatter: function (v) { return (v || '').substring(0, 10); } } },
             yaxis: {
@@ -258,6 +250,8 @@
 
     function renderHoldings(listEl, items, quotes) {
         quotes = quotes || {};
+        invState.holdings = items || [];
+        invState.quotes = quotes;
         if (!listEl) return;
         if (!items || items.length === 0) {
             listEl.innerHTML = '<p class="muted">No holdings yet. Click "Add holding" to track a position.</p>';
@@ -365,11 +359,18 @@
         var listEl = document.getElementById('holdings-list');
         if (!listEl) return;
 
+        var invTbody = document.getElementById('inv-holdings-table-body');
+        if (invTbody) {
+            invTbody.innerHTML = '<tr><td colspan="8" style="padding:1rem;"><div class="skeleton-line skeleton-line--wide"></div><div class="skeleton-line skeleton-line--medium" style="margin-top:10px;"></div></td></tr>';
+        }
+
         function loadHoldings() {
             fetchHoldings().then(function (data) {
                 var items = (data && data.items) ? data.items : [];
                 var symbols = items.map(function (h) { return (h.symbol || '').toUpperCase(); });
                 return fetchAllQuotes(symbols).then(function (quotes) {
+                    invState.holdings = items;
+                    invState.quotes = quotes;
                     renderHoldings(listEl, items, quotes);
                 });
             }).catch(function () {

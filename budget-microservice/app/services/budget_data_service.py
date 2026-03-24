@@ -446,3 +446,126 @@ class BudgetDataService:
             raise
         finally:
             conn.close()
+
+    # --- Recurring budget templates ---
+
+    RECURRING_TABLE = "recurring_budget"
+
+    def insert_recurring_budget(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                INSERT INTO "{SCHEMA}"."{self.RECURRING_TABLE}"
+                  (user_id, name, category_code, amount, cadence, start_date, next_period_start,
+                   is_active, household_id, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+                RETURNING recurring_budget_id, created_at, updated_at
+                """,
+                (
+                    data["user_id"],
+                    data.get("name"),
+                    data["category_code"],
+                    data["amount"],
+                    data["cadence"],
+                    data["start_date"],
+                    data["next_period_start"],
+                    data.get("is_active", True),
+                    data.get("household_id"),
+                ),
+            )
+            row = cur.fetchone()
+            data["recurring_budget_id"] = row["recurring_budget_id"]
+            data["created_at"] = row["created_at"]
+            data["updated_at"] = row["updated_at"]
+            return data
+        finally:
+            conn.close()
+
+    def get_recurring_budget(self, recurring_budget_id: UUID, user_id: int) -> Optional[Dict]:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{self.RECURRING_TABLE}" '
+                "WHERE recurring_budget_id = %s AND user_id = %s",
+                (str(recurring_budget_id), user_id),
+            )
+            return _dict_row(cur.fetchone())
+        finally:
+            conn.close()
+
+    def list_recurring_budgets(
+        self,
+        user_id: int,
+        include_inactive: bool = False,
+        household_id: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Dict], int]:
+        conds = ["user_id = %s"]
+        params: List[Any] = [user_id]
+        if not include_inactive:
+            conds.append("is_active = TRUE")
+        if household_id:
+            conds.append("household_id IS NOT DISTINCT FROM %s::uuid")
+            params.append(household_id)
+        where = " AND ".join(conds)
+        offset = (max(1, page) - 1) * min(max(1, page_size), 100)
+        lim = min(max(1, page_size), 100)
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT COUNT(*)::bigint AS c FROM "{SCHEMA}"."{self.RECURRING_TABLE}" WHERE {where}',
+                params,
+            )
+            total = int(cur.fetchone()["c"])
+            cur.execute(
+                f'SELECT * FROM "{SCHEMA}"."{self.RECURRING_TABLE}" WHERE {where} '
+                "ORDER BY updated_at DESC LIMIT %s OFFSET %s",
+                params + [lim, offset],
+            )
+            return [dict(r) for r in cur.fetchall()], total
+        finally:
+            conn.close()
+
+    def update_recurring_budget(
+        self, recurring_budget_id: UUID, user_id: int, data: Dict[str, Any]
+    ) -> Optional[Dict]:
+        allowed = {"name", "amount", "cadence", "next_period_start", "is_active", "household_id"}
+        updates = {k: v for k, v in data.items() if k in allowed and v is not None}
+        if "household_id" in updates and updates["household_id"] is not None:
+            updates["household_id"] = str(updates["household_id"])
+        if not updates:
+            return self.get_recurring_budget(recurring_budget_id, user_id)
+        updates["updated_at"] = datetime.now(timezone.utc)
+        sets = ", ".join(f'"{k}" = %s' for k in updates)
+        params = list(updates.values()) + [str(recurring_budget_id), user_id]
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'UPDATE "{SCHEMA}"."{self.RECURRING_TABLE}" SET {sets} '
+                "WHERE recurring_budget_id = %s::uuid AND user_id = %s",
+                params,
+            )
+            if cur.rowcount == 0:
+                return None
+            return self.get_recurring_budget(recurring_budget_id, user_id)
+        finally:
+            conn.close()
+
+    def delete_recurring_budget(self, recurring_budget_id: UUID, user_id: int) -> bool:
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'DELETE FROM "{SCHEMA}"."{self.RECURRING_TABLE}" '
+                "WHERE recurring_budget_id = %s::uuid AND user_id = %s",
+                (str(recurring_budget_id), user_id),
+            )
+            return cur.rowcount > 0
+        finally:
+            conn.close()

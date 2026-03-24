@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* pocketii: optional base tweaks for Tailwind + legacy coexistence */
+@layer base {
+  html {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .tw-sidebar-pocket .sb-link.active {
+    @apply border-l-4 border-[#135bec] bg-blue-50/80 dark:bg-slate-800/80;
+  }
+}

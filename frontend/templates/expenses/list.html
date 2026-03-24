@@ -6,13 +6,13 @@
     <div>
         <h1 class="page-title">Expenses</h1>
     </div>
-    <a href="/expenses/add" class="btn btn-primary">+ Add</a>
+    <a href="/expenses/add" class="btn btn-primary icon-btn-label"><span class="material-symbols-rounded">add</span> Add</a>
 </div>
 
 <div id="expenses-added-msg" class="auth-alert auth-alert--success" style="display:none;margin-bottom:16px;"></div>
 
 <!-- Stats row -->
-<div class="stat-row" id="expenses-stats-row" style="margin-bottom:24px;">
+<div class="stat-row section-block" id="expenses-stats-row">
     <div class="stat-card">
         <div class="stat-label">Total Spent</div>
         <div class="stat-value" id="stat-total-spent">—</div>
@@ -44,8 +44,8 @@
         <datalist id="filter-tag-suggestions"></datalist>
     </div>
     <div class="filter-bar-actions">
-        <button type="button" id="filter-apply-btn" class="btn btn-primary btn-sm">Apply</button>
-        <button type="button" id="filter-clear-btn" class="btn btn-ghost btn-sm">Clear</button>
+        <button type="button" id="filter-apply-btn" class="btn btn-primary btn-sm icon-btn-label"><span class="material-symbols-rounded">filter_alt</span> Apply</button>
+        <button type="button" id="filter-clear-btn" class="btn btn-ghost btn-sm icon-btn-label"><span class="material-symbols-rounded">close</span> Clear</button>
     </div>
 </div>
 
@@ -54,7 +54,7 @@
 <!-- Results meta -->
 <div class="results-meta" id="results-meta" style="display:none;">
     <span id="results-count"></span>
-    <select id="filter-page-size" class="form-select" style="width:auto;">
+    <select id="filter-page-size" class="form-select w-auto">
         <option value="20" selected>20 / page</option>
         <option value="50">50 / page</option>
         <option value="100">100 / page</option>
@@ -75,9 +75,9 @@
 
 <!-- Pagination -->
 <div id="expenses-pagination" class="pagination-bar" style="display:none;">
-    <button type="button" id="pagination-prev" class="btn btn-ghost btn-sm">← Prev</button>
+    <button type="button" id="pagination-prev" class="btn btn-ghost btn-sm icon-btn-label"><span class="material-symbols-rounded">arrow_back</span> Prev</button>
     <span id="pagination-info" class="pagination-info"></span>
-    <button type="button" id="pagination-next" class="btn btn-ghost btn-sm">Next →</button>
+    <button type="button" id="pagination-next" class="btn btn-ghost btn-sm icon-btn-label">Next <span class="material-symbols-rounded">arrow_forward</span></button>
 </div>
 
 <!-- Hidden summary elements used by layout.js panel -->

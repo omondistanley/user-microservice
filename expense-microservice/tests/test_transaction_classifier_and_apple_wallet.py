@@ -50,6 +50,9 @@ def test_apple_wallet_webhook_creates_expense_with_transport_hint(monkeypatch):
         def get_income_by_apple_wallet_transaction_id(self, user_id, tx_id):
             return None
 
+        def update_apple_wallet_last_sync(self, user_id, ts):
+            pass
+
     class FakeExpense:
         expense_id = uuid4()
 
@@ -95,6 +98,9 @@ def test_apple_wallet_webhook_creates_income_when_classified(monkeypatch):
             return None
         def get_income_by_apple_wallet_transaction_id(self, user_id, tx_id):
             return None
+
+        def update_apple_wallet_last_sync(self, user_id, ts):
+            pass
 
         def create_income(self, data):
             assert data["user_id"] == 88

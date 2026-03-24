@@ -5,9 +5,15 @@
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">Investments</h1>
-    <button type="button" id="holdings-add-btn" class="btn btn-primary">+ Add holding</button>
+    <button type="button" id="holdings-add-btn" class="btn btn-primary icon-btn-label"><span class="material-symbols-rounded">add</span> Add holding</button>
 </div>
 
+<nav class="flex flex-wrap gap-1 mb-4 border-b border-slate-200 dark:border-slate-700" role="tablist" aria-label="Investments views">
+    <button type="button" class="inv-view-tab px-3 py-2 text-sm font-semibold border-b-2 border-[#135bec] text-[#135bec]" data-inv-view="overview" role="tab" aria-selected="true">Overview</button>
+    <button type="button" class="inv-view-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200" data-inv-view="holdings" role="tab" aria-selected="false">Holdings</button>
+</nav>
+
+<div id="inv-view-overview">
 <div class="stat-row">
     <div class="stat-card">
         <div class="stat-label">Portfolio Value</div>
@@ -29,9 +35,10 @@
 
 <!-- Gains & loss over time (fixed 90d window; chart always shown; section collapsible) -->
 <div class="card" id="inv-gains-section">
-    <div class="page-header inv-gains-card-header" style="margin-bottom: 0.5rem; align-items: center; justify-content: space-between; display: flex; flex-wrap: wrap; gap: 0.5rem;">
-        <h2 class="page-title" style="font-size: 1.1rem; margin: 0;">Gains &amp; loss over time</h2>
-        <button type="button" class="btn btn-sm btn-ghost" id="inv-gains-collapse-toggle" aria-expanded="true" aria-controls="inv-gains-body">
+    <div class="section-head inv-gains-card-header" style="margin-bottom: 0.5rem;">
+        <h2 class="section-title-sm"><span class="material-symbols-rounded">monitoring</span> Gains &amp; loss over time</h2>
+        <button type="button" class="btn btn-sm btn-ghost icon-btn-label" id="inv-gains-collapse-toggle" aria-expanded="true" aria-controls="inv-gains-body">
+            <span class="material-symbols-rounded">expand_less</span>
             Hide chart
         </button>
     </div>
@@ -55,10 +62,12 @@
         <p id="inv-gains-note" class="muted" style="font-size: 0.75rem; margin-top: 0.5rem; display:none;"></p>
     </div>
 </div>
+</div>
 
+<div id="inv-view-holdings" style="display: none;">
 <div class="card">
-    <div class="page-header" style="margin-bottom: 1rem;">
-        <h2 class="page-title" style="font-size: 1.1rem;">Holdings</h2>
+    <div class="section-head" style="margin-bottom: 1rem;">
+        <h2 class="section-title-sm"><span class="material-symbols-rounded">account_balance_wallet</span> Holdings</h2>
     </div>
     <p class="muted" style="margin-bottom: 0.75rem; font-size: 0.875rem;">
         Add symbols (e.g. AAPL, VOO) with quantity and average cost. Connect Alpaca on the
@@ -87,14 +96,15 @@
 </div>
 
 <div class="card">
-    <div class="page-header" style="margin-bottom: 1rem;">
-        <h2 class="page-title" style="font-size: 1.1rem;">Allocation</h2>
+    <div class="section-head" style="margin-bottom: 1rem;">
+        <h2 class="section-title-sm"><span class="material-symbols-rounded">donut_large</span> Allocation</h2>
     </div>
     <p class="muted" style="font-size: 0.875rem; margin-bottom: 1rem;">
         Breakdown of your portfolio by position weight. Run
         <a href="/recommendations">Recommendations</a> to see sector-level analysis and risk notes.
     </p>
     <div id="inv-allocation-list" class="muted">Add holdings above to see allocation.</div>
+</div>
 </div>
 
 <p style="margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-muted);">
@@ -145,6 +155,29 @@
 <script nonce="{{ csp_nonce | default('') }}" src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/investments.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
+(function () {
+    document.querySelectorAll('.inv-view-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var v = btn.getAttribute('data-inv-view');
+            var ov = document.getElementById('inv-view-overview');
+            var hd = document.getElementById('inv-view-holdings');
+            document.querySelectorAll('.inv-view-tab').forEach(function (b) {
+                var on = b.getAttribute('data-inv-view') === v;
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+                b.classList.toggle('border-[#135bec]', on);
+                b.classList.toggle('text-[#135bec]', on);
+                b.classList.toggle('border-transparent', !on);
+                b.classList.toggle('text-slate-500', !on);
+            });
+            if (ov) ov.style.display = v === 'overview' ? '' : 'none';
+            if (hd) hd.style.display = v === 'holdings' ? '' : 'none';
+        });
+    });
+    if (window.location.hash === '#holdings') {
+        var t = document.querySelector('.inv-view-tab[data-inv-view="holdings"]');
+        if (t) t.click();
+    }
+})();
 (function () {
     function fmt(n) {
         return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

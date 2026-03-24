@@ -51,6 +51,7 @@
             }
             if (!isPublic) {
                 initHouseholdSwitcher();
+                maybeAutoConnectCalendar();
             }
         } else {
             if (guest.length) {
@@ -64,6 +65,39 @@
                 });
             }
         }
+    }
+
+    function maybeAutoConnectCalendar() {
+        var keyDone = 'calendar_oauth_autoconnect_done_v1';
+        var keySkip = 'calendar_oauth_autoconnect_skip_v1';
+        var currentPath = window.location.pathname || '';
+        if (currentPath.indexOf('/api/') === 0 || currentPath === '/login' || currentPath === '/register') return;
+        try {
+            if (localStorage.getItem(keyDone) === '1' || localStorage.getItem(keySkip) === '1') return;
+        } catch (e) {
+            return;
+        }
+        if (!window.Auth || !window.Auth.fetchGatewayJson) return;
+        window.Auth.fetchGatewayJson('/api/v1/calendar/status')
+            .then(function(status) {
+                if (status && status.connected) {
+                    try { localStorage.setItem(keyDone, '1'); } catch (e) {}
+                    return;
+                }
+                if (!window.confirm('Connect your calendar now to automatically sync bill reminders and due dates?')) {
+                    try { localStorage.setItem(keySkip, '1'); } catch (e) {}
+                    return;
+                }
+                return window.Auth.fetchGatewayJson('/api/v1/calendar/oauth/authorize?provider=google&json=1')
+                    .then(function(data) {
+                        if (data && data.authorization_url) {
+                            window.location.href = data.authorization_url;
+                        }
+                    });
+            })
+            .catch(function() {
+                try { localStorage.setItem(keySkip, '1'); } catch (e) {}
+            });
     }
 
     function initHouseholdSwitcher() {
@@ -106,6 +140,8 @@
 
     var protectedPaths = [
         '/dashboard',
+        '/transactions',
+        '/analytics',
         '/expenses',
         '/expenses/add',
         '/expenses/import',
@@ -149,6 +185,28 @@
         if (greeting && window.Auth && window.Auth.isLoggedIn()) {
             var hour = new Date().getHours();
             greeting.textContent = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+        }
+        var syncEl = document.getElementById('shell-sync-status');
+        if (syncEl && window.Auth && window.Auth.fetchGatewayJson) {
+            window.Auth.fetchGatewayJson('/api/v1/sync-status').then(function (s) {
+                if (!s) return;
+                var parts = [];
+                if (s.bank_linked) {
+                    if (s.last_bank_connection_update_at) {
+                        parts.push('Bank linked · updated ' + new Date(s.last_bank_connection_update_at).toLocaleString());
+                    } else {
+                        parts.push('Bank linked');
+                    }
+                } else {
+                    parts.push('No bank connection');
+                }
+                if (s.apple_wallet_last_sync_at) {
+                    parts.push('Apple Wallet sync ' + new Date(s.apple_wallet_last_sync_at).toLocaleString());
+                }
+                syncEl.textContent = parts.join(' · ');
+            }).catch(function () {
+                syncEl.textContent = '';
+            });
         }
         var sidebarAvatar = document.getElementById('sidebar-avatar');
         var sidebarName = document.getElementById('sidebar-user-name');

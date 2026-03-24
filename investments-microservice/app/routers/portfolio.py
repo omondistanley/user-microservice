@@ -54,26 +54,30 @@ def _db_context() -> Dict[str, Any]:
 @router.get("/portfolio/value", response_model=dict)
 async def portfolio_value(
     user_id: int = Depends(get_current_user_id),
+    market_router: MarketDataRouter = Depends(_get_market_router),
 ):
-    """Aggregate holdings into a simple portfolio valuation snapshot.
-
-    For now, market value is approximated using quantity * avg_cost for each
-    position. This will be replaced by quote-driven valuation in later phases.
-    """
+    """Aggregate holdings; market value uses live quotes when available (same as sector breakdown)."""
     ds = _get_data_service()
     rows = ds.list_all_holdings_for_user(user_id)
 
     total_cost_basis = Decimal("0")
-    total_market_value = Decimal("0")
-
-    positions: list[dict] = []
     for row in rows:
         quantity = Decimal(str(row.get("quantity") or "0"))
         avg_cost = Decimal(str(row.get("avg_cost") or "0"))
+        total_cost_basis += quantity * avg_cost
+
+    positions_with_value = await _build_positions_with_value(rows, market_router)
+    value_by_symbol = {p["symbol"]: p["value"] for p in positions_with_value}
+
+    total_market_value = sum((p["value"] for p in positions_with_value), Decimal("0"))
+
+    positions: list[dict] = []
+    for row in rows:
+        symbol = (row.get("symbol") or "").strip().upper()
+        quantity = Decimal(str(row.get("quantity") or "0"))
+        avg_cost = Decimal(str(row.get("avg_cost") or "0"))
         position_cost = quantity * avg_cost
-        total_cost_basis += position_cost
-        # Until real quotes exist, treat cost basis as a proxy for market value.
-        total_market_value += position_cost
+        mv = value_by_symbol.get(symbol, position_cost)
         positions.append(
             {
                 "symbol": row.get("symbol"),
@@ -81,6 +85,7 @@ async def portfolio_value(
                 "avg_cost": avg_cost,
                 "currency": row.get("currency", "USD"),
                 "cost_basis": position_cost,
+                "market_value": mv,
             }
         )
 
@@ -92,7 +97,7 @@ async def portfolio_value(
         "unrealized_pl": unrealized_pl,
         "positions": positions,
         "metadata": {
-            "valuation_source": "holdings_cost_basis",
+            "valuation_source": "quotes_with_cost_fallback",
         },
     }
 

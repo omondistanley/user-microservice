@@ -47,17 +47,21 @@ NO_JWT_PREFIXES = (
 NO_JWT_EXACT = {"/", "/health", "/ready"}
 
 
-def _requires_jwt(path: str) -> bool:
+def _requires_jwt(path: str, method: str) -> bool:
     if path in NO_JWT_EXACT:
         return False
     # Public pre-auth endpoint used by Register flow (email validation)
     if path == "/api/v1/validate-email":
         return False
-    if path.startswith("/api/v1/") or path.startswith("/internal/"):
-        return True
+    # Gmail Pub/Sub push: verified by query token on expense service (POST only)
+    if method.upper() == "POST" and path.rstrip("/") == "/api/v1/gmail/webhook":
+        return False
+    # Prefix allowlist must be checked before blanket /api/v1 JWT rule
     for p in NO_JWT_PREFIXES:
         if path == p or path.startswith(p + "/"):
             return False
+    if path.startswith("/api/v1/") or path.startswith("/internal/"):
+        return True
     return False
 
 
@@ -142,7 +146,7 @@ async def gateway_proxy(request: Request, path: str):
     upstream_base, path_to_forward = get_upstream(full_path)
     query = str(request.url.query)
 
-    need_jwt = _requires_jwt(full_path)
+    need_jwt = _requires_jwt(full_path, request.method)
     user_id: int | None = None
 
     if need_jwt:

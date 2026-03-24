@@ -10,7 +10,11 @@ from app.config import (
 
 # List of (path_prefix, upstream_base). First match wins; list more specific first.
 ROUTES: list[tuple[str, str]] = [
-    # Expense
+    # Expense (more specific prefixes first)
+    ("/api/v1/recurring-budgets", BUDGET_SERVICE_URL),
+    ("/api/v1/transactions", EXPENSE_SERVICE_URL),
+    ("/api/v1/sync-status", EXPENSE_SERVICE_URL),
+    ("/api/v1/analytics", EXPENSE_SERVICE_URL),
     ("/api/v1/expenses", EXPENSE_SERVICE_URL),
     ("/api/v1/income", EXPENSE_SERVICE_URL),
     ("/api/v1/cashflow", EXPENSE_SERVICE_URL),
@@ -29,6 +33,7 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/reminders", EXPENSE_SERVICE_URL),
     ("/api/v1/export", EXPENSE_SERVICE_URL),
     ("/api/v1/apple-wallet", EXPENSE_SERVICE_URL),
+    ("/api/v1/gmail", EXPENSE_SERVICE_URL),
     # Net worth
     ("/api/v1/net-worth/summary", USER_SERVICE_URL),
     ("/api/v1/net-worth/assets", USER_SERVICE_URL),

@@ -7,11 +7,11 @@
         <h1 class="page-title">Budgets</h1>
         <p class="page-meta" id="budget-period"></p>
     </div>
-    <a href="/budgets/add" class="btn btn-primary">+ New Budget</a>
+    <a href="/budgets/add" class="btn btn-primary icon-btn-label"><span class="material-symbols-rounded">add</span> New Budget</a>
 </div>
 
 <!-- Stats row -->
-<div class="stat-row" style="margin-bottom:24px;">
+<div class="stat-row section-block">
     <div class="stat-card">
         <div class="stat-label">Total Budgeted</div>
         <div class="stat-value" id="budget-total-limit">—</div>
@@ -30,13 +30,13 @@
     </div>
 </div>
 
-<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
-    <button type="button" id="budget-alerts-evaluate-btn" class="btn btn-ghost btn-sm">Evaluate alerts</button>
+<div class="row-gap-md section-block">
+    <button type="button" id="budget-alerts-evaluate-btn" class="btn btn-ghost btn-sm icon-btn-label"><span class="material-symbols-rounded">notifications_active</span> Evaluate alerts</button>
     <p id="budget-alerts-status" class="form-hint" style="margin:0;"></p>
 </div>
 
 <!-- Overall progress -->
-<div class="card" style="margin-bottom:24px;display:flex;align-items:center;gap:32px;">
+<div class="card section-block" style="display:flex;align-items:center;gap:32px;">
     <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
         <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg);">
             <circle cx="60" cy="60" r="50" fill="none" stroke="var(--s100)" stroke-width="14"/>
@@ -54,7 +54,7 @@
 </div>
 
 <!-- Budget cards -->
-<div id="budgets-categories-list" class="budget-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+<div id="budgets-categories-list" class="budget-cards-grid section-block" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
     <p style="color:var(--s400);font-size:14px;">Loading…</p>
 </div>
 {% endblock %}

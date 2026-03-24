@@ -1,12 +1,13 @@
 """
 Sentiment API: last 7d trend per symbol (optional).
+Sprint 3 extension: fused sentiment (FinBERT news + EDGAR Form 4 insider).
 """
 from datetime import date
 
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import get_current_user_id
-from app.services.sentiment_service import get_daily_scores, rolling_average
+from app.services.sentiment_service import get_daily_scores, get_fused_sentiment, rolling_average
 from app.core.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, SENTIMENT_LOOKBACK_DAYS
 
 router = APIRouter(prefix="/api/v1", tags=["sentiment"])
@@ -37,4 +38,20 @@ async def get_sentiment_trend(
         "daily_scores": [{"date": str(d["snapshot_date"]), "score": d["score"]} for d in days],
         "rolling_avg_7d": round(rolling_avg, 4) if rolling_avg is not None else None,
     }
+
+
+@router.get("/sentiment/{symbol}/fused", response_model=dict)
+async def get_sentiment_fused(
+    symbol: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Sprint 3: Multi-source fused sentiment.
+    Combines FinBERT 7-day rolling news score (70%) with EDGAR Form 4
+    insider activity score (30%). Both sources degrade gracefully.
+    """
+    context = _db_context()
+    today = date.today()
+    result = get_fused_sentiment(context, symbol.strip().upper(), today)
+    return result
 

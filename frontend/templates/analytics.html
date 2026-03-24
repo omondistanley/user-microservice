@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block body_class %}analytics-page{% endblock %}
+{% block title %}Analytics — pocketii{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 pb-24 md:pb-8">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">Analytics overview</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Trailing period totals and spend by category</p>
+    <div id="analytics-status" class="text-sm text-slate-500 mb-4"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Income</p>
+            <p id="an-income" class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">—</p>
+        </div>
+        <div class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Expenses</p>
+            <p id="an-expense" class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">—</p>
+        </div>
+        <div class="rounded-2xl bg-[#0f172a] text-white p-5 shadow-lg">
+            <p class="text-xs font-bold uppercase tracking-wider opacity-70">Net</p>
+            <p id="an-net" class="text-2xl font-extrabold mt-1">—</p>
+        </div>
+    </div>
+    <div class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="font-bold text-slate-900 dark:text-white mb-4">Spend by category</h2>
+        <ul id="an-cats" class="space-y-2 text-sm"></ul>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/analytics.js"></script>
+{% endblock %}

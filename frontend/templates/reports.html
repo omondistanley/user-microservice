@@ -5,22 +5,22 @@
 <div class="content-inner">
 
   <!-- Page Header with period selector -->
-  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+  <div class="page-header page-toolbar">
     <h1 class="page-title">Reports</h1>
-    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-      <label for="reports-period" class="form-label" style="margin:0;white-space:nowrap;">Period</label>
-      <select id="reports-period" class="form-select" style="width:auto;">
+    <div class="page-toolbar-controls">
+      <label for="reports-period" class="form-label" style="margin:0;white-space:nowrap;"><span class="icon-btn-label"><span class="material-symbols-rounded">calendar_month</span> Period</span></label>
+      <select id="reports-period" class="form-select w-auto">
         <option value="month">This Month</option>
         <option value="quarter">This Quarter</option>
         <option value="year">This Year</option>
       </select>
-      <label for="reports-currency" class="form-label" style="margin:0;white-space:nowrap;">Currency</label>
-      <select id="reports-currency" class="form-select" style="width:auto;">
+      <label for="reports-currency" class="form-label" style="margin:0;white-space:nowrap;"><span class="icon-btn-label"><span class="material-symbols-rounded">payments</span> Currency</span></label>
+      <select id="reports-currency" class="form-select w-auto">
         <option value="USD">USD</option>
         <option value="EUR">EUR</option>
         <option value="GBP">GBP</option>
       </select>
-      <button type="button" id="reports-save-view-btn" class="btn btn-primary btn-sm">Save current view</button>
+      <button type="button" id="reports-save-view-btn" class="btn btn-primary btn-sm icon-btn-label"><span class="material-symbols-rounded">bookmark_add</span> Save current view</button>
     </div>
   </div>
 
@@ -41,18 +41,18 @@
   </div>
 
   <!-- Two-card layout -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.25rem;margin-top:1.25rem;">
+  <div class="section-block" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.25rem;">
 
     <!-- Spending by Category -->
     <div class="card">
-      <h2 style="font-size:1rem;font-weight:600;margin:0 0 1rem;">Spending by Category</h2>
+      <h2 class="section-title-sm"><span class="material-symbols-rounded">pie_chart</span> Spending by Category</h2>
       <div class="table-wrap">
         <table id="reports-category-table">
           <thead>
             <tr>
               <th>Category</th>
-              <th style="text-align:right;">Amount</th>
-              <th style="text-align:right;">Share</th>
+              <th class="table-right">Amount</th>
+              <th class="table-right">Share</th>
               <th>Trend</th>
             </tr>
           </thead>
@@ -67,7 +67,7 @@
 
     <!-- Period Comparison -->
     <div class="card" id="reports-comparison">
-      <h2 style="font-size:1rem;font-weight:600;margin:0 0 1rem;">Period Comparison</h2>
+      <h2 class="section-title-sm"><span class="material-symbols-rounded">compare_arrows</span> Period Comparison</h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;" id="reports-comparison-inner">
         <div>
           <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-muted,#6b7280);margin-bottom:0.5rem;">Current</div>
@@ -85,11 +85,18 @@
     </div>
 
   </div><!-- end grid -->
+
+  <div class="card" style="margin-top:1rem;">
+    <h2 class="section-title-sm"><span class="material-symbols-rounded">show_chart</span> Spending trend</h2>
+    <p class="text-secondary" style="margin:0 0 .75rem;font-size:13px;">Visual trend for the selected period to quickly spot spend acceleration.</p>
+    <div id="reports-trend-chart" style="min-height:220px;"></div>
+  </div>
 </div><!-- end content-inner -->
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/income.js"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/charts.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
   var CATEGORY_NAMES = { 1: 'Food', 2: 'Transportation', 3: 'Travel', 4: 'Utilities', 5: 'Entertainment', 6: 'Health', 7: 'Shopping', 8: 'Other' };
@@ -281,9 +288,14 @@
       ? window.Expenses.getSummary('category', prevRange.dateFrom, prevRange.dateTo, currentCurrency)
       : Promise.resolve({ items: [] });
 
-    Promise.all([catPromise, prevCatPromise]).then(function(res) {
+    var monthTrendPromise = window.Expenses && window.Expenses.getSummary
+      ? window.Expenses.getSummary('month', range.dateFrom, range.dateTo, currentCurrency)
+      : Promise.resolve({ items: [] });
+
+    Promise.all([catPromise, prevCatPromise, monthTrendPromise]).then(function(res) {
       var catItems  = (res[0] && res[0].items) || [];
       var prevItems = (res[1] && res[1].items) || [];
+      var monthItems = (res[2] && res[2].items) || [];
 
       var currentTotal = 0;
       catItems.forEach(function(i) { currentTotal += Number(i.total_amount) || 0; });
@@ -294,6 +306,9 @@
 
       renderCategoryTable(catItems, currentTotal);
       renderComparison(currentTotal, prevTotal, currentRange);
+      if (window.ExpenseCharts && window.ExpenseCharts.renderMonthlyTrendChart) {
+        window.ExpenseCharts.renderMonthlyTrendChart('reports-trend-chart', monthItems);
+      }
     }).catch(function() {
       if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-muted,#6b7280);">Unable to load data.</td></tr>';
     });

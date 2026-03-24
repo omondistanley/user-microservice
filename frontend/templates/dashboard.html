@@ -14,7 +14,7 @@
                 <span class="m-balance-chip-label">Income</span>
                 <span class="m-balance-chip-val income" id="m-dashboard-income">—</span>
             </div>
-            <div class="m-balance-chip" style="margin-left:20px;">
+            <div class="m-balance-chip m-balance-chip-spaced">
                 <span class="m-balance-chip-label">Expenses</span>
                 <span class="m-balance-chip-val expense" id="m-dashboard-expenses">—</span>
             </div>
@@ -41,68 +41,65 @@
         <a href="/expenses" class="m-section-link">View all →</a>
     </div>
     <ul class="m-list" id="m-dashboard-txn-list">
-        <li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Loading…</li>
+        <li class="m-loading-item">Loading…</li>
     </ul>
 
     <!-- Budget Overview -->
-    <div class="m-section-header" style="margin-top:16px;">
+    <div class="m-section-header m-section-header-spaced">
         <span class="m-section-title">Budgets</span>
         <a href="/budgets" class="m-section-link">All →</a>
     </div>
     <div id="m-dashboard-budgets">
-        <p style="font-size:13px;color:var(--s400);">Loading…</p>
+        <p class="m-loading-copy">Loading…</p>
     </div>
 
     <!-- Quick Actions -->
-    <div class="m-card" style="margin-top:16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <a href="/expenses/add" class="btn btn-primary btn-sm" style="justify-content:center;">+ Expense</a>
-            <a href="/income/add" class="btn btn-ghost btn-sm" style="justify-content:center;">+ Income</a>
-            <a href="/link-bank" class="btn btn-ghost btn-sm" style="justify-content:center;"><span class="material-symbols-rounded">account_balance</span> Link Bank</a>
-            <a href="/reports" class="btn btn-ghost btn-sm" style="justify-content:center;"><span class="material-symbols-rounded">dashboard</span> Reports</a>
+    <div class="m-card m-card-spaced">
+        <div class="m-quick-actions-grid">
+            <a href="/expenses/add" class="btn btn-primary btn-sm btn-block-centered">+ Expense</a>
+            <a href="/income/add" class="btn btn-ghost btn-sm btn-block-centered">+ Income</a>
+            <a href="/link-bank" class="btn btn-ghost btn-sm btn-block-centered"><span class="material-symbols-rounded">account_balance</span> Link Bank</a>
+            <a href="/reports" class="btn btn-ghost btn-sm btn-block-centered"><span class="material-symbols-rounded">dashboard</span> Reports</a>
         </div>
     </div>
 </div>
 
 <!-- ── DESKTOP DASHBOARD ── (hidden on mobile) -->
 <div class="m-dash-desktop">
+    <div class="dash-editorial-grid">
+        <section class="dash-balance-anchor">
+            <div class="dash-balance-label">Running Balance</div>
+            <h1 class="dash-balance-value" id="dashboard-total-balance">—</h1>
+            <div class="dash-balance-trend" id="dashboard-balance-change">Updated this month</div>
+            <div class="dash-balance-glow"></div>
+        </section>
 
-<!-- 4-stat row -->
-<div class="stat-row">
-    <div class="stat-card">
-        <div class="stat-label">Running Balance</div>
-        <div class="stat-value" id="dashboard-total-balance">—</div>
-        <div class="stat-change" id="dashboard-balance-change"></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Monthly Expenses</div>
-        <div class="stat-value" id="dashboard-expenses">—</div>
-        <div class="stat-change down" id="dashboard-expense-change"></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Monthly Income</div>
-        <div class="stat-value" id="dashboard-income">—</div>
-        <div class="stat-change up" id="dashboard-income-change"></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Savings Rate</div>
-        <div class="stat-value" id="dashboard-savings-rate">—</div>
-        <div class="stat-change" id="dashboard-savings-change"></div>
-    </div>
-</div>
-
-<!-- Two-column content -->
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-top:0;">
-
-    <!-- LEFT -->
-    <div style="display:flex;flex-direction:column;gap:24px;">
-
-        <!-- Recent Transactions -->
-        <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Recent Transactions</h2>
-                <a href="/expenses" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">View all →</a>
+        <section class="dash-side-kpis">
+            <div class="dash-side-kpi">
+                <div class="dash-side-kpi-label">Monthly Expenses</div>
+                <div class="dash-side-kpi-value" id="dashboard-expenses">—</div>
+                <div class="stat-change down" id="dashboard-expense-change"></div>
             </div>
+            <div class="dash-side-kpi">
+                <div class="dash-side-kpi-label">Monthly Income</div>
+                <div class="dash-side-kpi-value" id="dashboard-income">—</div>
+                <div class="stat-change up" id="dashboard-income-change"></div>
+            </div>
+            <div class="dash-side-kpi">
+                <div class="dash-side-kpi-label">Savings Rate</div>
+                <div class="dash-side-kpi-value" id="dashboard-savings-rate">—</div>
+                <div class="stat-change" id="dashboard-savings-change"></div>
+            </div>
+        </section>
+    </div>
+
+    <div class="dash-main-layout">
+        <div class="dash-main-column">
+            <div class="card">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Recent Transactions</h2>
+                    <a href="/expenses" class="dash-section-link">View all →</a>
+                </div>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -110,11 +107,11 @@
                             <th>Date</th>
                             <th>Description</th>
                             <th>Category</th>
-                            <th style="text-align:right;">Amount</th>
+                            <th class="table-right">Amount</th>
                         </tr>
                     </thead>
                     <tbody id="dashboard-transactions-tbody">
-                        <tr><td colspan="4" style="color:var(--s400);text-align:center;padding:24px;">Loading…</td></tr>
+                        <tr><td colspan="4" class="table-loading-row"><div class="skeleton-line skeleton-line--wide"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -122,53 +119,71 @@
 
         <!-- Spending by Category -->
         <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Spending by Category</h2>
-                <a href="/reports" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">Full report →</a>
+            <div class="dash-section-head">
+                <h2 class="dash-section-title">Spending by Category</h2>
+                <a href="/reports" class="dash-section-link">Full report →</a>
             </div>
             <div id="dashboard-category-bars">
-                <p style="color:var(--s400);font-size:13px;">Loading…</p>
+                <p class="table-loading-copy">Loading…</p>
+            </div>
+        </div>
+
+        <!-- Recurring & monthly pace (data from expense service) -->
+        <div class="card">
+            <div class="dash-section-head">
+                <h2 class="dash-section-title">Recurring &amp; cash pace</h2>
+                <a href="/recurring" class="dash-section-link">Manage recurring →</a>
+            </div>
+            <div id="dashboard-recurring-panel">
+                <p class="table-loading-copy">Loading…</p>
+            </div>
+        </div>
+        </div>
+
+        <div class="dash-side-column">
+            <div class="card" id="dashboard-checklist-card" style="display:none;">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Get started</h2>
+                </div>
+                <ul style="margin:0;padding:0 0 0 1.1rem;font-size:13px;color:var(--text-secondary);line-height:1.7;">
+                    <li><a href="/link-bank">Link a bank account</a></li>
+                    <li><a href="/expenses/add">Log an expense</a></li>
+                    <li><a href="/budgets/add">Create a budget</a></li>
+                    <li><a href="/goals/add">Add a savings goal</a></li>
+                </ul>
+                <button type="button" class="btn btn-ghost btn-sm" id="dashboard-checklist-dismiss" style="margin-top:12px;">Dismiss</button>
+            </div>
+            <div class="card">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Budget Overview</h2>
+                    <a href="/budgets" class="dash-section-link">All budgets →</a>
+                </div>
+                <div id="dashboard-budgets-list">
+                    <p class="table-loading-copy">Loading…</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Savings Goals</h2>
+                    <a href="/goals" class="dash-section-link">All goals →</a>
+                </div>
+                <div id="dashboard-goals-list">
+                    <p class="table-loading-copy">Loading…</p>
+                </div>
+            </div>
+
+            <div class="card dash-quick-card">
+                <h2 class="dash-section-title">Quick Actions</h2>
+                <div class="dash-quick-actions-col">
+                    <a href="/expenses/add" class="btn btn-primary btn-sm btn-block-centered">+ Add</a>
+                    <a href="/income/add" class="btn btn-ghost btn-sm btn-block-centered">+ Add Income</a>
+                    <a href="/link-bank" class="btn btn-ghost btn-sm btn-block-centered"><span class="material-symbols-rounded">account_balance</span> Link Bank</a>
+                    <a href="/expenses/import" class="btn btn-ghost btn-sm btn-block-centered"><span class="material-symbols-rounded">download</span> Import CSV</a>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- RIGHT -->
-    <div style="display:flex;flex-direction:column;gap:24px;">
-
-        <!-- Budget Overview -->
-        <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Budget Overview</h2>
-                <a href="/budgets" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">All budgets →</a>
-            </div>
-            <div id="dashboard-budgets-list">
-                <p style="color:var(--s400);font-size:13px;">Loading…</p>
-            </div>
-        </div>
-
-        <!-- Savings Goals -->
-        <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h2 style="font-size:15px;font-weight:700;color:var(--s900);">Savings Goals</h2>
-                <a href="/goals" style="font-size:12px;font-weight:600;color:var(--indigo);text-decoration:none;">All goals →</a>
-            </div>
-            <div id="dashboard-goals-list">
-                <p style="color:var(--s400);font-size:13px;">Loading…</p>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="card" style="background:var(--s50);border-color:var(--s100);">
-            <h2 style="font-size:15px;font-weight:700;color:var(--s900);margin-bottom:12px;">Quick Actions</h2>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-                <a href="/expenses/add" class="btn btn-primary btn-sm" style="justify-content:center;">+ Add</a>
-                <a href="/income/add" class="btn btn-ghost btn-sm" style="justify-content:center;">+ Add Income</a>
-                <a href="/link-bank" class="btn btn-ghost btn-sm" style="justify-content:center;"><span class="material-symbols-rounded">account_balance</span> Link Bank</a>
-                <a href="/expenses/import" class="btn btn-ghost btn-sm" style="justify-content:center;"><span class="material-symbols-rounded">download</span> Import CSV</a>
-            </div>
-        </div>
-    </div>
-</div>
 </div><!-- end .m-dash-desktop -->
 {% endblock %}
 {% block scripts %}
@@ -200,6 +215,8 @@
     var catsEl      = document.getElementById('dashboard-category-bars');
     var budgetsEl   = document.getElementById('dashboard-budgets-list');
     var goalsEl     = document.getElementById('dashboard-goals-list');
+    var recurringEl = document.getElementById('dashboard-recurring-panel');
+    var checklistCard = document.getElementById('dashboard-checklist-card');
     var currentCurrency = 'USD';
 
     function fmt(val) {
@@ -232,14 +249,64 @@
         return '<span class="material-symbols-rounded">assignment</span>';
     }
 
+    function loadRecurringPanel() {
+        if (!recurringEl || !window.Auth || !window.Auth.getAuthHeaders) return;
+        var api = window.EXPENSE_API_BASE || '';
+        var headers = window.Auth.getAuthHeaders();
+        var fn = window.Auth.requestWithRefresh
+            ? function() { return window.Auth.requestWithRefresh(api + '/api/v1/recurring-expenses/dashboard', { headers: headers }); }
+            : function() { return fetch(api + '/api/v1/recurring-expenses/dashboard', { headers: headers }); };
+        fn().then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(d) {
+                var totalM = d.total_monthly_recurring != null ? fmt(d.total_monthly_recurring) : '—';
+                var expl = d.explicit || [];
+                var head = '<p style="font-size:12px;color:var(--s500);margin:0 0 10px;">Estimated monthly from recurring rules: <strong style="color:var(--s800);">' + totalM + '</strong></p>';
+                if (!expl.length) {
+                    recurringEl.innerHTML = head + '<p style="font-size:13px;color:var(--s400);margin:0;">No active recurring items. <a href="/recurring" style="color:var(--indigo);">Add one</a></p>';
+                    return;
+                }
+                recurringEl.innerHTML = head + expl.slice(0, 6).map(function(x) {
+                    var desc = String(x.description || 'Recurring').replace(/</g,'&lt;');
+                    var due = x.next_due_date ? String(x.next_due_date).slice(0, 10) : '—';
+                    var amt = x.amount != null ? fmt(x.amount) : '—';
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle, var(--s200));font-size:13px;flex-wrap:wrap;">' +
+                        '<span style="color:var(--s800);font-weight:600;flex:1;min-width:120px;">' + desc + '</span>' +
+                        '<span style="color:var(--s500);">Next ' + due + '</span>' +
+                        '<span style="font-weight:700;color:var(--s900);">' + amt + '</span></div>';
+                }).join('');
+            }).catch(function() {
+                recurringEl.innerHTML = '<p style="font-size:13px;color:var(--s400);">Could not load recurring summary. '
+                    + '<button type="button" class="btn btn-sm btn-ghost js-recurring-retry">Retry</button></p>';
+                var b = recurringEl.querySelector('.js-recurring-retry');
+                if (b) b.addEventListener('click', function () { loadRecurringPanel(); });
+            });
+    }
+
+    function initChecklist() {
+        if (!checklistCard) return;
+        try {
+            if (localStorage.getItem('pocketii_setup_checklist_v1') === '1') return;
+        } catch (e) { return; }
+        if (window.Auth && window.Auth.isLoggedIn && window.Auth.isLoggedIn()) {
+            checklistCard.style.display = 'block';
+        }
+        var btn = document.getElementById('dashboard-checklist-dismiss');
+        if (btn) btn.addEventListener('click', function() {
+            try { localStorage.setItem('pocketii_setup_checklist_v1', '1'); } catch (e) {}
+            checklistCard.style.display = 'none';
+        });
+    }
+
     function initCurrency() {
         try { var s = localStorage.getItem('default_currency'); if (s) currentCurrency = s.toUpperCase(); } catch(e){}
         if (window.Settings && window.Settings.get) {
             window.Settings.get().then(function(s) {
                 if (s && s.default_currency) { currentCurrency = s.default_currency.toUpperCase(); try { localStorage.setItem('default_currency', currentCurrency); } catch(e){} }
                 loadAll();
-            }).catch(function() { loadAll(); });
-        } else { loadAll(); }
+                loadRecurringPanel();
+                initChecklist();
+            }).catch(function() { loadAll(); loadRecurringPanel(); initChecklist(); });
+        } else { loadAll(); loadRecurringPanel(); initChecklist(); }
     }
 
     function loadAll() {
@@ -314,6 +381,12 @@
             }
         }).catch(function() {
             if (balanceEl) balanceEl.textContent = '—';
+            var retryBar = '<p style="color:var(--s500);font-size:13px;margin:0;">Could not load summary. '
+                + '<button type="button" class="btn btn-sm btn-primary js-dash-retry">Retry</button></p>';
+            if (catsEl) catsEl.innerHTML = retryBar;
+            if (budgetsEl) budgetsEl.innerHTML = '<p style="color:var(--s400);font-size:13px;">—</p>';
+            var rb = document.querySelector('.js-dash-retry');
+            if (rb) rb.addEventListener('click', function () { initCurrency(); });
         });
 
         // Recent transactions
@@ -347,7 +420,10 @@
                     }).join('');
                 })
                 .catch(function() {
-                    tbodyEl.innerHTML = '<tr><td colspan="4" style="color:var(--s400);text-align:center;">Could not load.</td></tr>';
+                    tbodyEl.innerHTML = '<tr><td colspan="4" style="color:var(--s400);text-align:center;padding:20px;">Could not load transactions. '
+                        + '<button type="button" class="btn btn-sm btn-ghost js-dash-txn-retry">Retry</button></td></tr>';
+                    var b = tbodyEl.querySelector('.js-dash-txn-retry');
+                    if (b) b.addEventListener('click', function () { initCurrency(); });
                 });
         }
 
@@ -380,7 +456,10 @@
                             '</div>';
                     }).join('');
                 }).catch(function() {
-                    goalsEl.innerHTML = '<p style="color:var(--s400);font-size:13px;">Could not load goals.</p>';
+                    goalsEl.innerHTML = '<p style="color:var(--s400);font-size:13px;">Could not load goals. '
+                        + '<button type="button" class="btn btn-sm btn-ghost js-dash-goals-retry">Retry</button></p>';
+                    var g = goalsEl.querySelector('.js-dash-goals-retry');
+                    if (g) g.addEventListener('click', function () { initCurrency(); });
                 });
         }
     }
@@ -473,7 +552,14 @@
                     }).join('');
                 }
             }
-        }).catch(function() {});
+        }).catch(function() {
+            if (mBudgets) {
+                mBudgets.innerHTML = '<p style="font-size:13px;color:var(--s500);">Could not load. '
+                    + '<button type="button" class="btn btn-sm btn-primary js-m-dash-retry">Retry</button></p>';
+                var mr = mBudgets.querySelector('.js-m-dash-retry');
+                if (mr) mr.addEventListener('click', function () { loadMobile(); });
+            }
+        });
 
         // Mobile recent transactions
         if (mTxnList && window.Expenses && window.Expenses.buildListQuery) {
@@ -507,7 +593,10 @@
                             '</a></li>';
                     }).join('');
                 }).catch(function() {
-                    mTxnList.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Could not load.</li>';
+                    mTxnList.innerHTML = '<li style="padding:20px;text-align:center;color:var(--s400);font-size:13px;">Could not load. '
+                        + '<button type="button" class="btn btn-sm btn-ghost js-m-txn-retry">Retry</button></li>';
+                    var mb = mTxnList.querySelector('.js-m-txn-retry');
+                    if (mb) mb.addEventListener('click', function () { loadMobile(); });
                 });
         }
     }

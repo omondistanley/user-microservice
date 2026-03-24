@@ -118,6 +118,14 @@ WEBHOOK_SECRETS_JSON: str = os.environ.get("WEBHOOK_SECRETS_JSON", "{}")
 # Calendar subscription token links.
 CALENDAR_TOKEN_BASE_URL: str = os.environ.get("CALENDAR_TOKEN_BASE_URL", APP_BASE_URL.rstrip("/"))
 
+# Calendar OAuth (Google + provider abstraction for future Apple support).
+CALENDAR_OAUTH_ENABLED: bool = os.environ.get("CALENDAR_OAUTH_ENABLED", "true").lower() in ("1", "true", "yes")
+GOOGLE_CALENDAR_CLIENT_ID: str = os.environ.get("GOOGLE_CALENDAR_CLIENT_ID", GOOGLE_CLIENT_ID)
+GOOGLE_CALENDAR_CLIENT_SECRET: str = os.environ.get("GOOGLE_CALENDAR_CLIENT_SECRET", GOOGLE_CLIENT_SECRET)
+GOOGLE_CALENDAR_REDIRECT_URI: str = os.environ.get("GOOGLE_CALENDAR_REDIRECT_URI", "").rstrip("/")
+APPLE_CALENDAR_CLIENT_ID: str = os.environ.get("APPLE_CALENDAR_CLIENT_ID", APPLE_CLIENT_ID)
+APPLE_CALENDAR_REDIRECT_URI: str = os.environ.get("APPLE_CALENDAR_REDIRECT_URI", "").rstrip("/")
+
 
 def get_webhook_secrets() -> dict[str, str]:
     """Return provider->secret map from WEBHOOK_SECRETS_JSON, fail-closed to empty map."""

@@ -34,6 +34,7 @@ Caching:
 import logging
 import threading
 import time
+import xml.etree.ElementTree as ET
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -47,9 +48,23 @@ _SEC_HEADERS = {
     "Accept-Encoding": "gzip, deflate",
     "Host": "data.sec.gov",
 }
+_SEC_FILING_HEADERS = {
+    "User-Agent": "pocketii-personal-finance dev@pocketii.app",
+    "Accept-Encoding": "gzip, deflate",
+}
 _SEC_TICKER_URL = "https://www.sec.gov/files/company_tickers.json"
 _SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
+# Form 4 XML primary document URL pattern
+_SEC_FILING_DOC_URL = "https://www.sec.gov/Archives/edgar/full-index/{year}/{quarter}/form.idx"
+_SEC_ACCESSION_BASE = "https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/"
 _REQUEST_TIMEOUT = 10  # seconds
+
+# ---------------------------------------------------------------------------
+# XML filing cache  { accession_number: (timestamp, parsed_transactions) }
+# ---------------------------------------------------------------------------
+_filing_cache: Dict[str, Tuple[float, List[Dict]]] = {}
+_filing_cache_lock = threading.Lock()
+_FILING_CACHE_TTL = 86_400  # 24 hours
 
 # ---------------------------------------------------------------------------
 # Module-level CIK map cache  (symbol → zero-padded 10-digit CIK string)
@@ -132,6 +147,157 @@ def _fetch_submissions(cik: str) -> Dict[str, Any]:
         return {}
 
 
+def _fetch_form4_xml(cik: str, accession_number: str) -> Optional[str]:
+    """
+    Fetch the primary Form 4 XML document for a given accession number.
+    Accession number format: 0001234567-23-012345  (dashes)
+    SEC path format:         0001234567-23-012345 → 000123456723012345 (no dashes)
+    Returns XML string or None on failure.
+    """
+    now = time.monotonic()
+    with _filing_cache_lock:
+        cached = _filing_cache.get(accession_number)
+        if cached and (now - cached[0]) < _FILING_CACHE_TTL:
+            # Return sentinel "" to indicate cached empty result
+            return None if cached[1] is None else "__cached__"
+
+    accession_nodash = accession_number.replace("-", "")
+    base_url = _SEC_ACCESSION_BASE.format(cik=cik.lstrip("0"), accession=accession_nodash)
+    # The primary Form 4 document is typically named after the accession number
+    xml_url = f"{base_url}{accession_nodash}.xml"
+    try:
+        resp = requests.get(xml_url, headers=_SEC_FILING_HEADERS, timeout=_REQUEST_TIMEOUT)
+        if resp.status_code == 404:
+            # Try alternate filename pattern
+            xml_url2 = f"{base_url}form4.xml"
+            resp = requests.get(xml_url2, headers=_SEC_FILING_HEADERS, timeout=_REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        return resp.text
+    except Exception as exc:
+        logger.debug("edgar_form4_xml_fetch_failed acc=%s: %s", accession_number, exc)
+        return None
+
+
+def _parse_form4_xml(xml_text: str, filed_date: str) -> List[Dict[str, Any]]:
+    """
+    Parse SEC Form 4 XML and extract non-derivative transactions.
+
+    Returns list of dicts with keys:
+      transaction_date, transaction_type (P/S/A/D/etc),
+      shares, price_per_share, value_usd, insider_name, acquisition_or_disposition
+    """
+    transactions: List[Dict[str, Any]] = []
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        logger.debug("form4_xml_parse_error: %s", exc)
+        return transactions
+
+    # Namespaces vary; strip them for simple tag matching
+    def _tag(el) -> str:
+        return el.tag.split("}")[-1] if "}" in el.tag else el.tag
+
+    def _text(el, tag: str) -> Optional[str]:
+        child = el.find(f".//{tag}")
+        if child is None:
+            # Try with possible namespace prefix
+            for c in el.iter():
+                if _tag(c) == tag:
+                    return (c.text or "").strip() or None
+            return None
+        return (child.text or "").strip() or None
+
+    # Insider name from reportingOwner
+    insider_name = ""
+    for owner in root.iter():
+        if _tag(owner) == "reportingOwner":
+            name_el = None
+            for child in owner.iter():
+                if _tag(child) == "rptOwnerName":
+                    name_el = child
+                    break
+            if name_el is not None and name_el.text:
+                insider_name = name_el.text.strip()
+            break
+
+    # nonDerivativeTable → nonDerivativeTransaction entries
+    for el in root.iter():
+        if _tag(el) != "nonDerivativeTransaction":
+            continue
+
+        # Transaction type: P (purchase), S (sale), A (award), D (disposition), etc.
+        t_code = None
+        for child in el.iter():
+            if _tag(child) == "transactionCode":
+                t_code = (child.text or "").strip().upper() or None
+                break
+
+        # Transaction date
+        tx_date = filed_date  # fallback
+        for child in el.iter():
+            if _tag(child) == "transactionDate":
+                # value element
+                for val in child.iter():
+                    if _tag(val) == "value" and val.text:
+                        tx_date = val.text.strip()
+                        break
+                break
+
+        # Shares
+        shares: Optional[float] = None
+        for child in el.iter():
+            if _tag(child) == "transactionShares":
+                for val in child.iter():
+                    if _tag(val) == "value" and val.text:
+                        try:
+                            shares = float(val.text.strip())
+                        except ValueError:
+                            pass
+                        break
+                break
+
+        # Price per share
+        price: Optional[float] = None
+        for child in el.iter():
+            if _tag(child) == "transactionPricePerShare":
+                for val in child.iter():
+                    if _tag(val) == "value" and val.text:
+                        try:
+                            price = float(val.text.strip())
+                        except ValueError:
+                            pass
+                        break
+                break
+
+        # Acquisition (A) or Disposition (D)
+        acq_disp = None
+        for child in el.iter():
+            if _tag(child) == "transactionAcquiredDisposedCode":
+                for val in child.iter():
+                    if _tag(val) == "value" and val.text:
+                        acq_disp = val.text.strip().upper()
+                        break
+                break
+
+        value_usd: Optional[float] = None
+        if shares is not None and price is not None:
+            value_usd = round(shares * price, 2)
+
+        transactions.append({
+            "transaction_date": tx_date[:10] if tx_date else filed_date,
+            "transaction_type": t_code or (
+                "P" if acq_disp == "A" else ("S" if acq_disp == "D" else "unknown")
+            ),
+            "shares": shares,
+            "price_per_share": price,
+            "value_usd": value_usd,
+            "insider_name": insider_name,
+            "acquisition_or_disposition": acq_disp,
+        })
+
+    return transactions
+
+
 def get_recent_form4_transactions(
     symbol: str,
     lookback_days: int = 90,
@@ -184,20 +350,50 @@ def get_recent_form4_transactions(
         if filed < cutoff:
             continue
 
-        # For a full implementation, parse the actual XML filing for share counts
-        # and transaction type.  For Sprint 3 we return the filing metadata;
-        # the score computation uses presence/absence + filing counts as proxy.
-        results.append({
-            "filed": str(filed),
-            "transaction_date": str(filed),  # actual date is in the XML
-            "transaction_type": "unknown",   # requires XML parse — Sprint 4
-            "shares": None,
-            "price_per_share": None,
-            "value_usd": None,
-            "insider_name": "",
-            "form_type": form_type,
-            "accession_number": accession_nums[i] if i < len(accession_nums) else "",
-        })
+        accession = accession_nums[i] if i < len(accession_nums) else ""
+        filed_str = str(filed)
+
+        # Sprint 4: parse the actual XML filing for transaction type, shares, price
+        xml_transactions: List[Dict[str, Any]] = []
+        if accession and cik:
+            cached_key = accession
+            with _filing_cache_lock:
+                cached = _filing_cache.get(cached_key)
+            if cached and (time.monotonic() - cached[0]) < _FILING_CACHE_TTL:
+                xml_transactions = cached[1] or []
+            else:
+                xml_text = _fetch_form4_xml(cik, accession)
+                if xml_text and xml_text != "__cached__":
+                    xml_transactions = _parse_form4_xml(xml_text, filed_str)
+                    with _filing_cache_lock:
+                        _filing_cache[cached_key] = (time.monotonic(), xml_transactions)
+
+        if xml_transactions:
+            for tx in xml_transactions:
+                results.append({
+                    "filed": filed_str,
+                    "transaction_date": tx.get("transaction_date", filed_str),
+                    "transaction_type": tx.get("transaction_type", "unknown"),
+                    "shares": tx.get("shares"),
+                    "price_per_share": tx.get("price_per_share"),
+                    "value_usd": tx.get("value_usd"),
+                    "insider_name": tx.get("insider_name", ""),
+                    "form_type": form_type,
+                    "accession_number": accession,
+                })
+        else:
+            # Fallback: filing metadata only (no XML or parse failed)
+            results.append({
+                "filed": filed_str,
+                "transaction_date": filed_str,
+                "transaction_type": "unknown",
+                "shares": None,
+                "price_per_share": None,
+                "value_usd": None,
+                "insider_name": "",
+                "form_type": form_type,
+                "accession_number": accession,
+            })
 
     return results
 
@@ -241,26 +437,37 @@ def compute_insider_sentiment_score(
             "transactions": [],
         }
 
-    # Classify by transaction_type once XML parsing is in place
+    # Value-weighted score using XML-parsed transaction data (Sprint 4).
+    # Falls back to filing_count_proxy when XML is unavailable or transaction
+    # types are all "unknown" (e.g. EDGAR temporarily unavailable).
     purchase_value = 0.0
     sale_value = 0.0
+    known_type_count = 0
     for t in transactions:
         ttype = (t.get("transaction_type") or "").upper()
-        val = t.get("value_usd") or 0.0
+        val = float(t.get("value_usd") or 0.0)
         if ttype == "P":
             purchase_value += val
+            known_type_count += 1
         elif ttype == "S":
             sale_value += val
+            known_type_count += 1
+        elif ttype in ("A", "D"):
+            # Award (A) = mild positive; Disposition (D) = mild negative
+            if ttype == "A":
+                purchase_value += val * 0.5  # awards are less bullish than open-market buys
+            else:
+                sale_value += val * 0.5
+            known_type_count += 1
 
     total_value = purchase_value + sale_value
-    if total_value > 0:
+    if total_value > 0 and known_type_count > 0:
         # Value-weighted score: range [-1, 1]
         score = (purchase_value - sale_value) / (total_value + 1e-9)
         method = "value_weighted"
     else:
         # Proxy: each Form 4 filing = mild positive signal (capped at 0.5)
-        # Rationale: insiders filing anything means active oversight, slightly
-        # more informative than zero filings.  No directional info yet.
+        # Used when XML fetch failed for all filings or all types are unknown.
         filing_count = len(transactions)
         score = min(0.5, filing_count * 0.10)
         method = "filing_count_proxy"

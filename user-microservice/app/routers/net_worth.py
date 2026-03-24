@@ -234,7 +234,10 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
         "manual": manual_liabilities_total,
     }
 
-    assets_total = sum(assets.values(), Decimal("0"))
+    # Income window is contextual cashflow for the breakdown UI, not balance-sheet assets.
+    assets_total = (
+        cash + investment_value + budget_total + manual_assets_total
+    )
     liabilities_total = sum(liabilities.values(), Decimal("0"))
     net_worth = assets_total - liabilities_total
 
@@ -249,6 +252,32 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
     if budget_totals is not None:
         metadata["budget_metadata"] = {"active_budget_total": str(budget_total)}
 
+    warnings: list[str] = []
+    if isinstance(exp_meta, dict):
+        w = exp_meta.get("warning")
+        if w:
+            messages = {
+                "expense_service_not_configured": "Expense service URL is not configured; cash and income totals may stay at zero.",
+                "expense_components_unauthorized": "Expense data could not be loaded (authorization). Sign in again or check the API gateway.",
+                "expense_service_unavailable": "Expense service was unavailable; cash and obligations may be incomplete.",
+                "invalid_expense_payload": "Expense service returned an unexpected response.",
+            }
+            warnings.append(messages.get(str(w), f"Expense data notice: {w}"))
+    if investments_portfolio is None:
+        if INVESTMENT_SERVICE_URL:
+            warnings.append(
+                "Investment portfolio could not be loaded. From the user microservice, check "
+                "INVESTMENT_SERVICE_URL reaches the investments API and JWT is forwarded."
+            )
+        else:
+            warnings.append(
+                "INVESTMENT_SERVICE_URL is not set; investment holdings are not included in net worth."
+            )
+    if budget_totals is None and BUDGET_SERVICE_URL:
+        warnings.append("Budget totals could not be loaded; the budgets line may be zero.")
+    elif budget_totals is None and not BUDGET_SERVICE_URL:
+        pass  # optional service
+
     return {
         "net_worth": net_worth,
         "assets_total": assets_total,
@@ -256,6 +285,7 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
         "assets": assets,
         "liabilities": liabilities,
         "metadata": metadata,
+        "warnings": warnings,
     }
 
 

@@ -24,8 +24,8 @@ def auth_override():
 
 def test_plaid_status_503_when_not_configured(auth_override, monkeypatch):
     """GET /api/v1/plaid/status returns 503 when Plaid env is not set."""
-    import app.services.plaid_service as plaid_service
-    monkeypatch.setattr(plaid_service, "is_configured", lambda: False)
+    import app.routers.plaid as plaid_router
+    monkeypatch.setattr(plaid_router, "is_configured", lambda: False)
     r = client.get("/api/v1/plaid/status", headers={"Authorization": "Bearer fake"})
     assert r.status_code == 503
     body = r.json()
@@ -34,8 +34,8 @@ def test_plaid_status_503_when_not_configured(auth_override, monkeypatch):
 
 def test_plaid_link_token_503_when_not_configured(auth_override, monkeypatch):
     """POST /api/v1/plaid/link-token returns 503 when Plaid is not configured."""
-    import app.services.plaid_service as plaid_service
-    monkeypatch.setattr(plaid_service, "is_configured", lambda: False)
+    import app.routers.plaid as plaid_router
+    monkeypatch.setattr(plaid_router, "is_configured", lambda: False)
     r = client.post(
         "/api/v1/plaid/link-token",
         headers={"Authorization": "Bearer fake"},
@@ -47,8 +47,8 @@ def test_plaid_link_token_503_when_not_configured(auth_override, monkeypatch):
 
 def test_plaid_exchange_503_when_not_configured(auth_override, monkeypatch):
     """POST /api/v1/plaid/item returns 503 when Plaid is not configured."""
-    import app.services.plaid_service as plaid_service
-    monkeypatch.setattr(plaid_service, "is_configured", lambda: False)
+    import app.routers.plaid as plaid_router
+    monkeypatch.setattr(plaid_router, "is_configured", lambda: False)
     r = client.post(
         "/api/v1/plaid/item",
         json={"public_token": "fake-token"},

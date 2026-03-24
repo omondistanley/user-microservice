@@ -27,6 +27,12 @@
     </div>
   </div>
 
+  <div id="nw-load-error" class="auth-alert auth-alert--error" style="display:none;margin-bottom:1.25rem;" role="alert"></div>
+  <div id="nw-warnings-wrap" class="auth-alert" style="display:none;margin-bottom:1.25rem;background:var(--indigo-100);color:var(--s800);border-color:rgba(99,102,241,0.25);" role="status">
+    <strong style="display:block;margin-bottom:0.35rem;">Some totals may be incomplete</strong>
+    <ul id="nw-warnings-list" style="margin:0;padding-left:1.25rem;font-size:var(--text-sm);"></ul>
+  </div>
+
   <div class="nw-tabs" role="tablist" aria-label="Net worth sections">
     <button type="button" class="nw-tab nw-tab-active" role="tab" id="nw-tab-assets" aria-selected="true" aria-controls="nw-panel-assets" data-nw-tab="assets">Assets</button>
     <button type="button" class="nw-tab" role="tab" id="nw-tab-liabilities" aria-selected="false" aria-controls="nw-panel-liabilities" data-nw-tab="liabilities">Liabilities</button>
@@ -247,6 +253,42 @@
     if (cashEl) cashEl.textContent = '$' + fmt(assets.cash || 0);
   }
 
+  function clearNwBanners() {
+    var err = document.getElementById('nw-load-error');
+    var wrap = document.getElementById('nw-warnings-wrap');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    if (wrap) wrap.style.display = 'none';
+    var list = document.getElementById('nw-warnings-list');
+    if (list) list.innerHTML = '';
+  }
+
+  function showNwLoadError(msg) {
+    var el = document.getElementById('nw-load-error');
+    var wrap = document.getElementById('nw-warnings-wrap');
+    if (wrap) { wrap.style.display = 'none'; }
+    if (el) {
+      el.textContent = msg || 'Could not load net worth. Try refreshing or signing in again.';
+      el.style.display = 'block';
+    }
+  }
+
+  function showNwWarnings(warnings) {
+    var wrap = document.getElementById('nw-warnings-wrap');
+    var list = document.getElementById('nw-warnings-list');
+    var err = document.getElementById('nw-load-error');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    if (!wrap || !list) return;
+    if (warnings && warnings.length) {
+      list.innerHTML = warnings.map(function(w) {
+        return '<li>' + String(w).replace(/</g, '&lt;') + '</li>';
+      }).join('');
+      wrap.style.display = 'block';
+    } else {
+      list.innerHTML = '';
+      wrap.style.display = 'none';
+    }
+  }
+
   function renderSummaryLiabilitiesRows(liabilities) {
     var tbody = document.getElementById('nw-summary-liabilities-body');
     if (!tbody) return;
@@ -320,9 +362,10 @@
       : function(url) { return fetch(url, { headers: h }); };
 
     req(api + '/api/v1/net-worth/summary')
-      .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('summary HTTP ' + r.status)); })
       .then(function(summary) {
         if (!summary) summary = {};
+        clearNwBanners();
         var netWorth = summary.net_worth != null ? summary.net_worth : 0;
         var assetsTotal = summary.assets_total != null ? summary.assets_total : 0;
         var liabilitiesTotal = summary.liabilities_total != null ? summary.liabilities_total : 0;
@@ -347,10 +390,12 @@
 
         renderSummaryAssetsRows(assets);
         renderSummaryLiabilitiesRows(liabilities);
+        showNwWarnings(summary.warnings);
         loadAssetsList();
         loadLiabilitiesList();
       })
-      .catch(function() {
+      .catch(function(err) {
+        showNwLoadError(err && err.message ? err.message : null);
         if (totalEl)       totalEl.textContent       = '$0.00';
         if (assetsEl)      assetsEl.textContent      = '$0.00';
         if (liabilitiesEl) liabilitiesEl.textContent = '$0.00';

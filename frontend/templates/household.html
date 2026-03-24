@@ -6,8 +6,14 @@
     <h1 class="page-title">Household</h1>
 </div>
 
+<nav class="flex flex-wrap gap-1 mb-4 border-b border-slate-200 dark:border-slate-700 max-w-[800px]" role="tablist">
+    <button type="button" class="hh-tab px-3 py-2 text-sm font-semibold border-b-2 border-[#135bec] text-[#135bec]" data-hh-tab="overview">Overview</button>
+    <button type="button" class="hh-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500" data-hh-tab="manage">Manage</button>
+</nav>
+
 <div style="display: grid; gap: 24px; max-width: 800px;">
 
+    <div id="hh-panel-overview">
     <!-- Members card -->
     <div class="card">
         <h2 class="stat-label" style="margin-bottom: 18px;">Members</h2>
@@ -42,7 +48,9 @@
             </div>
         </div>
     </div>
+    </div>
 
+    <div id="hh-panel-manage" style="display: none;">
     <!-- Invite member card -->
     <div class="card">
         <h2 class="stat-label" style="margin-bottom: 18px;">Invite member</h2>
@@ -70,11 +78,34 @@
             </div>
         </form>
     </div>
+    </div>
 
 </div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    document.querySelectorAll('.hh-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var t = btn.getAttribute('data-hh-tab');
+            var ov = document.getElementById('hh-panel-overview');
+            var mg = document.getElementById('hh-panel-manage');
+            document.querySelectorAll('.hh-tab').forEach(function (b) {
+                var on = b.getAttribute('data-hh-tab') === t;
+                b.classList.toggle('border-[#135bec]', on);
+                b.classList.toggle('text-[#135bec]', on);
+                b.classList.toggle('border-transparent', !on);
+                b.classList.toggle('text-slate-500', !on);
+            });
+            if (ov) ov.style.display = t === 'overview' ? '' : 'none';
+            if (mg) mg.style.display = t === 'manage' ? '' : 'none';
+        });
+    });
+    if (window.location.hash === '#manage') {
+        var b = document.querySelector('.hh-tab[data-hh-tab="manage"]');
+        if (b) b.click();
+    }
+})();
 (function() {
     var API = window.API_BASE || '';
     function authHeaders() {

@@ -56,7 +56,9 @@ services:
              python run_migration.py migrations/015_webhook_events.sql &&
              python run_migration.py migrations/016_digest_config.sql &&
              python run_migration.py migrations/017_webhook_event_lifecycle.sql &&
-             python run_migration.py migrations/018_calendar_subscription_token.sql"
+             python run_migration.py migrations/018_calendar_subscription_token.sql &&
+             python run_migration.py migrations/019_net_worth_manual.sql &&
+             python run_migration.py migrations/020_calendar_oauth_connection.sql"
     restart: "no"
 
   expense-migrations:
@@ -96,7 +98,11 @@ services:
              python run_migration.py migrations/021_receipt_expense_nullable.sql &&
              python run_migration.py migrations/022_plaid_link_token.sql &&
              python run_migration.py migrations/023_income_apple_wallet_idempotency.sql &&
-             python run_migration.py migrations/024_apple_wallet_sync_state.sql"
+             python run_migration.py migrations/024_apple_wallet_sync_state.sql &&
+             python run_migration.py migrations/025_classifier_corrections.sql &&
+             python run_migration.py migrations/026_gmail_oauth.sql &&
+             python run_migration.py migrations/027_global_idempotency.sql &&
+             python run_migration.py migrations/028_gmail_google_account_email.sql"
     restart: "no"
 
   budget-migrations:
@@ -115,6 +121,7 @@ services:
     command: >
       sh -c "python run_migration.py migrations/001_schema.sql &&
              python run_migration.py migrations/002_budget_alerts.sql &&
+             python run_migration.py migrations/003_spend_pace_event.sql &&
              python run_migration.py migrations/003_household_scope.sql"
     restart: "no"
 
@@ -131,7 +138,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "python run_migration.py migrations/001_schema.sql && python run_migration.py migrations/003_recommendations_preferences.sql && python run_migration.py migrations/004_security_universe.sql && python run_migration.py migrations/005_sector_cache.sql && python run_migration.py migrations/006_etf_holdings.sql && python run_migration.py migrations/008_tax_lots.sql && python run_migration.py migrations/009_scenarios.sql && python run_migration.py migrations/010_fundamental_snapshot.sql && python run_migration.py migrations/011_sentiment_snapshot.sql && python run_migration.py migrations/012_alpaca_connection.sql && python run_migration.py migrations/013_risk_profile_use_finance_data.sql && python run_migration.py migrations/014_recommendation_run_portfolio_snapshot.sql"
+    command: sh -c "python run_migration.py migrations/001_schema.sql && python run_migration.py migrations/003_recommendations_preferences.sql && python run_migration.py migrations/004_security_universe.sql && python run_migration.py migrations/005_sector_cache.sql && python run_migration.py migrations/006_etf_holdings.sql && python run_migration.py migrations/008_tax_lots.sql && python run_migration.py migrations/009_scenarios.sql && python run_migration.py migrations/010_fundamental_snapshot.sql && python run_migration.py migrations/011_sentiment_snapshot.sql && python run_migration.py migrations/012_alpaca_connection.sql && python run_migration.py migrations/013_risk_profile_use_finance_data.sql && python run_migration.py migrations/014_recommendation_run_portfolio_snapshot.sql && python run_migration.py migrations/015_portfolio_rebalance_sessions.sql"
     restart: "no"
 
   expense:
@@ -303,6 +310,10 @@ services:
       JWT_AUDIENCE: ${JWT_AUDIENCE:-expense-tracker}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALENDAR_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID:-}
+      GOOGLE_CALENDAR_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET:-}
+      GOOGLE_CALENDAR_REDIRECT_URI: ${GOOGLE_CALENDAR_REDIRECT_URI:-}
+      CALENDAR_OAUTH_ENABLED: ${CALENDAR_OAUTH_ENABLED:-true}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
       APPLE_KEY_ID: ${APPLE_KEY_ID:-}

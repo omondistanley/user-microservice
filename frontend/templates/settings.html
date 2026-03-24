@@ -6,11 +6,11 @@
     <h1 class="page-title">Settings</h1>
 </div>
 
-<form id="settings-form" style="display: grid; gap: 24px; max-width: 680px;">
+<form id="settings-form" class="form-stack max-w-lg" style="gap:24px;">
 
     <!-- Preferences -->
     <div class="card">
-        <h2 class="stat-label" style="margin-bottom: 18px;">Preferences</h2>
+        <h2 class="stat-label" style="margin-bottom: 18px;"><span class="icon-btn-label"><span class="material-symbols-rounded">tune</span> Preferences</span></h2>
         <div style="display: grid; gap: 16px;">
             <div class="form-group">
                 <label class="form-label" for="settings-theme">Appearance</label>
@@ -62,7 +62,7 @@
 
     <!-- Household -->
     <div class="card">
-        <h2 class="stat-label" style="margin-bottom: 18px;">Household</h2>
+        <h2 class="stat-label" style="margin-bottom: 18px;"><span class="icon-btn-label"><span class="material-symbols-rounded">groups</span> Household</span></h2>
         <div style="display: grid; gap: 16px;">
             <div class="form-group">
                 <label class="form-label" for="settings-household">Active household</label>
@@ -82,7 +82,7 @@
 
     <!-- Notifications -->
     <div class="card">
-        <h2 class="stat-label" style="margin-bottom: 18px;">Notifications</h2>
+        <h2 class="stat-label" style="margin-bottom: 18px;"><span class="icon-btn-label"><span class="material-symbols-rounded">notifications</span> Notifications</span></h2>
         <div style="display: grid; gap: 16px;">
             <div class="form-group">
                 <label class="form-label" for="settings-email-digest">Email digest</label>
@@ -102,21 +102,27 @@
         </div>
     </div>
 
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom: 10px;"><span class="icon-btn-label"><span class="material-symbols-rounded">shield</span> Security &amp; privacy</span></h2>
+        <p class="form-hint" style="margin-bottom: 12px;">No ads. We do not sell your data. Data is used only to run core product features you enable.</p>
+        <a href="/security" class="btn btn-ghost btn-sm">View security summary</a>
+    </div>
+
     <!-- Danger zone -->
     <div class="card" style="border-color: #f43f5e33;">
-        <h2 class="stat-label" style="margin-bottom: 14px; color: #f43f5e;">Danger zone</h2>
+        <h2 class="stat-label danger-title" style="margin-bottom: 14px;"><span class="icon-btn-label"><span class="material-symbols-rounded">warning</span> Danger zone</span></h2>
         <p class="form-hint" style="margin-bottom: 14px;">
             Permanently delete your account and all associated data. This action cannot be undone.
         </p>
-        <button type="button" id="settings-delete-account"
-            style="background: transparent; border: 1px solid #f43f5e; color: #f43f5e; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
+        <button type="button" id="settings-delete-account" class="btn btn-danger-ghost icon-btn-label">
+            <span class="material-symbols-rounded">delete</span>
             Delete account
         </button>
     </div>
 
     <!-- Save -->
-    <div style="display: flex; align-items: center; gap: 16px;">
-        <button type="submit" class="btn btn-primary" id="settings-save-btn">Save settings</button>
+    <div class="row-gap-md">
+        <button type="submit" class="btn btn-primary icon-btn-label" id="settings-save-btn"><span class="material-symbols-rounded">save</span> Save settings</button>
         <p id="settings-msg" class="form-hint"></p>
     </div>
 

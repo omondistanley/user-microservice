@@ -1,11 +1,17 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 import asyncio
 import concurrent.futures
 import logging
 
-from app.core.config import MAX_RECOMMENDATIONS, RISK_FREE_RATE_ANNUAL
+from app.core.config import (
+    MAX_RECOMMENDATIONS,
+    RISK_FREE_RATE_ANNUAL,
+    RECOMMENDATIONS_QUANT_MODEL_ENABLED,
+    RECOMMENDATIONS_QUANT_MODEL_PATH,
+    RECOMMENDATIONS_QUANT_MODEL_VERSION,
+)
 from app.services.analytics_math import (
     concentration_metrics,
     compute_returns,
@@ -22,6 +28,8 @@ from app.services.ai_explainer import generate_narrative, is_enabled as ai_expla
 from app.services.analyst_universe import get_analyst_universe, get_security_info, HIGH_OVERLAP_GROUPS
 from app.services.finance_context_client import fetch_finance_context, FinanceContext
 from app.services.tax_harvesting_scanner import scan_harvesting_opportunities
+from app.services.recommendation_feature_contract import build_feature_row
+from app.services.quant_model_service import load_artifact, score_with_artifact
 
 
 def _get_db_context() -> Dict[str, Any]:
@@ -440,6 +448,7 @@ class RecommendationEngine:
         self.risk_svc = risk_svc or _get_risk_profile_service()
         self.rec_svc = rec_svc or _get_recommendation_data_service()
         self.logger = logging.getLogger("investments_recommendations")
+        self._quant_artifact = None
 
     def _run_no_holdings(
         self,
@@ -518,6 +527,7 @@ class RecommendationEngine:
                     "value": float(conf),
                     "reason": "Based on your risk tolerance, industry preferences, and loss-aversion profile.",
                 },
+                "uncertainty_bucket": "medium",
                 "news_factors": {"sentiment_score_7d": None, "event_flags": []},
                 "analyst_note": f"{desc}. Suggested to help you build a portfolio that can grow while managing risk.",
             }
@@ -567,6 +577,19 @@ class RecommendationEngine:
         if run_id:
             self.rec_svc.insert_items(run_id, items_with_scores)
             self.rec_svc.update_run_portfolio_snapshot(run_id, port_snap)
+            self.rec_svc.update_run_artifacts(
+                run_id,
+                {
+                    "model_version": "analyst-universe-v1",
+                    "feature_contract_version": "recommendation-feature-v1",
+                    "scoring_mode": "starter_portfolio",
+                },
+            )
+        run_created = run.get("created_at") if isinstance(run, dict) else None
+        if run_created is not None and hasattr(run_created, "isoformat"):
+            last_run_iso = run_created.isoformat()
+        else:
+            last_run_iso = datetime.now(timezone.utc).isoformat()
         return {
             "run": run,
             "items": [
@@ -574,6 +597,15 @@ class RecommendationEngine:
                 for i in items_with_scores
             ],
             "portfolio": port_snap,
+            "ui_insights": {
+                "diversification_score_0_100": 100,
+                "risk_label": "Moderate",
+                "diversification_status": "OPTIMAL",
+                "engine_label": "AI Insights Engine",
+                "model_version": "analyst-universe-v1",
+                "last_run_at": last_run_iso,
+                "starter_portfolio": True,
+            },
         }
 
     def run_for_user(
@@ -705,15 +737,37 @@ class RecommendationEngine:
         # Used to add a score bonus that surfaces harvestable positions for user review.
         tlh_symbols = _get_tlh_symbols(user_id)
 
-        # Stage 2: LightGBM reranker (Sprint 2) — trains on current holding batch.
-        # Falls back to sigmoid approximation if lightgbm is not installed.
+        # Stage 2: LightGBM reranker (legacy online fitting path).
         lgbm_scores = _lgbm_rerank(heuristic_items, vol_annual, hhi, tlh_symbols)
+        quant_scores: Dict[str, Dict[str, Any]] = {}
+        quant_enabled = bool(RECOMMENDATIONS_QUANT_MODEL_ENABLED)
+        if quant_enabled:
+            if self._quant_artifact is None:
+                self._quant_artifact = load_artifact(RECOMMENDATIONS_QUANT_MODEL_PATH)
+            if self._quant_artifact is not None:
+                for it in heuristic_items:
+                    feature_row = build_feature_row(
+                        symbol=it["symbol"],
+                        heuristic_score=float(it["heuristic_score"]),
+                        weight=float(it["weight"]),
+                        vol_annual=float(vol_annual),
+                        hhi=float(hhi),
+                        tlh_loss_scaled=min(1.0, float(tlh_symbols.get(it["symbol"], 0.0)) / 5000.0),
+                    )
+                    quant_scores[it["symbol"]] = score_with_artifact(
+                        self._quant_artifact,
+                        feature_row.to_dict(),
+                    )
 
         items_with_scores: List[Dict[str, Any]] = []
         for item in heuristic_items:
             h_score = Decimal(str(item["heuristic_score"]))
             lgbm_out = lgbm_scores.get(item["symbol"])
-            if lgbm_out:
+            quant_out = quant_scores.get(item["symbol"])
+            if quant_out:
+                model_score = Decimal(str(quant_out["model_score"]))
+                model_source = "offline_quant_artifact"
+            elif lgbm_out:
                 # Real LightGBM prediction
                 model_score = Decimal(str(lgbm_out["model_score"]))
                 model_source = "lightgbm"
@@ -758,6 +812,13 @@ class RecommendationEngine:
                 "tlh_harvestable_loss": str(round(tlh_loss, 2)) if tlh_loss > 0 else "0",
                 "model_source": model_source,
                 "shap_values": lgbm_out["shap_values"] if lgbm_out else None,
+                "factor_contributions": quant_out.get("factor_contributions") if quant_out else None,
+                "uncertainty_bucket": quant_out.get("uncertainty_bucket") if quant_out else "unknown",
+                "model_version": (
+                    quant_out.get("model_version")
+                    if quant_out
+                    else (RECOMMENDATIONS_QUANT_MODEL_VERSION if quant_enabled else "heuristic+analytics-v1")
+                ),
                 "combined": str(combined),
                 "description": "Holding score from portfolio Sharpe, position weight, and volatility vs risk tolerance.",
             }
@@ -819,6 +880,7 @@ class RecommendationEngine:
                     "value": float(conf),
                     "reason": "Based on portfolio volatility and concentration metrics.",
                 },
+                "uncertainty_bucket": score_breakdown.get("uncertainty_bucket", "unknown"),
                 "news_factors": {
                     "sentiment_score_7d": None,
                     "event_flags": [],
@@ -894,6 +956,7 @@ class RecommendationEngine:
                 "risk_metrics": {"sharpe": "N/A", "volatility_annual": "N/A", "max_drawdown": "N/A", "weight": "0"},
                 "data_freshness": {"provider": "analyst_universe", "stale_seconds": None},
                 "confidence": {"value": float(conf), "reason": "Based on risk and sector fit."},
+                "uncertainty_bucket": "medium",
                 "news_factors": {"sentiment_score_7d": None, "event_flags": []},
                 "analyst_note": f"{desc}. Suggested to diversify or add exposure.",
             }
@@ -911,9 +974,14 @@ class RecommendationEngine:
         items_with_scores = items_with_scores[:MAX_RECOMMENDATIONS]
 
         # Persist run + items
+        run_model_version = "heuristic+analytics-v1"
+        if quant_enabled and self._quant_artifact is not None:
+            run_model_version = self._quant_artifact.model_version
+        elif quant_enabled:
+            run_model_version = RECOMMENDATIONS_QUANT_MODEL_VERSION
         run = self.rec_svc.create_run(
             user_id=user_id,
-            model_version="heuristic+analytics-v1",
+            model_version=run_model_version,
             feature_snapshot_id=None,
             training_cutoff_date=date.today() - timedelta(days=1),
             notes=None,
@@ -939,6 +1007,20 @@ class RecommendationEngine:
         if run_id:
             self.rec_svc.insert_items(run_id, items_with_scores)
             self.rec_svc.update_run_portfolio_snapshot(run_id, portfolio_out)
+            self.rec_svc.update_run_artifacts(
+                run_id,
+                {
+                    "model_version": run_model_version,
+                    "feature_contract_version": "recommendation-feature-v1",
+                    "quant_enabled": quant_enabled,
+                    "quant_artifact_loaded": self._quant_artifact is not None,
+                    "quant_artifact_version": (
+                        self._quant_artifact.model_version
+                        if self._quant_artifact is not None
+                        else None
+                    ),
+                },
+            )
             # Audit log for governance
             try:
                 self.logger.info(
@@ -946,7 +1028,7 @@ class RecommendationEngine:
                     extra={
                         "user_id": user_id,
                         "run_id": str(run_id),
-                        "model_version": "heuristic+analytics-v1",
+                        "model_version": run_model_version,
                         "item_count": len(items_with_scores),
                         "sharpe": str(sharpe),
                         "volatility_annual": str(vol_annual),
@@ -960,6 +1042,39 @@ class RecommendationEngine:
         # Sprint 3: detect ETF overlap in the user's actual holdings
         etf_overlap_warnings = _detect_holdings_etf_overlap(held_symbols)
 
+        try:
+            hhi_f = float(hhi)
+        except Exception:
+            hhi_f = 1.0
+        div_score = int(max(0, min(100, round(100 * (1.0 - hhi_f)))))
+        try:
+            vol_f = float(vol_annual)
+        except Exception:
+            vol_f = 0.0
+        if vol_f < 0.12:
+            risk_l = "Low"
+        elif vol_f < 0.18:
+            risk_l = "Moderate"
+        elif vol_f < 0.28:
+            risk_l = "Elevated"
+        else:
+            risk_l = "High"
+        run_created = run.get("created_at") if isinstance(run, dict) else None
+        if run_created is not None and hasattr(run_created, "isoformat"):
+            last_run_iso = run_created.isoformat()
+        else:
+            last_run_iso = datetime.now(timezone.utc).isoformat()
+        ui_insights = {
+            "diversification_score_0_100": div_score,
+            "risk_label": risk_l,
+            "diversification_status": (
+                "OPTIMAL" if div_score >= 70 else ("ADEQUATE" if div_score >= 40 else "CONCENTRATED")
+            ),
+            "engine_label": "AI Insights Engine",
+            "model_version": run_model_version,
+            "last_run_at": last_run_iso,
+        }
+
         return {
             "run": run,
             "items": [
@@ -972,5 +1087,6 @@ class RecommendationEngine:
             ],
             "portfolio": portfolio_out,
             "etf_overlap_warnings": etf_overlap_warnings,
+            "ui_insights": ui_insights,
         }
 

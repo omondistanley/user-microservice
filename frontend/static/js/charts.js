@@ -6,6 +6,7 @@
     'use strict';
 
     var CHART_INSTANCE_KEY = 'apexcharts-instance';
+    var CURRENCY_SYMBOLS = { USD: '$', EUR: 'EUR ', GBP: 'GBP ', KES: 'KES ', JPY: 'JPY ', CAD: 'CAD ', AUD: 'AUD ' };
 
     function destroyExisting(container) {
         if (!container) return;
@@ -40,11 +41,29 @@
         };
     }
 
+    function getCurrencySymbol() {
+        var currency = 'USD';
+        try {
+            var stored = localStorage.getItem('default_currency');
+            if (stored) currency = String(stored).toUpperCase();
+        } catch (e) {}
+        return CURRENCY_SYMBOLS[currency] || (currency + ' ');
+    }
+
+    function formatAmountLabel(val) {
+        var n = Number(val || 0);
+        if (!isFinite(n)) return '0';
+        return getCurrencySymbol() + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+
     function defaultChartOptions() {
         return {
-            chart: { fontFamily: 'Inter, Roboto, sans-serif', toolbar: { show: false }, background: 'transparent' },
+            chart: { fontFamily: '"Source Sans 3", sans-serif', toolbar: { show: false }, background: 'transparent' },
             theme: defaultTheme(),
             grid: { borderColor: 'rgba(255,255,255,0.06)' },
+            noData: { text: 'No chart data for this range' },
+            tooltip: { y: { formatter: function(v) { return formatAmountLabel(v); } } },
+            yaxis: { labels: { formatter: function(v) { return formatAmountLabel(v); } } },
             responsive: [{ options: {} }]
         };
     }
@@ -102,7 +121,7 @@
                 series: [{ name: 'Spending', data: seriesData }],
                 chart: Object.assign({ type: 'line', zoom: { enabled: false } }, defaultChartOptions().chart),
                 xaxis: { categories: categories },
-                yaxis: { title: { text: 'Amount' } },
+                yaxis: { title: { text: 'Amount' }, labels: { formatter: function(v) { return formatAmountLabel(v); } } },
                 stroke: { curve: 'smooth', width: 2 },
                 dataLabels: { enabled: false }
             }, options || {});
@@ -139,7 +158,7 @@
                 },
                 colors: ['#4b5563', '#dc3545'],
                 xaxis: { categories: categories },
-                yaxis: { title: { text: 'Amount' } },
+                yaxis: { title: { text: 'Amount' }, labels: { formatter: function(v) { return formatAmountLabel(v); } } },
                 legend: { position: 'top' },
                 dataLabels: { enabled: true }
             }, options || {});
@@ -169,7 +188,7 @@
                     sparkline: { enabled: true },
                     height: 60,
                     toolbar: { show: false },
-                    fontFamily: 'Inter, Roboto, sans-serif'
+                    fontFamily: '"Source Sans 3", sans-serif'
                 },
                 stroke: { curve: 'smooth', width: 2 },
                 theme: defaultTheme(),
@@ -199,7 +218,7 @@
                 series: [{ name: 'Balance', data: seriesData }],
                 chart: Object.assign({ type: 'line', zoom: { enabled: false } }, defaultChartOptions().chart),
                 xaxis: { categories: categories },
-                yaxis: { title: { text: 'Balance' } },
+                yaxis: { title: { text: 'Balance' }, labels: { formatter: function(v) { return formatAmountLabel(v); } } },
                 stroke: { curve: 'smooth', width: 2 },
                 dataLabels: { enabled: false }
             });

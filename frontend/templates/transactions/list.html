@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block body_class %}transactions-page{% endblock %}
+{% block title %}Transactions — pocketii{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 pb-24 md:pb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Transactions</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Unified expense and income history</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <a href="/expenses/add" class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#135bec] text-white text-sm font-semibold hover:bg-blue-700">Add expense</a>
+            <a href="/income/add" class="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Add income</a>
+        </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-4">
+        <select id="tx-entry-type" class="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-900 text-sm">
+            <option value="">All</option>
+            <option value="expense">Expenses</option>
+            <option value="income">Income</option>
+        </select>
+        <input type="text" id="tx-search" placeholder="Search description…" class="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-900 text-sm flex-1 min-w-[140px]" />
+        <button type="button" id="tx-refresh" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm font-semibold">Refresh</button>
+    </div>
+    <div id="tx-status" class="text-sm text-slate-500 mb-2" role="status"></div>
+    <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+        <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-4 py-3">Type</th>
+                    <th class="px-4 py-3">Date</th>
+                    <th class="px-4 py-3">Description</th>
+                    <th class="px-4 py-3 text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody id="tx-tbody"></tbody>
+        </table>
+    </div>
+    <div class="flex justify-between items-center mt-4" id="tx-pagination"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}" src="/static/js/transactions.js"></script>
+{% endblock %}

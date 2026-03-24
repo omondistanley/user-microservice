@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from psycopg2.extras import RealDictCursor, Json
 
 from app.events import expense_event_payload, publish_expense_event
+from app.services.field_encryption import decrypt_field, encrypt_field
 
 SCHEMA = "expenses_db"
 TABLE = "expense"
@@ -42,6 +43,9 @@ def _dict_row(row: Any) -> Optional[Dict]:
             d[k] = v
         elif hasattr(v, "isoformat"):
             d[k] = v
+    # S5-3: decrypt description field transparently on read
+    if "description" in d and isinstance(d["description"], str):
+        d["description"] = decrypt_field(d["description"])
     return d
 
 
@@ -112,6 +116,19 @@ class ExpenseDataService:
             conn.close()
 
     def _insert_expense_using_conn(self, conn: Any, data: Dict[str, Any]) -> Dict[str, Any]:
+        # S5-1: Advisory lock scoped to the transaction prevents concurrent duplicate
+        # inserts for the same user (e.g. two simultaneous Apple Pay webhooks).
+        # Lock key = user_id (fits in bigint; advisory locks are per-session).
+        user_id_int = int(data.get("user_id") or 0)
+        if user_id_int:
+            lock_cur = conn.cursor()
+            lock_cur.execute("SELECT pg_advisory_xact_lock(%s)", (user_id_int,))
+
+        # S5-3: encrypt description before storing
+        if "description" in data and data["description"] is not None:
+            data = dict(data)
+            data["description"] = encrypt_field(str(data["description"]))
+
         cols = [
             "user_id", "category_code", "category_name", "amount", "date",
             "currency", "budget_category_id", "description", "balance_after",
@@ -2582,5 +2599,219 @@ class ExpenseDataService:
                 params,
             )
             return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def list_unified_ledger(
+        self,
+        user_id: int,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        entry_type: Optional[str] = None,
+        category_code: Optional[int] = None,
+        income_type_filter: Optional[str] = None,
+        tag_id: Optional[str] = None,
+        tag_slug: Optional[str] = None,
+        search: Optional[str] = None,
+        min_amount: Optional[Decimal] = None,
+        max_amount: Optional[Decimal] = None,
+        household_id: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Paginated union of expenses + income, sorted by created_at descending.
+        entry_type: 'expense', 'income', or None for both.
+        """
+        page = max(1, page)
+        page_size = min(max(1, page_size), 100)
+        offset = (page - 1) * page_size
+
+        include_expense = entry_type is None or entry_type == "expense"
+        include_income = entry_type is None or entry_type == "income"
+
+        exp_conds: List[str] = ["e.user_id = %s", "e.deleted_at IS NULL"]
+        exp_params: List[Any] = [user_id]
+        if date_from:
+            exp_conds.append("e.date >= %s")
+            exp_params.append(date_from)
+        if date_to:
+            exp_conds.append("e.date <= %s")
+            exp_params.append(date_to)
+        if category_code is not None:
+            exp_conds.append("e.category_code = %s")
+            exp_params.append(category_code)
+        if household_id is not None:
+            exp_conds.append("e.household_id IS NOT DISTINCT FROM %s")
+            exp_params.append(household_id)
+        if min_amount is not None:
+            exp_conds.append("e.amount >= %s")
+            exp_params.append(min_amount)
+        if max_amount is not None:
+            exp_conds.append("e.amount <= %s")
+            exp_params.append(max_amount)
+        if search and search.strip():
+            exp_conds.append("COALESCE(e.description, '') ILIKE %s")
+            exp_params.append(f"%{search.strip()}%")
+        if tag_id:
+            exp_conds.append(
+                f"""
+                EXISTS (
+                    SELECT 1 FROM "{SCHEMA}"."{EXPENSE_TAG_TABLE}" et
+                    WHERE et.expense_id = e.expense_id AND et.tag_id = %s::uuid
+                )
+                """
+            )
+            exp_params.append(tag_id)
+        if tag_slug:
+            exp_conds.append(
+                f"""
+                EXISTS (
+                    SELECT 1 FROM "{SCHEMA}"."{EXPENSE_TAG_TABLE}" et
+                    JOIN "{SCHEMA}"."{TAG_TABLE}" t ON t.tag_id = et.tag_id
+                    WHERE et.expense_id = e.expense_id AND t.user_id = e.user_id
+                      AND t.slug = %s
+                )
+                """
+            )
+            exp_params.append(tag_slug.strip().lower())
+        exp_where = " AND ".join(exp_conds)
+
+        inc_conds: List[str] = ["i.user_id = %s", "i.deleted_at IS NULL"]
+        inc_params: List[Any] = [user_id]
+        if date_from:
+            inc_conds.append("i.date >= %s")
+            inc_params.append(date_from)
+        if date_to:
+            inc_conds.append("i.date <= %s")
+            inc_params.append(date_to)
+        if income_type_filter:
+            inc_conds.append("i.income_type = %s")
+            inc_params.append(income_type_filter)
+        if min_amount is not None:
+            inc_conds.append("i.amount >= %s")
+            inc_params.append(min_amount)
+        if max_amount is not None:
+            inc_conds.append("i.amount <= %s")
+            inc_params.append(max_amount)
+        if search and search.strip():
+            inc_conds.append(
+                "(COALESCE(i.description, '') ILIKE %s OR COALESCE(i.source_label, '') ILIKE %s)"
+            )
+            sn = f"%{search.strip()}%"
+            inc_params.extend([sn, sn])
+        inc_where = " AND ".join(inc_conds)
+
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            selects: List[str] = []
+            if include_expense:
+                selects.append(
+                    f"""
+                    SELECT
+                      'expense'::text AS entry_type,
+                      e.expense_id::text AS entry_id,
+                      e.date::text AS occurred_on,
+                      e.created_at AS sort_ts,
+                      e.amount,
+                      e.currency,
+                      e.description,
+                      e.category_code,
+                      NULL::text AS income_type,
+                      e.category_name,
+                      e.source
+                    FROM "{SCHEMA}"."{TABLE}" e
+                    WHERE {exp_where}
+                    """
+                )
+            if include_income:
+                selects.append(
+                    f"""
+                    SELECT
+                      'income'::text AS entry_type,
+                      i.income_id::text AS entry_id,
+                      i.date::text AS occurred_on,
+                      i.created_at AS sort_ts,
+                      i.amount,
+                      i.currency,
+                      i.description,
+                      NULL::int AS category_code,
+                      i.income_type,
+                      i.source_label AS category_name,
+                      'income'::text AS source
+                    FROM "{SCHEMA}"."{INCOME_TABLE}" i
+                    WHERE {inc_where}
+                    """
+                )
+            if not selects:
+                return [], 0
+
+            total = 0
+            if include_expense:
+                cur.execute(
+                    f'SELECT COUNT(*)::bigint AS c FROM "{SCHEMA}"."{TABLE}" e WHERE {exp_where}',
+                    exp_params,
+                )
+                total += int(cur.fetchone()["c"])
+            if include_income:
+                cur.execute(
+                    f'SELECT COUNT(*)::bigint AS c FROM "{SCHEMA}"."{INCOME_TABLE}" i WHERE {inc_where}',
+                    inc_params,
+                )
+                total += int(cur.fetchone()["c"])
+
+            union_sql = " UNION ALL ".join(selects)
+            list_sql = (
+                f"SELECT * FROM ({union_sql}) AS merged "
+                "ORDER BY sort_ts DESC, entry_id DESC LIMIT %s OFFSET %s"
+            )
+            list_params: List[Any] = []
+            if include_expense:
+                list_params.extend(exp_params)
+            if include_income:
+                list_params.extend(inc_params)
+            list_params.extend([page_size, offset])
+            cur.execute(list_sql, list_params)
+            rows = []
+            for r in cur.fetchall():
+                d = dict(r)
+                d.pop("sort_ts", None)
+                if d.get("amount") is not None:
+                    d["amount"] = str(d["amount"])
+                rows.append(d)
+            return rows, total
+        finally:
+            conn.close()
+
+    def get_user_sync_summary(self, user_id: int) -> Dict[str, Any]:
+        """Bank link counts + last update; Apple Wallet last sync."""
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT
+                  (SELECT COUNT(*)::int FROM "{SCHEMA}".plaid_item WHERE user_id = %s) AS plaid_count,
+                  (SELECT MAX(updated_at) FROM "{SCHEMA}".plaid_item WHERE user_id = %s) AS plaid_last_update,
+                  (SELECT COUNT(*)::int FROM "{SCHEMA}".teller_enrollment WHERE user_id = %s) AS teller_count,
+                  (SELECT MAX(updated_at) FROM "{SCHEMA}".teller_enrollment WHERE user_id = %s) AS teller_last_update
+                """,
+                (user_id, user_id, user_id, user_id),
+            )
+            row = cur.fetchone() or {}
+            aw = self.get_apple_wallet_last_sync(user_id)
+            plaid_n = int(row.get("plaid_count") or 0)
+            teller_n = int(row.get("teller_count") or 0)
+            bank_linked = plaid_n + teller_n > 0
+            times = [t for t in (row.get("plaid_last_update"), row.get("teller_last_update")) if t]
+            last_conn = max(times) if times else None
+            return {
+                "bank_linked": bank_linked,
+                "plaid_items": plaid_n,
+                "teller_enrollments": teller_n,
+                "last_bank_connection_update_at": last_conn.isoformat() if last_conn else None,
+                "apple_wallet_last_sync_at": aw.isoformat() if aw else None,
+            }
         finally:
             conn.close()

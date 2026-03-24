@@ -487,11 +487,11 @@ python run_migration.py migrations/002_refresh_token.sql
 # ... continue in numeric order
 ```
 
-**Total migrations: 55 across all 4 databases**
-- `users_db`: 18 migrations
-- `expenses_db`: 22 migrations
-- `budgets_db`: 3 migrations
-- `investments_db`: 12 migrations
+**Total migrations: 65 across all 4 databases** (keep `docker-compose.yml` and `deploy/release.sh` lists in sync)
+- `users_db`: 19 migrations
+- `expenses_db`: 28 migrations
+- `budgets_db`: 4 migrations
+- `investments_db`: 14 migrations
 
 ---
 
@@ -646,7 +646,7 @@ pocketii/
 │   │   ├── jobs/               # digest_sender, retention_purge, webhook_processor
 │   │   └── core/               # config, JWT, security middleware
 │   ├── frontend/               # Jinja2 templates + JS + CSS (35+ pages)
-│   ├── migrations/             # 18 SQL migrations
+│   ├── migrations/             # 19 SQL migrations
 │   └── Dockerfile
 │
 ├── expense-microservice/       # Expenses, income, receipts, goals, insights, bank links
@@ -654,14 +654,14 @@ pocketii/
 │   │   ├── routers/            # expenses, income, receipts, goals, insights, plaid, teller, etc.
 │   │   ├── jobs/               # exchange_rate_sync, anomaly_nudge, recurring, round_up, etc.
 │   │   └── services/           # ExpenseDataService, InsightsService, PlaidDataService, etc.
-│   ├── migrations/             # 22 SQL migrations
+│   ├── migrations/             # 28 SQL migrations
 │   └── Dockerfile
 │
 ├── budget-microservice/        # Budgets, alert evaluation
 │   ├── app/
 │   │   ├── routers/
 │   │   └── jobs/               # budget alert worker
-│   ├── migrations/             # 3 SQL migrations
+│   ├── migrations/             # 4 SQL migrations
 │   └── Dockerfile
 │
 ├── investments-microservice/   # Holdings, portfolio, market data, recommendations
@@ -669,7 +669,7 @@ pocketii/
 │   │   ├── routers/            # holdings, portfolio, recommendations, market, news, risk, alpaca
 │   │   ├── jobs/               # alpaca_sync, etf_sync, returns_backfill, sentiment, tax_harvesting
 │   │   └── services/           # market data providers, AI explainer, news pipeline
-│   ├── migrations/             # 12 SQL migrations
+│   ├── migrations/             # 14 SQL migrations
 │   └── Dockerfile
 │
 ├── api-gateway/                # JWT validation, rate limiting, reverse proxy

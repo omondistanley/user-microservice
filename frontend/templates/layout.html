@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="min-h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#6366F1">
+    <meta name="theme-color" content="#135bec">
     <meta name="expense-api-base" content="{{ expense_api_base | default('') }}">
     <meta name="budget-api-base" content="{{ budget_api_base | default('') }}">
     <meta name="gateway-public-url" content="{{ gateway_public_url | default('') }}">
@@ -12,24 +12,27 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,600;0,8..60,700;1,8..60,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.tw.css">
     <link rel="stylesheet" href="/static/css/main.css">
     {% block head_extra %}{% endblock %}
 </head>
 {% set _public_paths = ['/', '/landing', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/verify-email/pending', '/welcome'] %}
 {% set _use_app_shell = request.url.path not in _public_paths %}
-<body class="{% if _use_app_shell %}app-shell-page {% endif %}{% block body_class %}{% endblock %}" id="app-body">
+<body class="{% if _use_app_shell %}app-shell-page {% endif %}font-sans antialiased bg-[#f6f6f8] text-[#0f172a] dark:bg-slate-950 dark:text-slate-100 {% block body_class %}{% endblock %}" id="app-body">
     <a href="#main-content" class="skip-to-content">Skip to main content</a>
 
     <!-- ===== APP SHELL ===== -->
-    <div class="app-shell" id="app-shell" aria-hidden="{{ 'false' if _use_app_shell else 'true' }}" style="{% if not _use_app_shell %}display:none;{% endif %}">
+    <div class="app-shell min-h-screen" id="app-shell" aria-hidden="{{ 'false' if _use_app_shell else 'true' }}" style="{% if not _use_app_shell %}display:none;{% endif %}">
 
         <!-- SIDEBAR -->
-        <aside class="sidebar" aria-label="App navigation">
+        <aside class="sidebar tw-sidebar-pocket" aria-label="App navigation">
             <div class="sb-logo">
                 <a href="/dashboard" class="sb-logo-text" style="text-decoration:none;">pocketii</a>
-                <div class="sb-logo-sub">Personal · March 2026</div>
+                <div class="sb-logo-sub">Personal finance</div>
             </div>
 
             <nav class="sb-nav">
@@ -42,8 +45,11 @@
                 </a>
 
                 <div class="sb-section">Money</div>
+                <a href="/transactions" class="sb-link {% if request.url.path == '/transactions' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-outlined text-lg">sync_alt</span></span> Transactions
+                </a>
                 <a href="/expenses" class="sb-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">receipt_long</span></span> Expenses
+                    <span class="icon"><span class="material-symbols-outlined text-lg">receipt_long</span></span> Expenses
                 </a>
                 <a href="/income" class="sb-link {% if request.url.path.startswith('/income') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">payments</span></span> Income
@@ -52,8 +58,11 @@
                     <span class="icon"><span class="material-symbols-rounded">sync</span></span> Recurring
                 </a>
                 <a href="/budgets" class="sb-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">target</span></span> Budgets
+                    <span class="icon"><span class="material-symbols-outlined text-lg">account_balance_wallet</span></span> Budgets
                     <span id="sidebar-budgets-badge" class="sb-badge" style="display:none;">!</span>
+                </a>
+                <a href="/budgets/recurring" class="sb-link {% if request.url.path.startswith('/budgets/recurring') %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-outlined text-lg">event_repeat</span></span> Recurring budgets
                 </a>
                 <a href="/goals" class="sb-link {% if request.url.path.startswith('/goals') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">kid_star</span></span> Goals
@@ -63,14 +72,17 @@
                 <a href="/reports" class="sb-link {% if request.url.path == '/reports' or request.url.path.startswith('/reports/') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">assignment</span></span> Reports
                 </a>
+                <a href="/analytics" class="sb-link {% if request.url.path == '/analytics' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-outlined text-lg">bar_chart</span></span> Analytics
+                </a>
                 <a href="/insights" class="sb-link {% if request.url.path == '/insights' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">auto_awesome</span></span> Insights
+                    <span class="icon"><span class="material-symbols-outlined text-lg">query_stats</span></span> Spending analysis
                 </a>
                 <a href="/investments" class="sb-link {% if request.url.path.startswith('/investments') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">trending_up</span></span> Investments
                 </a>
                 <a href="/recommendations" class="sb-link {% if request.url.path.startswith('/recommendations') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">smart_toy</span></span> Recommendations
+                    <span class="icon"><span class="material-symbols-rounded">candlestick_chart</span></span> Portfolio ideas
                 </a>
 
                 <div class="sb-section">Account</div>
@@ -84,6 +96,9 @@
                 <a href="/sessions" class="sb-link {% if request.url.path == '/sessions' %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">verified_user</span></span> Sessions
                 </a>
+                <a href="/security" class="sb-link {% if request.url.path == '/security' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">shield</span></span> Security
+                </a>
                 <a href="/profile" class="sb-link {% if request.url.path == '/profile' %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">person</span></span> Profile
                 </a>
@@ -91,12 +106,9 @@
                     <span class="icon"><span class="material-symbols-rounded">settings</span></span> Settings
                 </a>
 
-                <div class="sb-section">Integrations</div>
-                <a href="/saved-views" class="sb-link {% if request.url.path == '/saved-views' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">keep</span></span> Saved Views
-                </a>
-                <a href="/settings/integrations" class="sb-link {% if request.url.path == '/settings/integrations' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">power</span></span> Integrations
+                <div class="sb-section">Connections</div>
+                <a href="/settings/integrations#alpaca-integration-card" class="sb-link {% if request.url.path == '/settings/integrations' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">trending_up</span></span> Link Alpaca
                 </a>
                 <a href="/link-bank" class="sb-link {% if request.url.path.startswith('/link-bank') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">account_balance</span></span> Link Bank
@@ -118,11 +130,13 @@
             <header class="topbar">
                 <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
                 <span class="topbar-date" id="topbar-date"></span>
+                <span id="shell-sync-status" class="topbar-date text-xs md:text-sm max-w-[200px] truncate opacity-80 dark:opacity-70" title="Connection status" aria-live="polite"></span>
+                <span class="topbar-date" style="opacity:.9;">No ads • We never sell your data</span>
                 <button type="button" class="topbar-bell" id="topbar-bell-btn" aria-label="Notifications">
                     <span class="material-symbols-rounded">notifications</span>
                     <span id="topbar-notif-badge" class="topbar-badge" style="display:none;"></span>
                 </button>
-                <button type="button" class="btn btn-primary btn-sm" id="topbar-add-expense-btn" style="margin-left:8px;" title="Add expense, budget, goal, or link bank">+ Add</button>
+                <button type="button" class="btn btn-primary btn-sm topbar-add-btn" id="topbar-add-expense-btn" title="Add expense, budget, goal, or link bank">+ Add</button>
             </header>
             <div class="content-area" id="main-content" tabindex="-1">
                 {% if _use_app_shell %}
@@ -168,6 +182,7 @@
             <div class="navbar-panel-section navbar-panel-nav">
                 <ul class="navbar-panel-links">
                     <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
+                    <li><a href="/transactions" class="nav-link">Transactions</a></li>
                     <li><a href="/expenses" class="nav-link">Expenses</a></li>
                     <li><a href="/expenses/add" class="nav-link">Add expense</a></li>
                     <li><a href="/expenses/import" class="nav-link">Import CSV</a></li>
@@ -175,6 +190,7 @@
                     <li><a href="/recurring" class="nav-link">Recurring</a></li>
                     <li><a href="/link-bank" class="nav-link">Link bank</a></li>
                     <li><a href="/reports" class="nav-link">Reports</a></li>
+                    <li><a href="/analytics" class="nav-link">Analytics</a></li>
                     <li><a href="/insights" class="nav-link">Insights</a></li>
                     <li><a href="/goals" class="nav-link">Goals</a></li>
                     <li><a href="/budgets" class="nav-link">Budgets</a></li>
@@ -185,8 +201,8 @@
                     <li><a href="/sessions" class="nav-link">Sessions</a></li>
                     <li><a href="/profile" class="nav-link">Profile</a></li>
                     <li><a href="/settings" class="nav-link">Settings</a></li>
+                    <li><a href="/settings/integrations#alpaca-integration-card" class="nav-link">Link Alpaca</a></li>
                     <li><a href="/saved-views" class="nav-link">Saved Views</a></li>
-                    <li><a href="/settings/integrations" class="nav-link">Integrations</a></li>
                 </ul>
                 <div class="navbar-panel-section navbar-panel-household" id="household-switcher-wrap" style="display:none;">
                     <h2 class="navbar-panel-heading">Scope</h2>
@@ -280,9 +296,9 @@
                 </a>
             </li>
             <li class="bottom-nav-item">
-                <a href="/expenses" class="bottom-nav-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
-                    <span class="bottom-nav-icon"><span class="material-symbols-rounded">credit_card</span></span>
-                    <span>Expenses</span>
+                <a href="/transactions" class="bottom-nav-link {% if request.url.path == '/transactions' or request.url.path.startswith('/expenses') %}active{% endif %}">
+                    <span class="bottom-nav-icon"><span class="material-symbols-outlined">receipt_long</span></span>
+                    <span>Ledger</span>
                 </a>
             </li>
             <li class="bottom-nav-item bottom-nav-item-fab">
@@ -323,28 +339,28 @@
         <div class="action-sheet-title">Add New</div>
         <div class="action-sheet-items">
             <a href="/expenses/add" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;"><span class="material-symbols-rounded">credit_card</span></span>
+                <span class="action-sheet-icon action-sheet-icon--danger"><span class="material-symbols-rounded">credit_card</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Add Expense</span>
                     <span class="action-sheet-item-desc">Record a new expense</span>
                 </div>
             </a>
             <a href="/budgets/add" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">target</span></span>
+                <span class="action-sheet-icon action-sheet-icon--accent"><span class="material-symbols-rounded">target</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Add Budget</span>
                     <span class="action-sheet-item-desc">Set a spending limit</span>
                 </div>
             </a>
             <a href="/goals/add" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">kid_star</span></span>
+                <span class="action-sheet-icon action-sheet-icon--success"><span class="material-symbols-rounded">kid_star</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Add Goal</span>
                     <span class="action-sheet-item-desc">Start saving for something</span>
                 </div>
             </a>
             <a href="/link-bank" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">account_balance</span></span>
+                <span class="action-sheet-icon action-sheet-icon--warning"><span class="material-symbols-rounded">account_balance</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Link Bank Account</span>
                     <span class="action-sheet-item-desc">Connect via Plaid or Teller</span>
@@ -361,14 +377,14 @@
         <div class="action-sheet-title">More</div>
         <div class="action-sheet-items">
             <a href="/profile" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">person</span></span>
+                <span class="action-sheet-icon action-sheet-icon--accent"><span class="material-symbols-rounded">person</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Profile</span>
                     <span class="action-sheet-item-desc">Edit info &amp; change password</span>
                 </div>
             </a>
             <a href="/settings" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(100,116,139,0.12);color:#64748B;"><span class="material-symbols-rounded">settings</span></span>
+                <span class="action-sheet-icon action-sheet-icon--neutral"><span class="material-symbols-rounded">settings</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Settings</span>
                     <span class="action-sheet-item-desc">Currency, notifications, theme</span>
@@ -376,35 +392,35 @@
             </a>
             <div class="action-sheet-section-label">Analytics</div>
             <a href="/net-worth" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">payments</span></span>
+                <span class="action-sheet-icon action-sheet-icon--warning"><span class="material-symbols-rounded">payments</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Net Worth</span>
                     <span class="action-sheet-item-desc">Assets &amp; liabilities</span>
                 </div>
             </a>
             <a href="/investments" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">trending_up</span></span>
+                <span class="action-sheet-icon action-sheet-icon--success"><span class="material-symbols-rounded">trending_up</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Investments</span>
                     <span class="action-sheet-item-desc">Portfolio &amp; performance</span>
                 </div>
             </a>
             <a href="/recommendations" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(139,92,246,0.12);color:#8B5CF6;"><span class="material-symbols-rounded">smart_toy</span></span>
+                <span class="action-sheet-icon action-sheet-icon--accent"><span class="material-symbols-rounded">candlestick_chart</span></span>
                 <div class="action-sheet-item-text">
-                    <span class="action-sheet-item-label">Recommendations</span>
-                    <span class="action-sheet-item-desc">AI-powered advice</span>
+                    <span class="action-sheet-item-label">Portfolio ideas</span>
+                    <span class="action-sheet-item-desc">Research and allocation notes</span>
                 </div>
             </a>
             <a href="/insights" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(56,189,248,0.12);color:#38BDF8;"><span class="material-symbols-rounded">lightbulb</span></span>
+                <span class="action-sheet-icon action-sheet-icon--info"><span class="material-symbols-rounded">query_stats</span></span>
                 <div class="action-sheet-item-text">
-                    <span class="action-sheet-item-label">Insights</span>
-                    <span class="action-sheet-item-desc">Spending patterns &amp; trends</span>
+                    <span class="action-sheet-item-label">Spending analysis</span>
+                    <span class="action-sheet-item-desc">Patterns, anomalies, and trends</span>
                 </div>
             </a>
             <a href="/reports" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">dashboard</span></span>
+                <span class="action-sheet-icon action-sheet-icon--accent"><span class="material-symbols-rounded">dashboard</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Reports</span>
                     <span class="action-sheet-item-desc">Full analytics &amp; export</span>
@@ -412,28 +428,28 @@
             </a>
             <div class="action-sheet-section-label">Account</div>
             <a href="/household" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(16,185,129,0.12);color:#10B981;"><span class="material-symbols-rounded">home</span></span>
+                <span class="action-sheet-icon action-sheet-icon--success"><span class="material-symbols-rounded">home</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Household</span>
                     <span class="action-sheet-item-desc">Members &amp; shared scope</span>
                 </div>
             </a>
             <a href="/sessions" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(244,63,94,0.12);color:#F43F5E;"><span class="material-symbols-rounded">lock</span></span>
+                <span class="action-sheet-icon action-sheet-icon--danger"><span class="material-symbols-rounded">lock</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Sessions</span>
                     <span class="action-sheet-item-desc">Active devices &amp; logins</span>
                 </div>
             </a>
-            <a href="/settings/integrations" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;"><span class="material-symbols-rounded">link</span></span>
+            <a href="/settings/integrations#alpaca-integration-card" class="action-sheet-item">
+                <span class="action-sheet-icon action-sheet-icon--warning"><span class="material-symbols-rounded">link</span></span>
                 <div class="action-sheet-item-text">
-                    <span class="action-sheet-item-label">Integrations</span>
-                    <span class="action-sheet-item-desc">Banks, webhooks &amp; more</span>
+                    <span class="action-sheet-item-label">Link Alpaca</span>
+                    <span class="action-sheet-item-desc">Connect brokerage sync</span>
                 </div>
             </a>
             <a href="/notifications" class="action-sheet-item">
-                <span class="action-sheet-icon" style="background:rgba(99,102,241,0.12);color:#6366F1;"><span class="material-symbols-rounded">notifications</span></span>
+                <span class="action-sheet-icon action-sheet-icon--accent"><span class="material-symbols-rounded">notifications</span></span>
                 <div class="action-sheet-item-text">
                     <span class="action-sheet-item-label">Notifications</span>
                     <span class="action-sheet-item-desc">Alerts &amp; messages</span>

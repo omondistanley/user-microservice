@@ -220,6 +220,26 @@ if EXPENSE_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     async def proxy_export_path(request: Request, path: str):
         return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/export", path)
 
+    @app.api_route("/api/v1/transactions", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_transactions_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/transactions", "")
+
+    @app.api_route("/api/v1/transactions/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_transactions_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/transactions", path)
+
+    @app.api_route("/api/v1/sync-status", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_sync_status(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/sync-status", "")
+
+    @app.api_route("/api/v1/analytics", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_analytics_root(request: Request):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/analytics", "")
+
+    @app.api_route("/api/v1/analytics/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_analytics_path(request: Request, path: str):
+        return await proxy_request(request, EXPENSE_SERVICE_URL, "/api/v1/analytics", path)
+
 if BUDGET_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/budgets", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_budgets_root(request: Request):
@@ -228,6 +248,14 @@ if BUDGET_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/budgets/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
     async def proxy_budgets_path(request: Request, path: str):
         return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/budgets", path)
+
+    @app.api_route("/api/v1/recurring-budgets", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_recurring_budgets_root(request: Request):
+        return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/recurring-budgets", "")
+
+    @app.api_route("/api/v1/recurring-budgets/{path:path}", methods=PROXY_METHODS, include_in_schema=False)
+    async def proxy_recurring_budgets_path(request: Request, path: str):
+        return await proxy_request(request, BUDGET_SERVICE_URL, "/api/v1/recurring-budgets", path)
 
 if INVESTMENT_SERVICE_URL and not GATEWAY_PUBLIC_URL:
     @app.api_route("/api/v1/holdings", methods=PROXY_METHODS, include_in_schema=False)
@@ -521,6 +549,16 @@ async def expenses_list_page(request: Request):
     return _render("expenses/list.html", request)
 
 
+@app.get("/transactions", include_in_schema=False)
+async def transactions_page(request: Request):
+    return _render("transactions/list.html", request)
+
+
+@app.get("/analytics", include_in_schema=False)
+async def analytics_page(request: Request):
+    return _render("analytics.html", request)
+
+
 @app.get("/expenses/add", include_in_schema=False)
 async def expenses_add_page(request: Request):
     return _render("expenses/add.html", request)
@@ -560,6 +598,16 @@ async def budgets_list_page(request: Request):
 @app.get("/budgets/add", include_in_schema=False)
 async def budgets_add_page(request: Request):
     return _render("budgets/add.html", request)
+
+
+@app.get("/budgets/recurring", include_in_schema=False)
+async def recurring_budgets_list_page(request: Request):
+    return _render("budgets/recurring_list.html", request)
+
+
+@app.get("/budgets/recurring/{recurring_budget_id}", include_in_schema=False)
+async def recurring_budget_detail_page(request: Request, recurring_budget_id: str):
+    return _render("budgets/recurring_detail.html", request, recurring_budget_id=recurring_budget_id)
 
 
 @app.get("/budgets/{budget_id}", include_in_schema=False)
@@ -661,6 +709,11 @@ async def profile_page(request: Request):
 @app.get("/settings", include_in_schema=False)
 async def settings_page(request: Request):
     return _render("settings.html", request)
+
+
+@app.get("/security", include_in_schema=False)
+async def security_page(request: Request):
+    return _render("security.html", request)
 
 
 @app.get("/saved-views", include_in_schema=False)

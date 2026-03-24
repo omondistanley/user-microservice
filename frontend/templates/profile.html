@@ -6,11 +6,11 @@
     <h1 class="page-title">Profile</h1>
 </div>
 
-<div class="profile-two-col" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+<div class="profile-two-col grid-two-col">
 
     <!-- Left card: avatar + edit form -->
     <div class="card">
-        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 28px;">
+        <div class="row-gap-md" style="margin-bottom:28px;">
             <div id="profile-avatar" style="
                 width: 72px; height: 72px; border-radius: 50%;
                 background: var(--accent, #6366f1);
@@ -23,7 +23,7 @@
             </div>
         </div>
 
-        <form id="profile-edit-form" style="display: grid; gap: 16px; max-width: 480px;">
+        <form id="profile-edit-form" class="form-stack max-w-md">
             <div class="form-group">
                 <label class="form-label" for="profile-first-name">First name</label>
                 <input type="text" id="profile-first-name" class="form-input" autocomplete="given-name" placeholder="First name">
@@ -34,8 +34,7 @@
             </div>
             <div class="form-group">
                 <label class="form-label" for="profile-email-field">Email</label>
-                <input type="email" id="profile-email-field" class="form-input" readonly autocomplete="email"
-                    style="opacity: 0.6; cursor: not-allowed;">
+                <input type="email" id="profile-email-field" class="form-input" readonly autocomplete="email" style="opacity: 0.6; cursor: not-allowed;">
                 <p class="form-hint">Contact support to change your email address.</p>
             </div>
             <div class="form-group">
@@ -50,10 +49,10 @@
             </div>
         </form>
 
-        <hr style="border-color: var(--s200, #334155); margin: 28px 0;">
+        <hr class="hr-subtle">
 
-        <h2 class="stat-label" style="margin-bottom: 14px;">Change password</h2>
-        <form id="profile-change-password" style="display: grid; gap: 12px; max-width: 360px;">
+        <h2 class="stat-label" style="margin-bottom: 14px;"><span class="icon-btn-label"><span class="material-symbols-rounded">lock</span> Change password</span></h2>
+        <form id="profile-change-password" class="form-stack max-w-sm" style="gap:12px;">
             <div class="form-group">
                 <label class="form-label" for="current-password">Current password</label>
                 <input type="password" id="current-password" class="form-input" autocomplete="current-password">
@@ -66,14 +65,14 @@
                 <label class="form-label" for="confirm-password">Confirm new password</label>
                 <input type="password" id="confirm-password" class="form-input" autocomplete="new-password">
             </div>
-            <button type="submit" class="btn btn-primary" style="width: fit-content;">Update password</button>
+            <button type="submit" class="btn btn-primary icon-btn-label" style="width: fit-content;"><span class="material-symbols-rounded">key</span> Update password</button>
         </form>
         <p id="profile-password-msg" class="form-hint" style="margin-top: 8px;"></p>
     </div>
 
     <!-- Right card: account info -->
     <div class="card">
-        <h2 class="stat-label" style="margin-bottom: 16px;">Account</h2>
+        <h2 class="stat-label" style="margin-bottom: 16px;"><span class="icon-btn-label"><span class="material-symbols-rounded">person</span> Account</span></h2>
 
         <div class="stat-row" style="margin-bottom: 12px;">
             <span class="stat-label">Member since</span>
@@ -84,19 +83,20 @@
             <span class="badge badge-emerald" id="profile-badge">Free</span>
         </div>
 
-        <hr style="border-color: var(--s200, #334155); margin: 20px 0;">
+        <hr class="hr-subtle">
 
-        <a href="#" id="profile-change-password-link" class="btn btn-ghost" style="width: 100%; text-align: center; margin-bottom: 12px;">
+        <a href="#" id="profile-change-password-link" class="btn btn-ghost icon-btn-label" style="width: 100%; text-align: center; margin-bottom: 12px;">
+            <span class="material-symbols-rounded">password</span>
             Change password
         </a>
 
-        <hr style="border-color: var(--s200, #334155); margin: 20px 0;">
+        <hr class="hr-subtle">
 
-        <h3 class="stat-label" style="margin-bottom: 12px; color: #f43f5e;">Danger zone</h3>
+        <h3 class="stat-label danger-title" style="margin-bottom: 12px;"><span class="icon-btn-label"><span class="material-symbols-rounded">warning</span> Danger zone</span></h3>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button type="button" id="profile-export" class="btn btn-ghost">Export all data</button>
-            <button type="button" id="profile-delete" class="btn"
-                style="background: transparent; border: 1px solid #f43f5e; color: #f43f5e;">
+            <button type="button" id="profile-export" class="btn btn-ghost icon-btn-label"><span class="material-symbols-rounded">download</span> Export all data</button>
+            <button type="button" id="profile-delete" class="btn btn-danger-ghost icon-btn-label">
+                <span class="material-symbols-rounded">delete</span>
                 Delete account
             </button>
         </div>

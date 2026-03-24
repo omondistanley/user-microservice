@@ -6,3 +6,6 @@ __pycache__/
 *.env.compose.example
 *.env.compose
 *.pem
+
+# Frontend (Tailwind build)
+frontend/node_modules/

@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.core.rate_limit import rate_limit_dep
 
 from app.core.config import (
     ALPHAVANTAGE_API_KEY,
@@ -18,6 +20,9 @@ from app.core.config import (
     FINNHUB_API_KEY,
     NEWS_PROVIDER_ORDER,
     RECOMMENDATIONS_PAGE_SIZE,
+    RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS,
+    RECOMMENDATIONS_NEWS_CACHE_TTL_SECONDS,
+    RECOMMENDATIONS_SENTIMENT_CACHE_TTL_SECONDS,
     SENTIMENT_LOOKBACK_DAYS,
 )
 from app.core.dependencies import get_current_user_id
@@ -36,6 +41,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["recommendations"])
 
 QUOTE_ENRICH_TIMEOUT = 3.0
+_EXPLAIN_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_NEWS_CACHE: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+_SENTIMENT_CACHE: Dict[str, Tuple[float, Tuple[List[Dict[str, Any]], Optional[float], str]]] = {}
 
 
 def _get_engine() -> RecommendationEngine:
@@ -85,6 +93,7 @@ async def run_recommendations(
     request: Request,
     user_id: int = Depends(get_current_user_id),
     engine: RecommendationEngine = Depends(_get_engine),
+    _rate: None = Depends(rate_limit_dep(requests_per_minute=10)),
 ) -> Dict[str, Any]:
     auth_header = request.headers.get("Authorization") if request else None
     try:
@@ -96,6 +105,19 @@ async def run_recommendations(
         )
         logger.exception("Recommendations run failed for user_id=%s: %s", user_id, exc)
         raise HTTPException(status_code=500, detail=msg)
+    items = result.get("items") if isinstance(result, dict) else []
+    try:
+        score_vals = [float(i.get("score") or 0.0) for i in (items or []) if isinstance(i, dict)]
+        conf_vals = [float(i.get("confidence") or 0.0) for i in (items or []) if isinstance(i, dict)]
+        logger.info(
+            "recommendation_run_quality_baseline user_id=%s items=%s avg_score=%.4f avg_confidence=%.4f",
+            user_id,
+            len(score_vals),
+            (sum(score_vals) / len(score_vals)) if score_vals else 0.0,
+            (sum(conf_vals) / len(conf_vals)) if conf_vals else 0.0,
+        )
+    except Exception:
+        pass
     return result
 
 
@@ -204,7 +226,18 @@ async def _enrich_explanation_for_symbol(
 
     # 2) News (best effort + diagnostics)
     try:
-        news_items = get_news_for_symbol(enrich_sym, limit=5)
+        news_key = enrich_sym.upper()
+        now_ts = time.monotonic()
+        cached_news = _NEWS_CACHE.get(news_key)
+        if (
+            cached_news
+            and RECOMMENDATIONS_NEWS_CACHE_TTL_SECONDS > 0
+            and now_ts - cached_news[0] <= RECOMMENDATIONS_NEWS_CACHE_TTL_SECONDS
+        ):
+            news_items = cached_news[1]
+        else:
+            news_items = get_news_for_symbol(enrich_sym, limit=5)
+            _NEWS_CACHE[news_key] = (now_ts, news_items or [])
         recent: List[Dict[str, Any]] = []
         if news_items:
             recent = [
@@ -247,9 +280,20 @@ async def _enrich_explanation_for_symbol(
     try:
         ctx = _db_context()
         today = date(end_dt.year, end_dt.month, end_dt.day)
-        daily_scores, rolling_avg, summary_str = get_sentiment_trend_and_summary(
-            ctx, enrich_sym, today, SENTIMENT_LOOKBACK_DAYS
-        )
+        sent_key = f"{enrich_sym.upper()}:{today.isoformat()}:{SENTIMENT_LOOKBACK_DAYS}"
+        now_ts = time.monotonic()
+        cached_sent = _SENTIMENT_CACHE.get(sent_key)
+        if (
+            cached_sent
+            and RECOMMENDATIONS_SENTIMENT_CACHE_TTL_SECONDS > 0
+            and now_ts - cached_sent[0] <= RECOMMENDATIONS_SENTIMENT_CACHE_TTL_SECONDS
+        ):
+            daily_scores, rolling_avg, summary_str = cached_sent[1]
+        else:
+            daily_scores, rolling_avg, summary_str = get_sentiment_trend_and_summary(
+                ctx, enrich_sym, today, SENTIMENT_LOOKBACK_DAYS
+            )
+            _SENTIMENT_CACHE[sent_key] = (now_ts, (daily_scores, rolling_avg, summary_str))
         expl["sentiment_trend_7d"] = {
             "daily_scores": list(daily_scores),
             "rolling_avg_7d": rolling_avg,
@@ -485,4 +529,93 @@ async def explain_recommendations(
         })
 
     return {"run_id": run_id, "items": out_items}
+
+
+@router.get("/recommendations/{run_id}/explain/{symbol}", response_model=dict)
+async def explain_recommendation_symbol(
+    request: Request,
+    run_id: str,
+    symbol: str,
+    user_id: int = Depends(get_current_user_id),
+    rec_svc: RecommendationDataService = Depends(_get_rec_data_service),
+    risk_svc: RiskProfileDataService = Depends(_get_risk_profile_service),
+    market_router: MarketDataRouter = Depends(_get_market_router),
+) -> Dict[str, Any]:
+    try:
+        rid = UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+    sym = (symbol or "").strip().upper()
+    if not sym:
+        raise HTTPException(status_code=400, detail="Invalid symbol")
+    cache_key = f"{user_id}:{run_id}:{sym}"
+    now_ts = time.monotonic()
+    cached = _EXPLAIN_CACHE.get(cache_key)
+    if (
+        cached
+        and RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS > 0
+        and now_ts - cached[0] <= RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS
+    ):
+        return cached[1]
+
+    run_row = rec_svc.get_run_for_user(rid, user_id)
+    if not run_row:
+        raise HTTPException(status_code=404, detail="Run not found")
+    item = rec_svc.get_item_for_run_symbol(rid, sym)
+    if not item:
+        raise HTTPException(status_code=404, detail="Symbol not found in run")
+
+    risk = risk_svc.get_risk_profile(user_id) or {}
+    auth_header = request.headers.get("Authorization") if request else None
+    finance_ctx = None
+    if risk.get("use_finance_data_for_recommendations") and auth_header:
+        try:
+            finance_ctx = fetch_finance_context(auth_header)
+        except Exception:
+            finance_ctx = None
+    expl = dict(item.get("explanation_json") or {})
+    sec = expl.get("security") or get_security_info(sym)
+    if sec and not expl.get("security"):
+        expl["security"] = sec
+    elif not expl.get("security"):
+        expl["security"] = {
+            "full_name": sym,
+            "sector": "—",
+            "description": "",
+            "asset_type": "unknown",
+            "why_it_matters": "",
+        }
+    end_dt = datetime.now(timezone.utc)
+    await _enrich_explanation_for_symbol(
+        expl,
+        sym,
+        market_router,
+        end_dt,
+        end_dt - timedelta(days=30),
+        end_dt - timedelta(days=365),
+    )
+    augment_explanation_for_detail(expl, risk, finance_ctx, sym)
+    prev_run = rec_svc.get_previous_run_for_user(rid, user_id)
+    if prev_run:
+        prev_item = rec_svc.get_item_for_run_symbol(prev_run["run_id"], sym)
+        if prev_item:
+            try:
+                cur_score = float(item.get("score") or 0.0)
+                prev_score = float(prev_item.get("score") or 0.0)
+                expl["score_delta_vs_prior_run"] = round(cur_score - prev_score, 6)
+            except Exception:
+                expl["score_delta_vs_prior_run"] = None
+    if "uncertainty_bucket" not in expl:
+        # Preserve backward compatibility for older runs.
+        conf = float(item.get("confidence") or 0.0)
+        expl["uncertainty_bucket"] = "low" if conf >= 0.75 else ("medium" if conf >= 0.5 else "high")
+    response = {
+        "run_id": run_id,
+        "symbol": sym,
+        "score": str(item.get("score")),
+        "confidence": str(item.get("confidence")),
+        "explanation": expl,
+    }
+    _EXPLAIN_CACHE[cache_key] = (now_ts, response)
+    return response
 

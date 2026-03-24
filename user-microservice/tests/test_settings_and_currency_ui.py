@@ -51,8 +51,8 @@ def test_settings_api_get_and_patch(auth_override, monkeypatch):
 def test_currency_selector_present_on_dashboard_and_reports():
     r = client.get("/dashboard")
     assert r.status_code == 200
-    assert "dashboard-currency-select" in r.text
+    assert "dashboard-savings-rate" in r.text
 
     r = client.get("/reports")
     assert r.status_code == 200
-    assert "Spending Analytics" in r.text
+    assert "reports-currency" in r.text

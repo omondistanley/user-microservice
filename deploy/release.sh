@@ -27,7 +27,8 @@ for f in /opt/expense_tracker/user-microservice/migrations/create_user_table.sql
          /opt/expense_tracker/user-microservice/migrations/016_digest_config.sql \
          /opt/expense_tracker/user-microservice/migrations/017_webhook_event_lifecycle.sql \
          /opt/expense_tracker/user-microservice/migrations/018_calendar_subscription_token.sql \
-         /opt/expense_tracker/user-microservice/migrations/019_net_worth_manual.sql; do
+         /opt/expense_tracker/user-microservice/migrations/019_net_worth_manual.sql \
+         /opt/expense_tracker/user-microservice/migrations/020_calendar_oauth_connection.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
@@ -47,7 +48,20 @@ for f in /opt/expense/migrations/001_schema.sql \
          /opt/expense/migrations/012_anomaly_feedback.sql \
          /opt/expense/migrations/013_receipt_ocr.sql \
          /opt/expense/migrations/014_plaid_provider.sql \
-         /opt/expense/migrations/015_apple_wallet.sql; do
+         /opt/expense/migrations/015_apple_wallet.sql \
+         /opt/expense/migrations/016_user_categorization_rule.sql \
+         /opt/expense/migrations/017_round_up_goal.sql \
+         /opt/expense/migrations/018_no_income_notification_dedup.sql \
+         /opt/expense/migrations/019_user_alert_preferences.sql \
+         /opt/expense/migrations/020_expense_match.sql \
+         /opt/expense/migrations/021_receipt_expense_nullable.sql \
+         /opt/expense/migrations/022_plaid_link_token.sql \
+         /opt/expense/migrations/023_income_apple_wallet_idempotency.sql \
+         /opt/expense/migrations/024_apple_wallet_sync_state.sql \
+         /opt/expense/migrations/025_classifier_corrections.sql \
+         /opt/expense/migrations/026_gmail_oauth.sql \
+         /opt/expense/migrations/027_global_idempotency.sql \
+         /opt/expense/migrations/028_gmail_google_account_email.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
@@ -55,7 +69,9 @@ echo "release: running budget migrations..."
 export DB_NAME=budgets_db
 for f in /opt/budget/migrations/001_schema.sql \
          /opt/budget/migrations/002_budget_alerts.sql \
-         /opt/budget/migrations/003_household_scope.sql; do
+         /opt/budget/migrations/003_spend_pace_event.sql \
+         /opt/budget/migrations/003_household_scope.sql \
+         /opt/budget/migrations/004_recurring_budget.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
@@ -73,7 +89,9 @@ for f in /opt/investment/migrations/001_schema.sql \
          /opt/investment/migrations/011_sentiment_snapshot.sql \
          /opt/investment/migrations/012_alpaca_connection.sql \
          /opt/investment/migrations/013_risk_profile_use_finance_data.sql \
-         /opt/investment/migrations/014_recommendation_run_portfolio_snapshot.sql; do
+         /opt/investment/migrations/014_recommendation_run_portfolio_snapshot.sql \
+         /opt/investment/migrations/015_portfolio_rebalance_sessions.sql \
+         /opt/investment/migrations/029_recommendation_run_artifacts.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 

@@ -120,6 +120,8 @@ async def apple_wallet_webhook(
                 "flow_type": "expense",
                 "category_hint": classification.category_hint if classification.flow_type == "expense" else "expense_other",
                 "expense_id": str(existing_expense["expense_id"]),
+                "classifier_confidence": float(classification.confidence) if classification.confidence is not None else None,
+                "classifier_source": classification.source,
             }
         existing_income = eds.get_income_by_apple_wallet_transaction_id(user_id, body.transaction_id)
         if existing_income:
@@ -129,6 +131,8 @@ async def apple_wallet_webhook(
                 "category_hint": "income_salary_other",
                 "income_type": str(existing_income.get("income_type") or "other"),
                 "income_id": str(existing_income["income_id"]),
+                "classifier_confidence": float(classification.confidence) if classification.confidence is not None else None,
+                "classifier_source": classification.source,
             }
 
     description_parts = [body.merchant.strip()]
@@ -163,6 +167,8 @@ async def apple_wallet_webhook(
             "category_hint": classification.category_hint,
             "income_type": classification.income_type or "other",
             "income_id": str(income_row.get("income_id")),
+            "classifier_confidence": float(classification.confidence) if classification.confidence is not None else None,
+            "classifier_source": classification.source,
         }
 
     payload = ExpenseCreate(
@@ -184,6 +190,8 @@ async def apple_wallet_webhook(
         "flow_type": "expense",
         "category_hint": classification.category_hint,
         "expense_id": str(created.expense_id),
+        "classifier_confidence": float(classification.confidence) if classification.confidence is not None else None,
+        "classifier_source": classification.source,
     }
 
 

@@ -55,6 +55,39 @@ RISK_FREE_RATE_ANNUAL: float = float(os.environ.get("RISK_FREE_RATE_ANNUAL", "0.
 # Max recommendations per run (holdings + universe suggestions); page size for list API
 MAX_RECOMMENDATIONS: int = int(os.environ.get("MAX_RECOMMENDATIONS", "100"))
 RECOMMENDATIONS_PAGE_SIZE: int = int(os.environ.get("RECOMMENDATIONS_PAGE_SIZE", "20"))
+RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS: int = int(
+    os.environ.get("RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS", "120")
+)
+RECOMMENDATIONS_NEWS_CACHE_TTL_SECONDS: int = int(
+    os.environ.get("RECOMMENDATIONS_NEWS_CACHE_TTL_SECONDS", "900")
+)
+RECOMMENDATIONS_SENTIMENT_CACHE_TTL_SECONDS: int = int(
+    os.environ.get("RECOMMENDATIONS_SENTIMENT_CACHE_TTL_SECONDS", "900")
+)
+RECOMMENDATIONS_QUANT_MODEL_ENABLED: bool = os.environ.get(
+    "RECOMMENDATIONS_QUANT_MODEL_ENABLED", "false"
+).lower() in ("1", "true", "yes", "y", "on")
+RECOMMENDATIONS_QUANT_MODEL_PATH: str = os.environ.get(
+    "RECOMMENDATIONS_QUANT_MODEL_PATH",
+    str(_service_root / "artifacts" / "recommendation_ranker.json"),
+)
+RECOMMENDATIONS_QUANT_MODEL_VERSION: str = os.environ.get(
+    "RECOMMENDATIONS_QUANT_MODEL_VERSION", "quant-ranker-v1"
+)
+RECOMMENDATIONS_DB_POOL_MINCONN: int = int(
+    os.environ.get("RECOMMENDATIONS_DB_POOL_MINCONN", "1")
+)
+RECOMMENDATIONS_DB_POOL_MAXCONN: int = int(
+    os.environ.get("RECOMMENDATIONS_DB_POOL_MAXCONN", "8")
+)
+# Quality baseline thresholds (used by internal scorecard endpoint)
+REC_QUALITY_MIN_STABILITY: float = float(os.environ.get("REC_QUALITY_MIN_STABILITY", "0.60"))
+REC_QUALITY_MIN_CALIBRATION_GAP: float = float(
+    os.environ.get("REC_QUALITY_MIN_CALIBRATION_GAP", "0.15")
+)
+REC_QUALITY_MIN_ACTIONABILITY: float = float(
+    os.environ.get("REC_QUALITY_MIN_ACTIONABILITY", "0.10")
+)
 MARKET_DATA_PROVIDER_ORDER: str = os.environ.get(
     "MARKET_DATA_PROVIDER_ORDER", "alpaca,finnhub,twelvedata,alphavantage"
 )

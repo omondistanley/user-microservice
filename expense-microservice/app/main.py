@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -18,11 +19,14 @@ from app.routers import (
     categorization_rules,
     expense_import,
     expenses,
+    gmail_webhook,
     goals,
     income,
     insights,
     internal,
+    ledger,
     net_worth,
+    overview,
     plaid,
     receipts,
     recurring_expenses,
@@ -165,6 +169,112 @@ async def security_headers_middleware(request: Request, call_next):
     return response
 
 
+_IDEMPOTENCY_METHODS = {"POST", "PUT", "PATCH"}
+_IDEMPOTENCY_HEADER = "idempotency-key"
+
+
+def _idempotency_hash(user_id: int | None, client_key: str) -> str:
+    raw = f"{user_id or ''}:{client_key}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+async def idempotency_middleware(request: Request, call_next):
+    """
+    S5-2: Idempotency key middleware for all mutating endpoints.
+    If the client sends an Idempotency-Key header and we have a cached response
+    for (user_id, key) that is still valid (< 24 h), return it immediately.
+    Otherwise, execute the request and store the response in the DB.
+    GET/DELETE/OPTIONS are passed through unchanged.
+    """
+    if request.method not in _IDEMPOTENCY_METHODS:
+        return await call_next(request)
+    client_key = request.headers.get(_IDEMPOTENCY_HEADER, "").strip()
+    if not client_key:
+        return await call_next(request)
+
+    user_id = _extract_user_id(request)
+    key_hash = _idempotency_hash(user_id, client_key)
+
+    # Check DB for cached response
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST or "localhost",
+            port=int(DB_PORT) if DB_PORT else 5432,
+            user=DB_USER or "postgres",
+            password=DB_PASSWORD or "postgres",
+            dbname=DB_NAME or "expenses_db",
+            connect_timeout=2,
+        )
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT cached_response, status_code FROM expenses_db.global_idempotency_key "
+                    "WHERE key = %s AND expires_at > now()",
+                    (key_hash,),
+                )
+                row = cur.fetchone()
+        finally:
+            conn.close()
+        if row:
+            cached_body, status_code = row
+            return JSONResponse(
+                content=cached_body,
+                status_code=status_code,
+                headers={"X-Idempotency-Replayed": "true"},
+            )
+    except Exception:
+        # DB unavailable: pass through without caching (best-effort)
+        pass
+
+    response = await call_next(request)
+
+    # Only cache 2xx responses for non-streaming bodies
+    if 200 <= response.status_code < 300:
+        try:
+            body_bytes = b""
+            async for chunk in response.body_iterator:
+                body_bytes += chunk
+            body_json = json.loads(body_bytes)
+            conn = psycopg2.connect(
+                host=DB_HOST or "localhost",
+                port=int(DB_PORT) if DB_PORT else 5432,
+                user=DB_USER or "postgres",
+                password=DB_PASSWORD or "postgres",
+                dbname=DB_NAME or "expenses_db",
+                connect_timeout=2,
+            )
+            try:
+                from psycopg2.extras import Json
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO expenses_db.global_idempotency_key
+                            (key, user_id, endpoint, status_code, cached_response)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (key) DO NOTHING
+                        """,
+                        (
+                            key_hash,
+                            user_id or 0,
+                            f"{request.method} {request.url.path}",
+                            response.status_code,
+                            Json(body_json),
+                        ),
+                    )
+                conn.commit()
+            finally:
+                conn.close()
+            return JSONResponse(
+                content=body_json,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+            )
+        except Exception:
+            pass
+
+    return response
+
+
 app = FastAPI(title="Expense Microservice")
 
 
@@ -187,8 +297,11 @@ app.add_middleware(
 app.middleware("http")(structured_logging_middleware)
 app.middleware("http")(cors_preflight_middleware)
 app.middleware("http")(security_headers_middleware)
+app.middleware("http")(idempotency_middleware)
 
 app.include_router(expenses.router)
+app.include_router(ledger.router)
+app.include_router(overview.router)
 app.include_router(income.router)
 app.include_router(recurring_expenses.router)
 app.include_router(categories.router)
@@ -207,6 +320,7 @@ app.include_router(export_portable.router)
 app.include_router(reminders.router)
 app.include_router(net_worth.router)
 app.include_router(apple_wallet_webhook.router)
+app.include_router(gmail_webhook.router)
 app.include_router(internal.router)
 
 

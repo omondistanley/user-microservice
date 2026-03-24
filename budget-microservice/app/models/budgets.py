@@ -76,3 +76,40 @@ class BudgetListParams(BaseModel):
     household_id: Optional[UUID] = None
     page: int = 1
     page_size: int = 20
+
+
+class RecurringBudgetCreate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    amount: Decimal = Field(..., ge=0)
+    category_code: int = Field(..., ge=1, le=8)
+    cadence: str = Field(..., pattern="^(weekly|monthly|yearly)$")
+    start_date: date
+    next_period_start: Optional[date] = None
+    household_id: Optional[UUID] = None
+
+
+class RecurringBudgetUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    amount: Optional[Decimal] = Field(None, ge=0)
+    cadence: Optional[str] = Field(None, pattern="^(weekly|monthly|yearly)$")
+    next_period_start: Optional[date] = None
+    is_active: Optional[bool] = None
+    household_id: Optional[UUID] = None
+
+
+class RecurringBudgetResponse(BaseModel):
+    recurring_budget_id: UUID
+    user_id: int
+    name: Optional[str] = None
+    category_code: int
+    category_name: str
+    amount: Decimal
+    cadence: str
+    start_date: date
+    next_period_start: date
+    is_active: bool
+    household_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

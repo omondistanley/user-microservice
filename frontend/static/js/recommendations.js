@@ -2,6 +2,11 @@
     'use strict';
 
     var API = window.API_BASE || '';
+    var recState = {
+        runId: '',
+        currentPage: 1,
+        latestPayload: null,
+    };
 
     function apiErrorDetail(body) {
         if (!body) return 'Request failed';
@@ -63,6 +68,14 @@
         });
     }
 
+    function fetchExplainSymbol(runId, symbol) {
+        var url = API + '/api/v1/recommendations/' + encodeURIComponent(runId) + '/explain/' + encodeURIComponent(symbol);
+        return fetch(url, { headers: getAuthHeaders() }).then(function (r) {
+            if (!r.ok) throw new Error('Failed to load explanation');
+            return r.json();
+        });
+    }
+
     function fetchRiskProfile() {
         return fetch(API + '/api/v1/risk-profile', { headers: getAuthHeaders() }).then(function (r) {
             if (!r.ok) return null;
@@ -110,6 +123,14 @@
         return div.innerHTML;
     }
 
+    function _riskLabelFromVol(vol) {
+        if (!isFinite(vol)) return 'Moderate';
+        if (vol < 0.12) return 'Low';
+        if (vol < 0.18) return 'Moderate';
+        if (vol < 0.28) return 'Elevated';
+        return 'High';
+    }
+
     function renderSummary(summaryEl, data) {
         if (!summaryEl) return;
         if (!data || !data.portfolio) {
@@ -117,7 +138,29 @@
             return;
         }
         var p = data.portfolio;
-        var html = '<ul class="portfolio-metrics">';
+        var ui = data.ui_insights;
+        if (!ui && p) {
+            var hhi = parseFloat(p.hhi);
+            var divScore = Math.max(0, Math.min(100, Math.round(100 * (1 - (isFinite(hhi) ? hhi : 1)))));
+            var vol = parseFloat(p.volatility_annual);
+            ui = {
+                diversification_score_0_100: divScore,
+                risk_label: _riskLabelFromVol(vol),
+                diversification_status: divScore >= 70 ? 'OPTIMAL' : divScore >= 40 ? 'ADEQUATE' : 'CONCENTRATED',
+                engine_label: 'AI Insights Engine',
+                last_run_at: (data.run && data.run.created_at) ? data.run.created_at : ''
+            };
+        }
+        var html = '';
+        if (ui) {
+            html += '<div class="rec-ui-insights" style="margin-bottom:1rem;padding:1rem 1.25rem;border-radius:0.75rem;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#e2e8f0;">';
+            html += '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.15em;opacity:0.7;margin:0;">' + escapeHtml(ui.engine_label || 'Insights') + '</p>';
+            html += '<p style="font-size:1.35rem;font-weight:800;margin:0.35rem 0;">Diversification ' + escapeHtml(String(ui.diversification_score_0_100 != null ? ui.diversification_score_0_100 : '—')) + '<span style="opacity:0.5;font-size:0.95rem;">/100</span></p>';
+            html += '<p style="margin:0;font-size:0.9rem;"><span style="opacity:0.75;">Risk</span> ' + escapeHtml(ui.risk_label || '—') + ' · <span style="opacity:0.75;">Status</span> ' + escapeHtml(ui.diversification_status || '—') + '</p>';
+            if (ui.last_run_at) html += '<p style="margin:0.5rem 0 0;font-size:0.78rem;opacity:0.65;">Last run ' + escapeHtml(String(ui.last_run_at)) + '</p>';
+            html += '</div>';
+        }
+        html += '<ul class="portfolio-metrics">';
         html += '<li><strong>Total value</strong>: $' + escapeHtml(formatNum2(p.total_value)) + '</li>';
         html += '<li><strong>Total cost basis</strong>: $' + escapeHtml(formatNum2(p.total_cost_basis)) + '</li>';
         html += '<li><strong>Unrealized P/L</strong>: $' + escapeHtml(formatNum2(p.unrealized_pl)) + '</li>';
@@ -208,6 +251,9 @@
         listEl.innerHTML = html;
         listEl.setAttribute('data-run-id', run.run_id || '');
         listEl.setAttribute('data-current-page', String(currentPage));
+        recState.runId = run.run_id || '';
+        recState.currentPage = currentPage;
+        recState.latestPayload = payload || null;
     }
 
     function openExplainDrawer(rootEl, runId, symbol) {
@@ -220,14 +266,8 @@
         wrap.style.display = 'block';
         wrap.setAttribute('aria-hidden', 'false');
 
-        fetchExplain(runId, symbol).then(function (data) {
-            var items = data && data.items || [];
-            var match = null;
-            items.forEach(function (it) {
-                if ((it.symbol || '').toUpperCase() === symbol.toUpperCase()) {
-                    match = it;
-                }
-            });
+        fetchExplainSymbol(runId, symbol).then(function (data) {
+            var match = data || null;
             if (!match || !match.explanation) {
                 bodyEl.innerHTML = '<p class="muted">No explanation available.</p>';
                 return;
@@ -418,12 +458,8 @@
         wrap.setAttribute('aria-hidden', 'false');
         wrap.querySelector('.rec-score-modal-backdrop').setAttribute('aria-hidden', 'false');
 
-        fetchExplain(runId, symbol).then(function (data) {
-            var items = data && data.items || [];
-            var match = null;
-            items.forEach(function (it) {
-                if ((it.symbol || '').toUpperCase() === symbol.toUpperCase()) match = it;
-            });
+        fetchExplainSymbol(runId, symbol).then(function (data) {
+            var match = data || null;
             var ex = match && match.explanation;
             var breakdown = ex && ex.score_breakdown;
             if (!breakdown) {

@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from app.core.config import INTERNAL_API_KEY
 from app.services.holdings_data_service import HoldingsDataService
+from app.services.recommendation_data_service import RecommendationDataService
+from app.services.recommendation_quality_service import build_quality_scorecard
 from app.services.service_factory import ServiceFactory
 from app.services.universe_bootstrap import run_bootstrap
 
@@ -21,6 +23,13 @@ def _get_data_service() -> HoldingsDataService:
     ds = ServiceFactory.get_service("HoldingsDataService")
     if not isinstance(ds, HoldingsDataService):
         raise RuntimeError("HoldingsDataService not available")
+    return ds
+
+
+def _get_recommendation_data_service() -> RecommendationDataService:
+    ds = ServiceFactory.get_service("RecommendationDataService")
+    if not isinstance(ds, RecommendationDataService):
+        raise RuntimeError("RecommendationDataService not available")
     return ds
 
 
@@ -62,3 +71,14 @@ async def refresh_universe(
         "symbols_failed": failed,
         "exchange": exchange,
     }
+
+
+@router.get("/recommendations/quality-baseline", response_model=dict, include_in_schema=False)
+async def recommendations_quality_baseline(
+    user_id: int = Query(..., ge=1),
+    runs_limit: int = Query(5, ge=2, le=20),
+    _: None = Depends(_validate_internal_key),
+):
+    rec_svc = _get_recommendation_data_service()
+    result = build_quality_scorecard(rec_svc, user_id=user_id, runs_limit=runs_limit)
+    return {"user_id": user_id, **result}

@@ -100,13 +100,17 @@ def test_net_worth_summary_end_to_end():
 
     cash = Decimal(str(assets.get("cash", "0")))
     investments = Decimal(str(assets.get("investments", "0")))
+    budgets = Decimal(str(assets.get("budgets", "0")))
+    manual_assets = Decimal(str(assets.get("manual", "0")))
     assets_total = Decimal(str(body["assets_total"]))
     liabilities_total = Decimal(str(body["liabilities_total"]))
     net_worth = Decimal(str(body["net_worth"]))
 
-    # Net worth identity must hold.
-    assert assets_total == cash + investments
+    # Net worth identity: balance-sheet total excludes contextual income (cashflow window).
+    assert assets_total == cash + investments + budgets + manual_assets
     assert net_worth == assets_total - liabilities_total
+    assert "warnings" in body
+    assert isinstance(body["warnings"], list)
 
     # Regression: ensure cashflow fields are not part of the computation path.
     as_text = str(body)

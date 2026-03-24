@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from app.routers import budgets, internal
+from app.routers import budgets, internal, recurring_budgets
 from app.core.config import (
     REDIS_URL,
     get_cors_origins,
@@ -188,6 +188,7 @@ app.middleware("http")(cors_preflight_middleware)
 app.middleware("http")(security_headers_middleware)
 
 app.include_router(budgets.router)
+app.include_router(recurring_budgets.router)
 app.include_router(internal.router)
 
 

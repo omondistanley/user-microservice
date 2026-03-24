@@ -222,3 +222,16 @@ class HoldingsDataService:
             return [r["symbol"] for r in cur.fetchall() if r.get("symbol")]
         finally:
             conn.close()
+
+    def list_distinct_user_ids(self, limit: int = 5000) -> List[int]:
+        """Return distinct user_ids with holdings for offline model training jobs."""
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f'SELECT DISTINCT user_id FROM "{SCHEMA}"."{TABLE}" ORDER BY user_id ASC LIMIT %s',
+                (limit,),
+            )
+            return [int(r["user_id"]) for r in cur.fetchall() if r.get("user_id") is not None]
+        finally:
+            conn.close()
