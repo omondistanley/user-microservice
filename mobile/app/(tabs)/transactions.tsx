@@ -1,12 +1,124 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { getAccessToken } from "../../src/authTokens";
+import { theme } from "../../src/theme";
+
+type LedgerItem = {
+  entry_id?: string;
+  transaction_id?: string;
+  entry_type?: "expense" | "income" | string;
+  occurred_on?: string;
+  date?: string;
+  description?: string;
+  category_name?: string;
+  amount?: number | string;
+  value?: number | string;
+};
+
+const CHIPS = ["ALL", "FOOD", "TRANSPORT", "SHOPPING"] as const;
+type Chip = (typeof CHIPS)[number];
+
+function toNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === "number" ? v : Number(String(v));
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtLedgerAmount(it: LedgerItem): { text: string; income: boolean } {
+  const n = toNumber(it.amount ?? it.value ?? null);
+  if (n === null) return { text: "—", income: false };
+  const abs = Math.abs(n);
+  const income = it.entry_type === "income";
+  return { text: `${income ? "+" : "-"}$${abs.toFixed(2)}`, income };
+}
+
+function rowVisual(cat: string, income: boolean): { icon: keyof typeof MaterialCommunityIcons.glyphMap; tile: string; ink: string } {
+  if (income) {
+    return { icon: "cash", tile: theme.colors.tertiaryContainer, ink: theme.colors.onTertiaryContainer };
+  }
+  const c = cat.toLowerCase();
+  if (/(food|dining|grocery|coffee)/.test(c)) {
+    return { icon: "silverware-fork-knife", tile: theme.colors.primaryContainer, ink: theme.colors.primary };
+  }
+  if (/(transport|uber|car|gas)/.test(c)) {
+    return { icon: "car", tile: theme.colors.primaryContainer, ink: theme.colors.primary };
+  }
+  if (/(shop|retail)/.test(c)) {
+    return { icon: "shopping", tile: theme.colors.primaryContainer, ink: theme.colors.primary };
+  }
+  return { icon: "credit-card-outline", tile: theme.colors.surfaceContainer, ink: theme.colors.primary };
+}
+
+function groupLabel(iso: string): string {
+  try {
+    const d = new Date(iso + "T12:00:00");
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const ds = (x: Date) => x.toISOString().slice(0, 10);
+    if (ds(d) === ds(today)) {
+      return `TODAY, ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}`;
+    }
+    if (ds(d) === ds(yesterday)) {
+      return `YESTERDAY, ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}`;
+    }
+    return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }).toUpperCase();
+  } catch {
+    return iso;
+  }
+}
+
+function timePart(iso?: string): string {
+  if (!iso) return "";
+  if (String(iso).includes("T")) {
+    try {
+      return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
 
 export default function TransactionsScreen() {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<LedgerItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [chip, setChip] = useState<Chip>("ALL");
+  const [initial, setInitial] = useState("•");
+
+  useEffect(() => {
+    let c = true;
+    (async () => {
+      const t = await getAccessToken();
+      if (!c || !t) return;
+      try {
+        const res = await fetch(`${GATEWAY_BASE_URL}/user/me`, { headers: { Authorization: `Bearer ${t}` } });
+        const data = await res.json().catch(() => null);
+        if (data?.first_name) setInitial(String(data.first_name).charAt(0).toUpperCase());
+        else if (data?.email) setInitial(String(data.email).charAt(0).toUpperCase());
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      c = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -14,14 +126,15 @@ export default function TransactionsScreen() {
       setLoading(true);
       setError(null);
       try {
-        const res = await authClient.requestWithRefresh(
-          `${GATEWAY_BASE_URL}/api/v1/transactions?page=1&page_size=25`,
-          { method: "GET" },
-        );
+        const q = encodeURIComponent(search.trim());
+        const url = `${GATEWAY_BASE_URL}/api/v1/transactions?page=1&page_size=80${
+          search.trim() ? `&search=${q}` : ""
+        }`;
+        const res = await authClient.requestWithRefresh(url, { method: "GET" });
         const data = await res.json().catch(() => null);
-        const list = (data && data.items && Array.isArray(data.items) ? data.items : data) || [];
+        const list = data?.items && Array.isArray(data.items) ? data.items : [];
         if (cancelled) return;
-        setItems(Array.isArray(list) ? list : []);
+        setItems(list as LedgerItem[]);
       } catch (e: any) {
         if (cancelled) return;
         setError(e?.message ? String(e.message) : "Failed to load transactions.");
@@ -33,63 +146,195 @@ export default function TransactionsScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [search]);
+
+  const filtered = useMemo(() => {
+    return items.filter((it) => {
+      const cat = (it.category_name ?? "").toUpperCase();
+      if (chip === "FOOD" && !/FOOD|DINING|GROCERY|RESTAURANT|COFFEE/.test(cat)) return false;
+      if (chip === "TRANSPORT" && !/TRANSPORT|UBER|CAR|GAS|PARKING/.test(cat)) return false;
+      if (chip === "SHOPPING" && !/SHOP|RETAIL|STORE/.test(cat)) return false;
+      return true;
+    });
+  }, [items, chip]);
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, LedgerItem[]>();
+    for (const it of filtered) {
+      const raw = it.occurred_on ?? it.date ?? "";
+      const d = raw ? String(raw).slice(0, 10) : "unknown";
+      const arr = m.get(d) ?? [];
+      arr.push(it);
+      m.set(d, arr);
+    }
+    return Array.from(m.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [filtered]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Transactions</Text>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.colors.surfaceDim }]}>
+      <View style={styles.top}>
+        <View style={{ width: 28 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.topTitle}>
+            Transactions <Text style={styles.brand}>Indigo Vault</Text>
+          </Text>
+        </View>
+        <View style={styles.av}>
+          <Text style={styles.avTxt}>{initial}</Text>
+        </View>
+      </View>
 
-      {loading ? (
-        <ActivityIndicator />
-      ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
-      ) : items.length ? (
-        items.map((it: any) => {
-          const entryType = String(it?.entry_type || "transaction");
-          const occurred = it?.occurred_on ? String(it.occurred_on).slice(0, 10) : "—";
-          const desc = String(it?.description || it?.category_name || "—");
-          const amount = it?.amount != null ? Number(it.amount) : 0;
-          const sign = entryType === "income" ? 1 : -1;
-          const display = `${sign === 1 ? "+" : "-"}$${Math.abs(amount).toFixed(2)}`;
-          return (
-            <View key={String(it?.transaction_id ?? it?.entry_id ?? `${occurred}-${desc}`)} style={styles.row}>
-              <View style={{ flex: 1, paddingRight: 10 }}>
-                <Text style={styles.dateText}>{occurred}</Text>
-                <Text style={styles.descText} numberOfLines={1}>
-                  {desc}
-                </Text>
-                <Text style={styles.typeText}>{entryType}</Text>
-              </View>
-              <Text style={[styles.amountText, sign === 1 ? styles.income : styles.expense]}>{display}</Text>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.searchWrap}>
+          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.secondary} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search transactions..."
+            placeholderTextColor={theme.colors.secondary}
+            style={styles.searchIn}
+            autoCapitalize="none"
+          />
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {CHIPS.map((c) => {
+            const on = chip === c;
+            return (
+              <Pressable key={c} style={[styles.chip, on && styles.chipOn]} onPress={() => setChip(c)}>
+                <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{c}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 24 }} color={theme.colors.primary} />
+        ) : error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : grouped.length ? (
+          grouped.map(([date, list]) => (
+            <View key={date} style={styles.group}>
+              <Text style={styles.groupTitle}>{groupLabel(date)}</Text>
+              {list.map((it, idx) => {
+                const title = String(it.description ?? it.category_name ?? "Transaction");
+                const cat = it.category_name ?? "";
+                const { text: amt, income } = fmtLedgerAmount(it);
+                const v = rowVisual(cat, income);
+                const t = timePart(it.occurred_on ?? it.date);
+                return (
+                  <View
+                    key={String(it.entry_id ?? it.transaction_id ?? idx)}
+                    style={styles.card}
+                  >
+                    <View style={[styles.tile, { backgroundColor: v.tile }]}>
+                      <MaterialCommunityIcons name={v.icon} size={22} color={v.ink} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        {title}
+                      </Text>
+                      <Text style={styles.cardMeta} numberOfLines={1}>
+                        {[t, cat, income ? "Income" : "Expense"].filter(Boolean).join(" • ")}
+                      </Text>
+                    </View>
+                    <Text style={[styles.cardAmt, income ? styles.amtIn : styles.amtOut]}>{amt}</Text>
+                  </View>
+                );
+              })}
             </View>
-          );
-        })
-      ) : (
-        <Text style={styles.cardText}>No transactions yet.</Text>
-      )}
-    </ScrollView>
+          ))
+        ) : (
+          <Text style={styles.muted}>No transactions yet.</Text>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 20, gap: 10 },
-  title: { fontSize: 22, fontWeight: "700" },
-  errorText: { color: "#dc2626" },
-  cardText: { color: "#334155", marginTop: 6 },
-  row: {
+  root: { flex: 1 },
+  top: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: 10,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.outlineVariant,
   },
-  dateText: { fontSize: 12, color: "#64748b" },
-  descText: { fontSize: 14, fontWeight: "700", color: "#0f172a", marginTop: 4 },
-  typeText: { fontSize: 12, color: "#64748b", marginTop: 2, textTransform: "capitalize" },
-  amountText: { fontSize: 14, fontWeight: "900", textAlign: "right" },
-  income: { color: "#16a34a" },
-  expense: { color: "#0f172a" },
+  topTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: theme.colors.onSurface, textAlign: "center" },
+  brand: { fontFamily: "Inter_800ExtraBold", color: theme.colors.primary },
+  av: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: theme.colors.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avTxt: { fontFamily: "Inter_800ExtraBold", color: theme.colors.primary, fontSize: 14 },
+  scroll: { padding: theme.spacing.lg },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  searchIn: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular", color: theme.colors.onSurface },
+  chips: { flexDirection: "row", gap: 10, paddingVertical: 14 },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+  },
+  chipOn: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  chipTxt: { fontSize: 12, fontFamily: "Inter_800ExtraBold", color: theme.colors.secondary, letterSpacing: 0.5 },
+  chipTxtOn: { color: theme.colors.onPrimary },
+  group: { marginTop: 8, gap: 10 },
+  groupTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_800ExtraBold",
+    color: theme.colors.secondary,
+    letterSpacing: 0.8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.lg,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    ...theme.shadows.sm,
+  },
+  tile: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTitle: { fontSize: 15, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
+  cardMeta: { fontSize: 12, fontFamily: "Inter_400Regular", color: theme.colors.secondary, marginTop: 3 },
+  cardAmt: { fontSize: 15, fontFamily: "Inter_800ExtraBold" },
+  amtOut: { color: theme.colors.error },
+  amtIn: { color: theme.colors.primary },
+  error: { color: theme.colors.error, fontFamily: "Inter_600SemiBold" },
+  muted: { color: theme.colors.secondary, marginTop: 12 },
 });
-

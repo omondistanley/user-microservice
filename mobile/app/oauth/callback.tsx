@@ -24,10 +24,16 @@ export default function OAuthCallbackScreen() {
         const code = params.code ? String(params.code) : "";
         const marker = params.marker ? String(params.marker) : "";
 
-        if (!provider || !code || !marker) {
+        if (!provider || !marker) {
           throw new Error("Missing OAuth callback parameters.");
         }
+        // Google mobile flow passes the authorization code.
+        // Apple mobile flow issues tokens in the Apple callback itself and may not include a code.
+        if (provider === "google" && !code) {
+          throw new Error("Missing OAuth authorization code.");
+        }
 
+        console.log(`[mobile][oauth callback] provider=${provider}`);
         const res = await fetch(`${GATEWAY_BASE_URL}/api/v1/auth/oauth/exchange`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -36,6 +42,7 @@ export default function OAuthCallbackScreen() {
 
         const data = await res.json().catch(() => null);
         if (!res.ok) {
+          console.warn(`[mobile][oauth callback] exchange failed ok=false status=${res.status}`);
           throw new Error(data?.detail ? String(data.detail) : "Token exchange failed.");
         }
 

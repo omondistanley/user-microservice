@@ -132,9 +132,22 @@ export async function requestWithRefresh(
   }
 }
 
+export async function requestJsonWithRefresh<T = any>(
+  url: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const res = await requestWithRefresh(url, options);
+  const data = await parseJsonSafe(res);
+  if (!res.ok) {
+    throw new Error(getErrorDetail(res, data));
+  }
+  return data as T;
+}
+
 export const authClient = {
   login,
   restoreSession,
   requestWithRefresh,
+  requestJsonWithRefresh,
 };
 

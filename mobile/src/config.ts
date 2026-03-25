@@ -31,12 +31,28 @@ function resolveGatewayBaseUrl(): string {
   if (envGatewayUrl) {
     try {
       const parsed = new URL(envGatewayUrl);
-      if (__DEV__ && parsed.port === "8081") {
+      // If someone accidentally points EXPO_PUBLIC_GATEWAY_URL at Metro (`:8081`),
+      // correct it to the API gateway port (`:8080`) so mobile never tries to talk
+      // to the bundler as if it were the backend.
+      if (parsed.port === "8081") {
         parsed.port = "8080";
         console.warn(
           `[mobile] EXPO_PUBLIC_GATEWAY_URL was set to Metro port 8081; using ${parsed.toString()} instead.`,
         );
         return parsed.toString().replace(/\/$/, "");
+      }
+      // Physical devices cannot resolve localhost on your development machine.
+      // If localhost is configured, automatically swap to the detected host when possible.
+      if ((parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") && Platform.OS !== "web") {
+        const detectedHost = pickHostFromExpoRuntime();
+        if (detectedHost && detectedHost !== "localhost" && detectedHost !== "127.0.0.1") {
+          parsed.hostname = detectedHost;
+          if (!parsed.port) parsed.port = "8080";
+          console.warn(
+            `[mobile] EXPO_PUBLIC_GATEWAY_URL used localhost; rewriting to ${parsed.toString()} for device reachability.`,
+          );
+          return parsed.toString().replace(/\/$/, "");
+        }
       }
       return envGatewayUrl;
     } catch {

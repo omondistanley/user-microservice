@@ -41,6 +41,10 @@ export default function WebAppView({ path }: { path: string }) {
         try {
           localStorage.setItem("access_token", ${JSON.stringify(a)});
           localStorage.setItem("refresh_token", ${JSON.stringify(r)});
+          // Ensure the web app uses the reachable gateway for API calls.
+          window.API_BASE = ${JSON.stringify(GATEWAY_BASE_URL)};
+          window.EXPENSE_API_BASE = "";
+          window.BUDGET_API_BASE = "";
         } catch (e) {}
       })();
       true;
@@ -48,14 +52,11 @@ export default function WebAppView({ path }: { path: string }) {
   }, [accessToken, refreshToken]);
 
   const injectedJS = useMemo(() => {
-    // Ensure web app uses the reachable gateway host from mobile.
+    // Secondary pass: update meta tag if it exists.
     return `
       (function () {
         try {
           var apiBase = ${JSON.stringify(GATEWAY_BASE_URL)};
-          window.API_BASE = apiBase;
-          window.EXPENSE_API_BASE = "";
-          window.BUDGET_API_BASE = "";
           var meta = document.querySelector('meta[name="gateway-public-url"]');
           if (meta) meta.setAttribute("content", apiBase);
         } catch (e) {}

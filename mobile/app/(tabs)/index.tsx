@@ -1,123 +1,790 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { theme } from "../../src/theme";
+
+const R3 = 24;
+const CHART_H = 200;
+
+type CashflowSummary = {
+  income_total?: number | string | null;
+  expense_total?: number | string | null;
+  savings?: number | string | null;
+};
+
+type BudgetItem = {
+  budget_id?: string;
+  name?: string | null;
+  category_name?: string | null;
+  category_code?: number | string | null;
+  amount?: number | string | null;
+};
+
+type ExpenseSummaryItem = {
+  group_key?: string | number | null;
+  total_amount?: number | string | null;
+};
+
+type ExpenseItem = {
+  expense_id?: string;
+  date?: string;
+  description?: string;
+  name?: string;
+  category_name?: string;
+  amount?: number | string;
+  value?: number | string;
+  created_at?: string;
+  plaid_transaction_id?: string | null;
+  teller_transaction_id?: string | null;
+  source?: string | null;
+};
+
+type MeResponse =
+  | {
+      email?: string;
+      first_name?: string | null;
+      last_name?: string | null;
+    }
+  | null;
+
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function toNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === "number" ? v : Number(String(v));
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtMoney(v: unknown): string {
+  const n = toNumber(v);
+  if (n === null) return "—";
+  return `$${n.toFixed(2)}`;
+}
+
+function readableExpenseLabel(it: ExpenseItem): string {
+  const raw = String(it.description ?? it.name ?? "").trim();
+  if (!raw || raw.toLowerCase().startsWith("fernet:") || raw.startsWith("gAAAAA")) {
+    return String(it.category_name ?? "Expense");
+  }
+  return raw;
+}
+
+function categoryVisual(category?: string | null): { icon: keyof typeof MaterialCommunityIcons.glyphMap; tile: string; ink: string } {
+  const c = (category ?? "").toLowerCase();
+  if (/(food|dining|grocery|restaurant)/.test(c)) {
+    return { icon: "silverware-fork-knife", tile: "#fff7ed", ink: "#ea580c" };
+  }
+  if (/(transport|uber|gas|fuel|car)/.test(c)) {
+    return { icon: "car", tile: "#eff6ff", ink: "#2563eb" };
+  }
+  if (/(shop|retail|store|merch)/.test(c)) {
+    return { icon: "cart-outline", tile: "#faf5ff", ink: "#9333ea" };
+  }
+  if (/(income|salary|payroll|deposit)/.test(c)) {
+    return { icon: "bank", tile: "#ecfdf5", ink: "#059669" };
+  }
+  return { icon: "credit-card-outline", tile: theme.colors.surfaceContainer, ink: theme.colors.primary };
+}
+
+function formatExpenseSubtitle(isoDate?: string, createdAt?: string): string {
+  const day = isoDate ? String(isoDate).slice(0, 10) : "";
+  const now = new Date();
+  const todayStr = toISODate(now);
+  const y = new Date(now);
+  y.setDate(y.getDate() - 1);
+  const yStr = toISODate(y);
+  const t = createdAt ? new Date(createdAt) : null;
+  const timePart =
+    t && !Number.isNaN(t.getTime())
+      ? t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+      : "";
+  let dayPart = "";
+  if (day === todayStr) dayPart = "Today";
+  else if (day === yStr) dayPart = "Yesterday";
+  else if (day) {
+    const d = new Date(day + "T12:00:00");
+    dayPart = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return [dayPart, timePart].filter(Boolean).join(", ");
+}
+
+async function fetchAllExpensesInRange(dateFrom: string, dateTo: string): Promise<ExpenseItem[]> {
+  const out: ExpenseItem[] = [];
+  let page = 1;
+  const pageSize = 100;
+  while (page < 12) {
+    const url = `${GATEWAY_BASE_URL}/api/v1/expenses?date_from=${dateFrom}&date_to=${dateTo}&page=${page}&page_size=${pageSize}`;
+    const res = await authClient.requestWithRefresh(url, { method: "GET" });
+    const data = (await res.json().catch(() => null)) as { items?: ExpenseItem[]; total?: number } | null;
+    if (!res.ok) {
+      throw new Error(data && (data as any).detail ? String((data as any).detail) : `Expenses failed (${res.status})`);
+    }
+    const items = Array.isArray(data?.items) ? data.items : [];
+    out.push(...items);
+    const total = Number(data?.total ?? 0);
+    if (items.length < pageSize || out.length >= total) break;
+    page += 1;
+  }
+  return out;
+}
 
 export default function DashboardScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<any | null>(null);
-  const [surplus, setSurplus] = useState<any | null>(null);
-  const [recommendations, setRecommendations] = useState<any | null>(null);
+
+  const [me, setMe] = useState<MeResponse>(null);
+
+  const [totalBalance, setTotalBalance] = useState<number | null>(null);
+  const [momPct, setMomPct] = useState<number | null>(null);
+
+  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
+  const [expenseSummaryByCategory, setExpenseSummaryByCategory] = useState<ExpenseSummaryItem[]>([]);
+
+  const [chartDays, setChartDays] = useState<{ label: string; total: number; key: string }[]>([]);
+  const [chartRangeLabel, setChartRangeLabel] = useState("");
+
+  const [recent, setRecent] = useState<ExpenseItem[]>([]);
+
+  const now = useMemo(() => new Date(), []);
+  const firstDay = useMemo(() => toISODate(new Date(now.getFullYear(), now.getMonth(), 1)), [now]);
+  const today = useMemo(() => toISODate(now), [now]);
+
+  const lastMonthStart = useMemo(
+    () => toISODate(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+    [now],
+  );
+  const lastMonthEnd = useMemo(() => toISODate(new Date(now.getFullYear(), now.getMonth(), 0)), [now]);
+
+  const weekStart = useMemo(() => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 6);
+    return toISODate(d);
+  }, [now]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const cashThisUrl = `${GATEWAY_BASE_URL}/api/v1/cashflow/summary?date_from=${firstDay}&date_to=${today}&convert_to=USD`;
+      const cashLastUrl = `${GATEWAY_BASE_URL}/api/v1/cashflow/summary?date_from=${lastMonthStart}&date_to=${lastMonthEnd}&convert_to=USD`;
+      const nwUrl = `${GATEWAY_BASE_URL}/api/v1/net-worth/components`;
+      const pfUrl = `${GATEWAY_BASE_URL}/api/v1/portfolio/value`;
+      const budgetsUrl = `${GATEWAY_BASE_URL}/api/v1/budgets?page=1&page_size=10`;
+      const expensesSummaryUrl = `${GATEWAY_BASE_URL}/api/v1/expenses/summary?group_by=category&date_from=${firstDay}&date_to=${today}&convert_to=USD`;
+      const recentUrl = `${GATEWAY_BASE_URL}/api/v1/expenses?page=1&page_size=8`;
+      const meUrl = `${GATEWAY_BASE_URL}/user/me`;
+
+      const [cThisRes, cLastRes, nwRes, pfRes, bRes, sumRes, recRes, meRes] = await Promise.all([
+        authClient.requestWithRefresh(cashThisUrl, { method: "GET" }),
+        authClient.requestWithRefresh(cashLastUrl, { method: "GET" }),
+        authClient.requestWithRefresh(nwUrl, { method: "GET" }),
+        authClient.requestWithRefresh(pfUrl, { method: "GET" }),
+        authClient.requestWithRefresh(budgetsUrl, { method: "GET" }),
+        authClient.requestWithRefresh(expensesSummaryUrl, { method: "GET" }),
+        authClient.requestWithRefresh(recentUrl, { method: "GET" }),
+        authClient.requestWithRefresh(meUrl, { method: "GET" }),
+      ]);
+
+      const cThis = (await cThisRes.json().catch(() => null)) as CashflowSummary | null;
+      const cLast = (await cLastRes.json().catch(() => null)) as CashflowSummary | null;
+      const nw = (await nwRes.json().catch(() => null)) as any;
+      const pf = (await pfRes.json().catch(() => null)) as any;
+      const bJson = (await bRes.json().catch(() => null)) as any;
+      const sumJson = (await sumRes.json().catch(() => null)) as any;
+      const recentJson = (await recRes.json().catch(() => null)) as any;
+      const meJson = (await meRes.json().catch(() => null)) as MeResponse;
+
+      const failures: [Response, any][] = [
+        [cThisRes, cThis],
+        [bRes, bJson],
+        [sumRes, sumJson],
+        [recRes, recentJson],
+      ];
+      for (const [res, payload] of failures) {
+        if (!res.ok) {
+          throw new Error(
+            payload?.detail ? String(payload.detail) : `Dashboard request failed (${res.status})`,
+          );
+        }
+      }
+
+      let nwNet: number | null = null;
+      if (nwRes.ok && nw) {
+        const cash = toNumber(nw?.assets?.cash);
+        const obligation = toNumber(nw?.liabilities?.spending_obligation);
+        if (cash !== null && obligation !== null) {
+          nwNet = cash - obligation;
+        }
+      }
+
+      let mkt: number | null = null;
+      if (pfRes.ok && pf) {
+        mkt = toNumber(pf?.total_market_value);
+      }
+
+      if (nwNet !== null || mkt !== null) {
+        setTotalBalance((nwNet ?? 0) + (mkt ?? 0));
+      } else {
+        setTotalBalance(null);
+      }
+
+      const incT = toNumber(cThis?.income_total);
+      const expT = toNumber(cThis?.expense_total);
+      const netT = incT !== null && expT !== null ? incT - expT : null;
+      if (cLastRes.ok && cLast) {
+        const incL = toNumber(cLast?.income_total);
+        const expL = toNumber(cLast?.expense_total);
+        const netL = incL !== null && expL !== null ? incL - expL : null;
+        if (netT !== null && netL !== null && netL !== 0) {
+          setMomPct(((netT - netL) / Math.abs(netL)) * 100);
+        } else {
+          setMomPct(null);
+        }
+      } else {
+        setMomPct(null);
+      }
+
+      setMe(meRes.ok ? (meJson ?? null) : null);
+      setBudgets(Array.isArray(bJson?.items) ? bJson.items : []);
+      setExpenseSummaryByCategory(Array.isArray(sumJson?.items) ? sumJson.items : []);
+      setRecent(Array.isArray(recentJson?.items) ? recentJson.items : []);
+
+      let weekRows: ExpenseItem[] = [];
+      try {
+        weekRows = await fetchAllExpensesInRange(weekStart, today);
+      } catch {
+        weekRows = [];
+      }
+      const dayMap = new Map<string, number>();
+      for (let i = 0; i < 7; i += 1) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - (6 - i));
+        dayMap.set(toISODate(d), 0);
+        }
+      for (const row of weekRows) {
+        const dkey = row.date ? String(row.date).slice(0, 10) : "";
+        if (!dkey || !dayMap.has(dkey)) continue;
+        const amt = Math.abs(toNumber(row.amount ?? row.value) ?? 0);
+        dayMap.set(dkey, (dayMap.get(dkey) ?? 0) + amt);
+      }
+      const orderedKeys = [...dayMap.keys()].sort();
+      const days = orderedKeys.map((key) => {
+        const dt = new Date(key + "T12:00:00");
+        const label = dt.toLocaleDateString(undefined, { weekday: "short" }).toUpperCase();
+        return { key, label, total: dayMap.get(key) ?? 0 };
+      });
+      setChartDays(days);
+      if (orderedKeys.length >= 2) {
+        const a = new Date(orderedKeys[0] + "T12:00:00");
+        const b = new Date(orderedKeys[orderedKeys.length - 1] + "T12:00:00");
+        setChartRangeLabel(
+          `${a.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${b.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+        );
+      } else {
+        setChartRangeLabel("");
+      }
+
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Failed to load dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }, [firstDay, today, lastMonthEnd, lastMonthStart, now, weekStart]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const urls = [
-          `${GATEWAY_BASE_URL}/api/v1/sync-status`,
-          `${GATEWAY_BASE_URL}/api/v1/surplus`,
-          `${GATEWAY_BASE_URL}/api/v1/recommendations/latest?page=1&page_size=5&enrich=0`,
-        ];
-        const [s1, s2, s3] = await Promise.all(
-          urls.map((u) => authClient.requestWithRefresh(u, { method: "GET" })),
-        );
+    load();
+  }, [load]);
 
-        const json1 = await s1.json().catch(() => null);
-        const json2 = await s2.json().catch(() => null);
-        const json3 = await s3.json().catch(() => null);
+  const spentByCode = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of expenseSummaryByCategory) {
+      const key = row.group_key !== null && row.group_key !== undefined ? String(row.group_key) : "";
+      const amt = toNumber(row.total_amount);
+      if (!key) continue;
+      m.set(key, amt ?? 0);
+    }
+    return m;
+  }, [expenseSummaryByCategory]);
 
-        if (cancelled) return;
-        setSyncStatus(json1);
-        setSurplus(json2);
-        setRecommendations(json3);
-      } catch (e: any) {
-        if (cancelled) return;
-        setError(e?.message ? String(e.message) : "Failed to load dashboard.");
-      } finally {
-        if (cancelled) return;
-        setLoading(false);
+  const topBudgets = budgets.slice(0, 3);
+
+  const maxDay = useMemo(() => Math.max(1, ...chartDays.map((d) => d.total)), [chartDays]);
+  const hiIdx = useMemo(() => {
+    const ixToday = chartDays.findIndex((d) => d.key === today);
+    if (ixToday >= 0) return ixToday;
+    let m = 0;
+    let ix = 0;
+    chartDays.forEach((d, i) => {
+      if (d.total > m) {
+        m = d.total;
+        ix = i;
       }
-    })();
+    });
+    return ix;
+  }, [chartDays, today]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const recItems = recommendations?.items;
+  const initials = useMemo(() => {
+    const fn = me?.first_name?.trim();
+    const em = me?.email?.trim();
+    if (fn) return fn.charAt(0).toUpperCase();
+    if (em) return em.charAt(0).toUpperCase();
+    return "•";
+  }, [me]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
-
-      {loading ? (
-        <ActivityIndicator />
-      ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
-      ) : (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Connection</Text>
-          <Text style={styles.cardText}>
-            Bank linked: {syncStatus?.bank_linked ? "Yes" : "No"}
-          </Text>
-          <Text style={styles.cardText}>
-            Last sync update:{" "}
-            {syncStatus?.last_bank_connection_update_at
-              ? String(syncStatus.last_bank_connection_update_at)
-              : "—"}
-          </Text>
+    <View style={styles.root}>
+      <View style={[styles.stickyHeader, { paddingTop: insets.top + 8 }]}>
+        <Pressable
+          hitSlop={12}
+          onPress={() => router.push("/more")}
+          style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={22} color={theme.colors.primary} />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.brandTitle}>Indigo Vault</Text>
         </View>
-      )}
+        <Pressable onPress={() => router.push("/(tabs)/profile")} style={styles.avatarSm}>
+          <Text style={styles.avatarSmText}>{initials}</Text>
+        </Pressable>
+      </View>
 
-      {!loading && !error ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Surplus</Text>
-          <Text style={styles.cardText}>
-            Investable surplus:{" "}
-            {surplus && typeof surplus === "object" ? String(surplus.investable_surplus ?? "—") : "—"}
-          </Text>
-        </View>
-      ) : null}
-
-      {!loading && !error ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Latest recommendations</Text>
-          {Array.isArray(recItems) && recItems.length ? (
-            recItems.map((it: any, idx: number) => (
-              <View key={String(it?.recommendation_id ?? idx)} style={styles.recRow}>
-                <Text style={styles.recTitle}>{it?.title ?? it?.symbol ?? "Recommendation"}</Text>
-                {it?.summary ? (
-                  <Text style={styles.recSubtitle} numberOfLines={2}>
-                    {String(it.summary)}
+      <ScrollView
+        contentContainerStyle={[styles.scrollBody, { paddingBottom: insets.bottom + 120 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 40 }} />
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : (
+          <>
+            <View style={styles.hero}>
+              <View style={styles.heroBlob} />
+              <View style={{ zIndex: 1 }}>
+                <Text style={styles.heroKicker}>TOTAL BALANCE</Text>
+                <Text style={styles.heroAmount}>{totalBalance === null ? "—" : fmtMoney(totalBalance)}</Text>
+                <View style={styles.heroBadge}>
+                  <MaterialCommunityIcons name="trending-up" size={16} color="#4ade80" />
+                  <Text style={styles.heroBadgeText}>
+                    {momPct === null
+                      ? "No month-over-month baseline yet"
+                      : `${momPct >= 0 ? "+" : ""}${momPct.toFixed(1)}% this month`}
                   </Text>
-                ) : null}
+                </View>
               </View>
-            ))
-          ) : (
-            <Text style={styles.cardText}>No recommendations yet.</Text>
-          )}
-        </View>
-      ) : null}
-    </ScrollView>
+            </View>
+
+            <View style={styles.surfaceCard}>
+              <Text style={styles.sectionKickerMuted}>TOP CATEGORIES</Text>
+              <View style={{ height: theme.spacing.lg }} />
+              {topBudgets.length ? (
+                topBudgets.map((b, idx) => {
+                  const catCode =
+                    b.category_code !== null && b.category_code !== undefined ? String(b.category_code) : "";
+                  const spent = spentByCode.get(catCode) ?? 0;
+                  const limit = toNumber(b.amount) ?? 0;
+                  const pct = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+                  const name = String(b.name ?? b.category_name ?? `Budget ${idx + 1}`);
+                  const barColor =
+                    pct >= 100 ? theme.colors.onSurface : idx === 1 ? `${theme.colors.primary}99` : theme.colors.primary;
+                  return (
+                    <View key={`${b.budget_id ?? idx}`} style={{ marginBottom: theme.spacing.xl }}>
+                      <View style={styles.budgetHeaderRow}>
+                        <Text style={styles.budgetName}>{name}</Text>
+                        <Text style={styles.budgetFrac}>
+                          {fmtMoney(spent)} / {limit ? fmtMoney(limit) : "—"}
+                        </Text>
+                      </View>
+                      <View style={styles.track}>
+                        <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: barColor }]} />
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={styles.muted}>No budgets yet — add budgets to track category limits.</Text>
+              )}
+            </View>
+
+            <View style={styles.surfaceCard}>
+              <View style={styles.chartHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.chartTitle}>Weekly Spending</Text>
+                  <Text style={styles.chartSub}>
+                    {chartRangeLabel ? `Your activity from ${chartRangeLabel}` : "Your activity this week"}
+                  </Text>
+                </View>
+                <View style={styles.weekActions}>
+                  <Pressable style={styles.weekIconBtn} onPress={() => router.push("/(tabs)/transactions")}>
+                    <MaterialCommunityIcons name="calendar-month-outline" size={22} color={theme.colors.secondary} />
+                  </Pressable>
+                  <Pressable style={styles.weekIconBtn} onPress={() => router.push("/more")}>
+                    <MaterialCommunityIcons name="menu" size={22} color={theme.colors.secondary} />
+                  </Pressable>
+                </View>
+              </View>
+              <View style={[styles.chartArea, { height: CHART_H }]}>
+                {chartDays.map((d, i) => {
+                  const innerMax = CHART_H - 28;
+                  const barPx = maxDay > 0 ? Math.max(6, (d.total / maxDay) * innerMax) : 6;
+                  const active = i === hiIdx && d.total > 0;
+                  return (
+                    <View key={d.key} style={styles.chartCol}>
+                      <View style={styles.chartBarTrack}>
+                        <View
+                          style={[
+                            styles.chartBar,
+                            { height: barPx },
+                            active && styles.chartBarHi,
+                          ]}
+                        >
+                          <View style={[styles.barSeg, { flex: 2, backgroundColor: theme.colors.primary }]} />
+                          <View
+                            style={[
+                              styles.barSeg,
+                              { flex: 1, backgroundColor: `${theme.colors.primary}66` },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                      <Text style={[styles.chartLbl, active && styles.chartLblHi]}>{d.label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.surfaceCard}>
+              <View style={styles.txHead}>
+                <Text style={styles.txTitle}>Recent transactions</Text>
+                <Pressable onPress={() => router.push("/(tabs)/transactions")}>
+                  <Text style={styles.viewAll}>VIEW ALL</Text>
+                </Pressable>
+              </View>
+              {recent.length ? (
+                recent.slice(0, 5).map((it, idx) => {
+                  const cv = categoryVisual(it.category_name);
+                  const when = formatExpenseSubtitle(it.date, it.created_at);
+                  const sub = [it.category_name, when].filter(Boolean).join(" • ");
+                  const amtRaw = toNumber(it.amount ?? it.value);
+                  const isIncomeLike = /income|salary|pay|deposit|credit/i.test(it.category_name ?? "");
+                  const amountLine =
+                    amtRaw === null
+                      ? "—"
+                      : isIncomeLike
+                        ? `+$${Math.abs(amtRaw).toFixed(2)}`
+                        : `-$${Math.abs(amtRaw).toFixed(2)}`;
+                  return (
+                    <Pressable
+                      key={String(it.expense_id ?? idx)}
+                      style={({ pressed }) => [styles.txRow, pressed && { opacity: 0.92 }]}
+                      onPress={() => router.push(`/expenses/${encodeURIComponent(String(it.expense_id ?? ""))}`)}
+                    >
+                      <View style={styles.txLeft}>
+                        <View style={[styles.txIconTile, { backgroundColor: cv.tile }]}>
+                          <MaterialCommunityIcons name={cv.icon} size={22} color={cv.ink} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.txName} numberOfLines={1}>
+                            {readableExpenseLabel(it)}
+                          </Text>
+                          <Text style={styles.txSub} numberOfLines={2}>
+                            {sub}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.txRight}>
+                        <Text
+                          style={[
+                            styles.txAmt,
+                            isIncomeLike ? { color: "#059669" } : { color: theme.colors.error },
+                          ]}
+                        >
+                          {amountLine}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <Text style={styles.muted}>No transactions yet.</Text>
+              )}
+            </View>
+          </>
+        )}
+      </ScrollView>
+
+      <Pressable
+        style={[styles.fab, { bottom: insets.bottom + 72 }]}
+        onPress={() => router.push("/expenses/add")}
+      >
+        <MaterialCommunityIcons name="plus" size={30} color={theme.colors.onPrimary} />
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 20, gap: 14 },
-  title: { fontSize: 22, fontWeight: "700" },
-  errorText: { color: "#dc2626", marginTop: 8 },
-  card: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 14,
-    padding: 14,
+  root: { flex: 1, backgroundColor: theme.colors.background },
+  stickyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.outlineVariant,
+  },
+  iconBtn: { padding: 4 },
+  brandTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_800ExtraBold",
+    color: theme.colors.onSurface,
+    letterSpacing: -0.3,
+  },
+  syncRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  syncDot: { width: 8, height: 8, borderRadius: 4 },
+  syncOn: { backgroundColor: "#34d399" },
+  syncOff: { backgroundColor: theme.colors.outline },
+  syncCaps: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: theme.colors.onSurfaceVariant,
+    letterSpacing: 1.2,
+  },
+  avatarSm: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primaryContainer,
+    borderWidth: 2,
+    borderColor: theme.colors.surfaceContainerHighest,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarSmText: { fontFamily: "Inter_800ExtraBold", color: theme.colors.primary, fontSize: 16 },
+  scrollBody: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xl, gap: theme.spacing.xxl },
+  errorText: { color: theme.colors.error, fontFamily: "Inter_600SemiBold", marginTop: 12 },
+
+  hero: {
+    backgroundColor: "#0f172a",
+    borderRadius: R3,
+    padding: theme.spacing.xxl,
+    overflow: "hidden",
+  },
+  heroBlob: {
+    position: "absolute",
+    right: -40,
+    bottom: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: `${theme.colors.primary}33`,
+  },
+  heroKicker: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2,
+  },
+  heroAmount: {
+    color: "#fff",
+    fontSize: 36,
+    fontFamily: "Inter_800ExtraBold",
+    marginTop: 8,
+    letterSpacing: -0.5,
+  },
+  heroBadge: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.radii.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  heroBadgeText: { color: "#4ade80", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+
+  investCard: {
+    backgroundColor: "rgba(238,242,255,0.65)",
+    borderRadius: R3,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}22`,
+    padding: theme.spacing.xxl,
+  },
+  investHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: theme.spacing.lg },
+  rowStart: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sectionKickerPrimary: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: theme.colors.primary,
+    letterSpacing: 2,
+  },
+  investValue: { fontSize: 14, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
+  investInner: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.lg,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}18`,
+    alignItems: "center",
+    gap: theme.spacing.md,
+  },
+  strategyTitle: { fontSize: 12, fontFamily: "Inter_700Bold", color: theme.colors.onSurface },
+  strategyBody: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: "Inter_400Regular",
+    color: theme.colors.onSurfaceVariant,
+    textAlign: "center",
+  },
+  primaryBtn: {
+    width: "100%",
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radii.md,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
-  cardTitle: { fontSize: 16, fontWeight: "700" },
-  cardText: { fontSize: 14, color: "#334155" },
-  recRow: { gap: 4, marginTop: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
-  recTitle: { fontSize: 15, fontWeight: "600" },
-  recSubtitle: { fontSize: 13, color: "#475569" },
+  primaryBtnText: { color: theme.colors.onPrimary, fontSize: 12, fontFamily: "Inter_700Bold" },
+
+  insightsShell: {
+    backgroundColor: `${theme.colors.primary}0D`,
+    borderRadius: R3,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}22`,
+    padding: theme.spacing.xxl,
+    gap: theme.spacing.md,
+  },
+  insightCard: {
+    backgroundColor: theme.colors.surface + "99",
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.surface,
+    padding: theme.spacing.lg,
+  },
+  insightGreen: { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" },
+  insightTitle: { fontSize: 12, fontFamily: "Inter_700Bold", color: theme.colors.onSurface, marginBottom: 6 },
+  insightBody: { fontSize: 11, lineHeight: 16, color: theme.colors.onSurfaceVariant, fontFamily: "Inter_400Regular" },
+
+  surfaceCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: R3,
+    padding: theme.spacing.xxl,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    ...theme.shadows.sm,
+  },
+  sectionKickerMuted: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: theme.colors.onSurfaceVariant,
+    letterSpacing: 2,
+  },
+  budgetHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+  budgetName: { fontSize: 14, fontFamily: "Inter_700Bold", color: theme.colors.onSurface },
+  budgetFrac: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: theme.colors.onSurfaceVariant },
+  track: {
+    marginTop: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceContainer,
+    overflow: "hidden",
+  },
+  barFill: { height: "100%", borderRadius: 999 },
+  muted: { color: theme.colors.onSurfaceVariant, fontFamily: "Inter_400Regular", fontSize: 13 },
+
+  chartHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: theme.spacing.xl },
+  weekActions: { flexDirection: "row", alignItems: "center", gap: 4 },
+  weekIconBtn: {
+    padding: 8,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surfaceContainerLow,
+  },
+  chartTitle: { fontSize: 22, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
+  chartSub: { fontSize: 13, color: theme.colors.onSurfaceVariant, marginTop: 4, fontFamily: "Inter_400Regular" },
+  legend: { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.primary },
+  legendText: { fontSize: 10, fontFamily: "Inter_700Bold", color: theme.colors.onSurfaceVariant },
+
+  chartArea: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 8, paddingHorizontal: 4 },
+  chartCol: { flex: 1, alignItems: "center", gap: 8, justifyContent: "flex-end" },
+  chartBarTrack: { width: "100%", alignItems: "center", justifyContent: "flex-end", minHeight: CHART_H - 24 },
+  chartBar: {
+    width: "88%",
+    flexDirection: "column-reverse",
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    overflow: "hidden",
+  },
+  chartBarHi: {
+    transform: [{ scaleX: 1.04 }],
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  barSeg: { width: "100%" },
+  chartLbl: { fontSize: 10, fontFamily: "Inter_700Bold", color: theme.colors.onSurfaceVariant },
+  chartLblHi: { color: theme.colors.primary },
+
+  txHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: theme.spacing.lg },
+  txTitle: { fontSize: 20, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
+  viewAll: { fontSize: 10, fontFamily: "Inter_700Bold", color: theme.colors.primary, letterSpacing: 2 },
+
+  txRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: "transparent",
+    marginBottom: 4,
+  },
+  txLeft: { flexDirection: "row", alignItems: "center", gap: theme.spacing.md, flex: 1, paddingRight: 8 },
+  txIconTile: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  txName: { fontSize: 14, fontFamily: "Inter_700Bold", color: theme.colors.onSurface },
+  txSub: { fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 4, fontFamily: "Inter_400Regular" },
+  txRight: { alignItems: "flex-end" },
+  txAmt: { fontSize: 14, fontFamily: "Inter_800ExtraBold" },
+  syncStatusRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  syncCapsSm: { fontSize: 10, fontFamily: "Inter_700Bold" },
+
+  fab: {
+    position: "absolute",
+    right: theme.spacing.xl,
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    ...theme.shadows.md,
+  },
 });
