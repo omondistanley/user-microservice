@@ -59,7 +59,8 @@ services:
              python run_migration.py migrations/018_calendar_subscription_token.sql &&
              python run_migration.py migrations/019_net_worth_manual.sql &&
              python run_migration.py migrations/020_calendar_oauth_connection.sql &&
-             python run_migration.py migrations/020_lifecycle_events.sql"
+             python run_migration.py migrations/020_lifecycle_events.sql &&
+             python run_migration.py migrations/021_retention_policy_investments_expense.sql"
     restart: "no"
 
   expense-migrations:
@@ -162,7 +163,8 @@ services:
              python run_migration.py migrations/019_watchlist.sql &&
              python run_migration.py migrations/020_nudge_log.sql &&
              python run_migration.py migrations/021_etf_constituents.sql &&
-             python run_migration.py migrations/022_dividend_calendar.sql"
+             python run_migration.py migrations/022_dividend_calendar.sql &&
+             python run_migration.py migrations/029_recommendation_run_artifacts.sql"
     restart: "no"
 
   expense:
@@ -181,7 +183,7 @@ services:
       DB_NAME: expenses_db
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       RATE_LIMIT_EXPENSES_PER_MINUTE: ${RATE_LIMIT_EXPENSES_PER_MINUTE:-60}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-api-key-change-me}
       SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
       HSTS_MAX_AGE_SECONDS: ${HSTS_MAX_AGE_SECONDS:-31536000}
       RECEIPT_STORAGE_BACKEND: ${RECEIPT_STORAGE_BACKEND:-local}
@@ -226,7 +228,7 @@ services:
       EXPENSE_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       EXPENSE_DB_NAME: expenses_db
       USER_SERVICE_INTERNAL_URL: http://user:8000
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-api-key-change-me}
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
@@ -259,7 +261,7 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: investments_db
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-api-key-change-me}
       USER_SERVICE_INTERNAL_URL: ${USER_SERVICE_INTERNAL_URL:-http://user:8000}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       SECURITY_HEADERS_ENABLED: ${SECURITY_HEADERS_ENABLED:-true}
@@ -343,7 +345,7 @@ services:
       APPLE_KEY_ID: ${APPLE_KEY_ID:-}
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
       APPLE_REDIRECT_URI: ${APPLE_REDIRECT_URI:-}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-api-key-change-me}
       EXPENSE_SERVICE_INTERNAL_URL: http://expense:3001
       BUDGET_SERVICE_INTERNAL_URL: http://budget:3002
       CALENDAR_TOKEN_BASE_URL: ${CALENDAR_TOKEN_BASE_URL:-http://localhost:8000}
@@ -405,7 +407,7 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: expenses_db
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-api-key-change-me}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
       PLAID_SECRET: ${PLAID_SECRET:-}
@@ -441,7 +443,7 @@ services:
       EXPENSE_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       EXPENSE_DB_NAME: expenses_db
       USER_SERVICE_INTERNAL_URL: http://user:8000
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-api-key-change-me}
       SCHEDULER_INTERVAL_SECONDS: ${BUDGET_WORKER_INTERVAL_SECONDS:-1800}
     depends_on:
       budget:
@@ -466,7 +468,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-api-key-change-me}
       EXPENSE_SERVICE_INTERNAL_URL: http://expense:3001
       BUDGET_SERVICE_INTERNAL_URL: http://budget:3002
       SCHEDULER_INTERVAL_SECONDS: ${USER_WORKER_INTERVAL_SECONDS:-60}

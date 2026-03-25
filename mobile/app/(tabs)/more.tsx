@@ -1,16 +1,15 @@
-import { Text, View, StyleSheet } from "react-native";
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import WebAppView from "../../src/WebAppView";
 
 export default function MoreScreen() {
   return (
-    <View style={styles.box}>
-      <Text style={styles.body}>
-        Placeholder for settings, integrations, and profile — mirror the web “More” journey and gateway routes.
-      </Text>
+    <View style={styles.container}>
+      <WebAppView path="/settings/integrations" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 24 },
-  body: { fontSize: 15, color: "#334155", lineHeight: 22 },
+  container: { flex: 1 },
 });

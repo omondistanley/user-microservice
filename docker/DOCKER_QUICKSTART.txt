@@ -1,41 +1,33 @@
 Docker Quick Start
 ==================
 
-1) Copy env defaults:
+1) Copy env defaults (Compose reads project-root .env):
 
-   cp .env.compose.example .env
+   cp .env.example .env
 
-2) Start the stack:
+2) Build frontend static assets (user image copies frontend/):
+
+   ./scripts/bootstrap-frontend.sh
+
+3) Start the stack:
 
    docker compose up --build
 
-3) Endpoints:
+4) Endpoints:
 
-   - User gateway + frontend: http://localhost:8000
-   - Expense API:            http://localhost:3001
-   - Budget API:             http://localhost:3002
-   - Postgres:               localhost:5432
+   - App (use this in browser):  http://localhost:8080   (API gateway + proxied UI)
+   - User service (direct):      http://localhost:8000
+   - Expense API:                 http://localhost:3001
+   - Budget API:                  http://localhost:3002
+   - Investments API:             http://localhost:3003
+   - Postgres:                    localhost:5432
 
-Migrations run automatically through one-off services:
-
-   - user-migrations
-   - expense-migrations
-   - budget-migrations
-
-Manual migrations (optional re-run):
-
-   docker compose run --rm user-migrations
-   docker compose run --rm expense-migrations
-   docker compose run --rm budget-migrations
-
-Recurring due processor (manual run):
-
-   docker compose run --rm expense python -m app.jobs.recurring_due_processor
+Migrations run automatically through one-off services (see docker-compose.yml).
 
 Smoke checks:
 
+   curl -s http://localhost:8080/health
    curl -s http://localhost:8000/health
    curl -s http://localhost:3001/health
-   curl -s http://localhost:3002/health
-   curl -i http://localhost:3001/api/v1/income
-   curl -i http://localhost:3001/api/v1/recurring-expenses
+
+Expo Go: in mobile/, cp .env.example .env and set EXPO_PUBLIC_GATEWAY_URL to http://<LAN-IP>:8080

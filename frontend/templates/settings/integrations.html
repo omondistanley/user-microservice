@@ -96,15 +96,32 @@
         });
     }
 
+    function renderProviderStatusRow(label, configured) {
+        var row = document.createElement('span');
+        row.style.marginRight = '0.75rem';
+        row.appendChild(document.createTextNode(label + ': '));
+        var icon = document.createElement('span');
+        icon.className = 'material-symbols-rounded';
+        icon.style.fontSize = '1rem';
+        icon.style.verticalAlign = 'middle';
+        icon.textContent = configured ? 'check' : 'cancel';
+        row.appendChild(icon);
+        row.appendChild(document.createTextNode(configured ? ' configured' : ' not configured'));
+        return row;
+    }
+
     function loadBankData() {
         fetchJson('/api/v1/bank/status').then(function(data) {
             var p = data.providers || {};
-            bankStatus.textContent =
-                'Plaid: ' + (p.plaid && p.plaid.configured ? '<span class="material-symbols-rounded">check</span> configured' : '<span class="material-symbols-rounded">cancel</span> not configured') +
-                ' | Teller: ' + (p.teller && p.teller.configured ? '<span class="material-symbols-rounded">check</span> configured' : '<span class="material-symbols-rounded">cancel</span> not configured') +
-                ' | TrueLayer: ' + (p.truelayer && p.truelayer.configured ? '<span class="material-symbols-rounded">check</span> configured' : '<span class="material-symbols-rounded">cancel</span> not configured');
+            if (!bankStatus) return;
+            bankStatus.textContent = '';
+            bankStatus.appendChild(renderProviderStatusRow('Plaid', !!(p.plaid && p.plaid.configured)));
+            bankStatus.appendChild(document.createTextNode(' | '));
+            bankStatus.appendChild(renderProviderStatusRow('Teller', !!(p.teller && p.teller.configured)));
+            bankStatus.appendChild(document.createTextNode(' | '));
+            bankStatus.appendChild(renderProviderStatusRow('TrueLayer', !!(p.truelayer && p.truelayer.configured)));
         }).catch(function() {
-            bankStatus.textContent = 'Could not load provider status.';
+            if (bankStatus) bankStatus.textContent = 'Could not load provider status.';
         });
         Promise.all([
             fetchJson('/api/v1/bank/items').catch(function() { return { items: [] }; }),

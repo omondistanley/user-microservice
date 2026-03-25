@@ -394,7 +394,7 @@ async def portfolio_benchmark(
     user_id: int = Depends(get_current_user_id),
     ds: HoldingsDataService = Depends(_get_data_service),
     market_router: MarketDataRouter = Depends(_get_market_router),
-    benchmark: str = Query("sp500", regex="^(sp500|nasdaq|60_40|dividend)$"),
+    benchmark: str = Query("sp500", pattern="^(sp500|nasdaq|60_40|dividend)$"),
     days: int = Query(90, ge=7, le=365),
 ):
     """

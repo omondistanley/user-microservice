@@ -2,9 +2,10 @@
 *.md
 __pycache__/
 *.pyc
-*.env
-*.env.compose.example
-*.env.compose
+# Local secrets — do not commit
+.env
+.env.local
+.env.compose
 *.pem
 
 # Frontend (Tailwind build)

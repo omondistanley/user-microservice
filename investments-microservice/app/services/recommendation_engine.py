@@ -44,6 +44,37 @@ def _get_db_context() -> Dict[str, Any]:
     }
 
 
+def _attach_card_meta(explanation: Dict[str, Any], symbol: str, *, is_holding: bool) -> None:
+    """UI card fields (spec 3-4 / 5-x): thesis lines, badges, earnings gate placeholder."""
+    if not isinstance(explanation, dict):
+        return
+    sec = explanation.get("security") or {}
+    sector = sec.get("sector") or "—"
+    why = explanation.get("why_selected") or []
+    bull = str(why[0]) if why else (
+        f"Position in {symbol} aligns with your portfolio risk and sector mix."
+        if is_holding
+        else f"Adds or tilts exposure toward {sector} within your stated preferences."
+    )
+    bear = str(why[1]) if len(why) > 1 else (
+        "Prices and sectors can move sharply; concentration increases downside sensitivity."
+    )
+    badges = ["Holdings & risk model", "Risk profile"]
+    if explanation.get("personalized_with_finance_data"):
+        badges.append("Linked cashflow/goals")
+    explanation["earnings_gate"] = {
+        "status": "unverified",
+        "note": "Check an earnings calendar before sizing trades around report dates.",
+    }
+    explanation["thesis"] = {"bull_case": bull[:400], "bear_case": bear[:400]}
+    explanation["consensus"] = {
+        "label": "Analyst consensus",
+        "detail": "Not loaded in quick list; open details for richer context when configured.",
+    }
+    explanation["data_badges"] = badges
+    explanation["why_shown_one_line"] = (bull[:220] + ("…" if len(bull) > 220 else ""))
+
+
 def _fetch_live_prices(symbols: List[str]) -> Dict[str, Decimal]:
     """
     Fetch current prices for a list of symbols using yfinance.
@@ -544,6 +575,7 @@ class RecommendationEngine:
                 except Exception:
                     pass
 
+            _attach_card_meta(explanation, sym, is_holding=False)
             items_with_scores.append({
                 "symbol": sym,
                 "score": combined,
@@ -899,6 +931,7 @@ class RecommendationEngine:
                 except Exception:
                     pass
 
+            _attach_card_meta(explanation, item["symbol"], is_holding=True)
             items_with_scores.append(
                 {
                     "symbol": item["symbol"],
@@ -962,6 +995,7 @@ class RecommendationEngine:
             }
             if finance_ctx is not None:
                 explanation["personalized_with_finance_data"] = True
+            _attach_card_meta(explanation, sym, is_holding=False)
             items_with_scores.append({
                 "symbol": sym,
                 "score": combined,

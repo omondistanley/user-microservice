@@ -654,8 +654,8 @@
             {
                 title: 'Amount available',
                 load: function(cb) {
-                    var expBase = (window.EXPENSE_API_BASE || '');
-                    fetch(expBase + '/api/v1/surplus', { headers: getAuthHeaders() })
+                    var base = (window.API_BASE || window.EXPENSE_API_BASE || '');
+                    fetch(base + '/api/v1/surplus', { headers: getAuthHeaders() })
                         .then(function(r) { return r.ok ? r.json() : null; })
                         .then(function(d) { _data.surplus = d; cb(); })
                         .catch(function() { _data.surplus = null; cb(); });
@@ -692,17 +692,30 @@
             {
                 title: 'One thing to know',
                 load: function(cb) {
-                    fetch((window.API_BASE || '') + '/api/v1/recommendations/digest/latest', { headers: getAuthHeaders() })
+                    fetch((window.API_BASE || '') + '/api/v1/recommendations/latest?page=1&page_size=5', { headers: getAuthHeaders() })
+                        .then(function(r) { return r.ok ? r.json() : null; })
+                        .then(function(d) { _data.recLatest = d; return fetch((window.API_BASE || '') + '/api/v1/recommendations/digest/latest', { headers: getAuthHeaders() }); })
                         .then(function(r) { return r.ok ? r.json() : null; })
                         .then(function(d) { _data.digest = d; cb(); })
-                        .catch(function() { _data.digest = null; cb(); });
+                        .catch(function() { _data.recLatest = null; _data.digest = null; cb(); });
                 },
                 render: function() {
+                    var rl = _data.recLatest;
+                    var aq = rl && rl.action_queue;
+                    if (aq && aq.length) {
+                        var rows = aq.map(function(a) {
+                            return '<li style="margin-bottom:0.65rem;"><strong>' + (a.symbol || '') + '</strong> — ' + (a.headline || '') + '<p class="muted" style="font-size:0.8125rem;margin:0.2rem 0 0;">' + (a.detail || '') + '</p></li>';
+                        }).join('');
+                        return '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;">Up to three things to review</h3>'
+                            + '<p class="muted" style="font-size:0.8125rem;margin-bottom:0.5rem;">From your latest recommendation run (informational only).</p>'
+                            + '<ul style="margin:0;padding-left:1.1rem;font-size:0.875rem;">' + rows + '</ul>'
+                            + '<p style="margin-top:0.75rem;"><a href="/recommendations">Open Recommendations</a></p>';
+                    }
                     var d = _data.digest && _data.digest.digest;
                     return '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;">One thing to know this week</h3>'
                         + (d
                             ? '<p style="font-weight:600;margin-bottom:0.5rem;">' + (d.headline || '') + '</p><p class="muted" style="font-size:0.875rem;">' + (d.body_text || '') + '</p>'
-                            : '<p class="muted">Run an analysis on the Recommendations page to generate your weekly digest.</p>');
+                            : '<p class="muted">Run an analysis on the Recommendations page to build your digest and action list.</p>');
                 }
             },
             {

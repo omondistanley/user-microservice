@@ -1,12 +1,17 @@
 """
 Phase 5: Data retention purge job. Idempotent; supports dry-run.
 Usage: python -m app.jobs.retention_purge --as-of YYYY-MM-DD [--dry-run]
+
+Cross-database purges (investments_db, expenses_db on same Postgres host) are enabled when
+RETENTION_PURGE_CROSS_DB is true (default). Set INVESTMENTS_DB_NAME / EXPENSE_DB_NAME if non-default.
 """
 import argparse
+import os
 import sys
 from datetime import date, datetime, timedelta, timezone
 
 import psycopg2
+from psycopg2 import errors as pg_errors
 from psycopg2.extras import RealDictCursor
 
 # Load config from same env as app
@@ -92,16 +97,122 @@ def _purge_refresh_tokens(conn, cutoff_ts, dry_run: bool):
     return count
 
 
+def _open_named_db(dbname: str):
+    return psycopg2.connect(
+        host=DB_HOST or "localhost",
+        port=int(DB_PORT) if DB_PORT else 5432,
+        user=DB_USER or "postgres",
+        password=DB_PASSWORD or "postgres",
+        dbname=dbname,
+        cursor_factory=RealDictCursor,
+    )
+
+
+def _purge_inv_recommendation_run(conn, cutoff_ts, dry_run: bool) -> int:
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT COUNT(*) AS c FROM investments_db.recommendation_run WHERE created_at < %s",
+        (cutoff_ts,),
+    )
+    count = int(cur.fetchone()["c"])
+    if not dry_run and count > 0:
+        cur.execute(
+            "DELETE FROM investments_db.recommendation_run WHERE created_at < %s",
+            (cutoff_ts,),
+        )
+    return count
+
+
+def _purge_inv_recommendation_digest(conn, cutoff_ts, dry_run: bool) -> int:
+    cur = conn.cursor()
+    d = cutoff_ts.date()
+    cur.execute(
+        """
+        SELECT COUNT(*) AS c FROM recommendation_digest
+        WHERE created_at < %s OR week_start_date < %s
+        """,
+        (cutoff_ts, d),
+    )
+    count = int(cur.fetchone()["c"])
+    if not dry_run and count > 0:
+        cur.execute(
+            "DELETE FROM recommendation_digest WHERE created_at < %s OR week_start_date < %s",
+            (cutoff_ts, d),
+        )
+    return count
+
+
+def _purge_inv_portfolio_health_snapshot(conn, cutoff_ts, dry_run: bool) -> int:
+    cur = conn.cursor()
+    d = cutoff_ts.date()
+    cur.execute("SELECT COUNT(*) AS c FROM portfolio_health_snapshot WHERE snapshot_date < %s", (d,))
+    count = int(cur.fetchone()["c"])
+    if not dry_run and count > 0:
+        cur.execute("DELETE FROM portfolio_health_snapshot WHERE snapshot_date < %s", (d,))
+    return count
+
+
+def _purge_inv_nudge_log(conn, cutoff_ts, dry_run: bool) -> int:
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) AS c FROM nudge_log WHERE fired_at < %s", (cutoff_ts,))
+    count = int(cur.fetchone()["c"])
+    if not dry_run and count > 0:
+        cur.execute("DELETE FROM nudge_log WHERE fired_at < %s", (cutoff_ts,))
+    return count
+
+
+def _purge_exp_anomaly_feedback(conn, cutoff_ts, dry_run: bool) -> int:
+    cur = conn.cursor()
+    cur.execute(
+        'SELECT COUNT(*) AS c FROM expenses_db.anomaly_feedback WHERE created_at < %s',
+        (cutoff_ts,),
+    )
+    count = int(cur.fetchone()["c"])
+    if not dry_run and count > 0:
+        cur.execute('DELETE FROM expenses_db.anomaly_feedback WHERE created_at < %s', (cutoff_ts,))
+    return count
+
+
+def _purge_exp_classifier_correction(conn, cutoff_ts, dry_run: bool) -> int:
+    cur = conn.cursor()
+    cur.execute(
+        'SELECT COUNT(*) AS c FROM expenses_db.classifier_correction WHERE created_at < %s',
+        (cutoff_ts,),
+    )
+    count = int(cur.fetchone()["c"])
+    if not dry_run and count > 0:
+        cur.execute('DELETE FROM expenses_db.classifier_correction WHERE created_at < %s', (cutoff_ts,))
+    return count
+
+
+def _safe_cross_purge(label: str, fn, *args) -> int:
+    try:
+        return int(fn(*args))
+    except pg_errors.UndefinedTable:
+        return 0
+    except Exception as exc:
+        print(f"warning: {label}: {exc}", file=sys.stderr)
+        return 0
+
+
 def run(as_of: date, dry_run: bool):
+    cross = os.environ.get("RETENTION_PURGE_CROSS_DB", "true").lower() in ("1", "true", "yes")
+    inv_name = (os.environ.get("INVESTMENTS_DB_NAME") or "investments_db").strip()
+    exp_name = (os.environ.get("EXPENSE_DB_NAME") or "expenses_db").strip()
+
     conn = _get_connection()
+    inv_conn = None
+    exp_conn = None
     try:
         conn.autocommit = False
         policies = _get_policies(conn)
-        results = {}
+        results: dict[str, int] = {}
         for pol in policies:
             entity = pol["entity"]
             days = int(pol["retention_days"])
-            cutoff = datetime.combine(as_of - timedelta(days=days), datetime.min.time()).replace(tzinfo=timezone.utc)
+            cutoff = datetime.combine(as_of - timedelta(days=days), datetime.min.time()).replace(
+                tzinfo=timezone.utc
+            )
             if entity == "audit_log":
                 results[entity] = _purge_audit_log(conn, cutoff, dry_run)
             elif entity == "password_reset_token":
@@ -110,18 +221,68 @@ def run(as_of: date, dry_run: bool):
                 results[entity] = _purge_user_notifications(conn, cutoff, dry_run)
             elif entity == "refresh_token":
                 results[entity] = _purge_refresh_tokens(conn, cutoff, dry_run)
+            elif cross and entity == "inv_recommendation_run":
+                inv_conn = inv_conn or _open_named_db(inv_name)
+                inv_conn.autocommit = False
+                results[entity] = _safe_cross_purge(
+                    entity, _purge_inv_recommendation_run, inv_conn, cutoff, dry_run
+                )
+            elif cross and entity == "inv_recommendation_digest":
+                inv_conn = inv_conn or _open_named_db(inv_name)
+                inv_conn.autocommit = False
+                results[entity] = _safe_cross_purge(
+                    entity, _purge_inv_recommendation_digest, inv_conn, cutoff, dry_run
+                )
+            elif cross and entity == "inv_portfolio_health_snapshot":
+                inv_conn = inv_conn or _open_named_db(inv_name)
+                inv_conn.autocommit = False
+                results[entity] = _safe_cross_purge(
+                    entity, _purge_inv_portfolio_health_snapshot, inv_conn, cutoff, dry_run
+                )
+            elif cross and entity == "inv_nudge_log":
+                inv_conn = inv_conn or _open_named_db(inv_name)
+                inv_conn.autocommit = False
+                results[entity] = _safe_cross_purge(entity, _purge_inv_nudge_log, inv_conn, cutoff, dry_run)
+            elif cross and entity == "exp_anomaly_feedback":
+                exp_conn = exp_conn or _open_named_db(exp_name)
+                exp_conn.autocommit = False
+                results[entity] = _safe_cross_purge(
+                    entity, _purge_exp_anomaly_feedback, exp_conn, cutoff, dry_run
+                )
+            elif cross and entity == "exp_classifier_correction":
+                exp_conn = exp_conn or _open_named_db(exp_name)
+                exp_conn.autocommit = False
+                results[entity] = _safe_cross_purge(
+                    entity, _purge_exp_classifier_correction, exp_conn, cutoff, dry_run
+                )
             else:
                 results[entity] = 0
         if not dry_run:
             conn.commit()
+            if inv_conn:
+                inv_conn.commit()
+            if exp_conn:
+                exp_conn.commit()
         else:
             conn.rollback()
+            if inv_conn:
+                inv_conn.rollback()
+            if exp_conn:
+                exp_conn.rollback()
         return results
     except Exception:
         conn.rollback()
+        if inv_conn:
+            inv_conn.rollback()
+        if exp_conn:
+            exp_conn.rollback()
         raise
     finally:
         conn.close()
+        if inv_conn:
+            inv_conn.close()
+        if exp_conn:
+            exp_conn.close()
 
 
 def main():

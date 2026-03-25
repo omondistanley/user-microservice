@@ -185,7 +185,7 @@ PostgreSQL (4 separate DBs) + Redis (caching & rate limiting)
 | Backend | Python 3.11, FastAPI, uvicorn |
 | Database | PostgreSQL 16 |
 | Cache / Rate Limiting | Redis 7 |
-| Frontend | Jinja2 templates, vanilla JS, CSS (PWA) |
+| Frontend | Jinja2 templates, TypeScript (strict) → ESBuild for `auth.js` / `sw.js`, Tailwind CSS, PWA |
 | Auth | JWT (HS256), OAuth2 (Google, Apple) |
 | OCR | Tesseract |
 | AI / LLM | Groq (llama-3.3-70b-versatile) |
@@ -196,12 +196,26 @@ PostgreSQL (4 separate DBs) + Redis (caching & rate limiting)
 | Production Deploy | Fly.io |
 | Demo Deploy | Render |
 
+### Frontend TypeScript
+
+Sources live under `frontend/src/ts/` and compile with ESBuild via `npm run build:js` (see `frontend/scripts/build-js.mjs`). Run `npm run typecheck` and `npm run build:js` from `frontend/` before deploy when TS changes; templates load emitted files under `frontend/static/js/` and `frontend/static/sw.js`. Strict typing is enabled for `auth.ts`; other page modules use `// @ts-nocheck` until types are narrowed incrementally.
+
+### Stitch → template map (mobile parity target)
+
+Use the Stitch `code.html` references as the mobile (`md:hidden` / narrow viewport) hierarchy target; desktop keeps existing `md:` layouts. Primary mapping: `dashboard_v5` → `dashboard.html`, `expenses_list_v4` → expenses list templates, `investments_overview_2` / `investments_v3` → `investments.html`, `portfolio_recommendations_v3` → `recommendations.html`, `integrations_hub_v3` → `settings/integrations.html`, `settings_v3` → `settings.html`, `login_create_account_v2` → `login.html` / `register.html`, `budgets_v3` → `budgets/list.html`, `analytics_overview_v2_2` → `analytics.html`, `financial_insights_v2` → `insights.html`, `financial_reports_v3` → `reports.html`, `net_worth_breakdown_v2` / `net_worth_overview_2` → `net_worth.html`, `goal_detail_v2` / `goals_list_v2` → goal templates, `household_management` → `household.html`, `transactions_v3` → transactions views, `profile_v4` → `profile.html`, `landing_page` → `landing.html`, `link_bank_account` / `link_bank_confirmation` → link-bank flow templates.
+
+### Mobile journey (summary)
+
+Cold open → dashboard summary first; investments/recommendations charts load on tab focus or below the fold. Expenses default to list; analytics from a secondary tab/CTA. Investments overview before full chart/detail. More/settings uses collapsed sections with navigate-in screens for integrations and household. After bank link, confirmation then integrations hub; avoid stacked modals.
+
 ---
 
 ## Prerequisites
 
 - **Docker** and **Docker Compose** (v2+)
-- A `.env.compose` file at the project root (copy from `.env.compose.example`)
+- **Root environment file:** `cp .env.example .env` at the project root. Docker Compose loads `.env` automatically for `${VAR}` substitution. Minimum: **`SECRET_KEY`** (shared by all JWT services), **`INTERNAL_API_KEY`** (shared for internal routes; `.env.example` provides a dev default), **`GATEWAY_PUBLIC_URL=http://localhost:8080`**, **`REQUIRE_EMAIL_VERIFICATION=false`** for local dev (register → login without completing email).
+- **Frontend assets:** The user service image **copies** `frontend/` at build time. After changing TypeScript/CSS sources run **`./scripts/bootstrap-frontend.sh`**, then **`docker compose build user`** (or rebuild the whole stack).
+- **Expo Go:** Mobile now auto-detects the Metro host in dev and resolves gateway as `http://<detected-host>:8080`. For reliability, still set **`EXPO_PUBLIC_GATEWAY_URL`** in `mobile/.env` (copy from `.env.example`) to `http://<your-LAN-IP>:8080` (not `localhost`) so a phone can always reach the gateway.
 - Optional: API keys for third-party services (see below)
 
 ---
@@ -298,20 +312,26 @@ cd pocketii
 ### 2. Create your environment file
 
 ```bash
-cp .env.compose.example .env.compose
+cp .env.example .env
 ```
 
-Edit `.env.compose` and at minimum set:
-
-```bash
-# Generate a secure key:
-# openssl rand -hex 32
-SECRET_KEY=your-64-char-hex-secret-here
-
-INTERNAL_API_KEY=any-random-string
-```
+Edit `.env`. Defaults in `.env.example` are enough for **local dev** (email verification off, gateway URL set, dev internal API key). For anything beyond your laptop, **replace** `SECRET_KEY` and `INTERNAL_API_KEY` (e.g. `openssl rand -hex 32`).
 
 Add any optional API keys you have (market data, AI, etc.).
+
+### 2b. Frontend build (before or after `docker compose build`)
+
+```bash
+./scripts/bootstrap-frontend.sh
+```
+
+Then build images so `frontend/static` includes the compiled JS/CSS:
+
+```bash
+docker compose build user
+```
+
+Or use `--build` on full `up` after running the bootstrap script.
 
 ### 3. Build and start
 
@@ -328,6 +348,8 @@ docker compose up --build
 ```
 
 ### 4. Access the app
+
+**Use the gateway in the browser** (`http://localhost:8080`) so `window.API_BASE` stays same-origin and all `/api/v1/*` routes work. The user service on `:8000` proxies to microservices when `GATEWAY_PUBLIC_URL` is unset; with the recommended `.env`, open **`8080`** for the full app.
 
 | Service | URL |
 |---|---|
@@ -676,6 +698,10 @@ pocketii/
 │   ├── app/
 │   └── Dockerfile
 │
+├── mobile/                     # Expo (Expo Go) — tabs shell, secure-store tokens, same gateway URL as web
+│   ├── app/                    # expo-router layouts
+│   └── src/                    # config + auth token helpers
+│
 ├── demo-app/                   # Standalone SQLite demo (watch + interactive mode)
 │   ├── app/
 │   ├── Dockerfile
@@ -689,13 +715,14 @@ pocketii/
 │   └── release.sh              # Fly.io release command: runs all migrations
 │
 ├── scripts/
-│   └── docker-build-serial.sh  # Builds one image at a time to avoid Docker I/O errors
+│   ├── docker-build-serial.sh  # Builds one image at a time to avoid Docker I/O errors
+│   └── bootstrap-frontend.sh   # npm ci + typecheck + build JS/CSS into frontend/static
 │
 ├── docker-compose.yml          # Local development stack
 ├── Dockerfile.fly              # Single-image Fly.io build
 ├── fly.toml                    # Fly.io app configuration
 ├── render.yaml                 # Render Blueprint (demo app only)
-└── .env.compose.example        # Template for Docker Compose environment
+├── .env.example                # Copy to .env for Docker Compose variable substitution
 ```
 
 ---
@@ -704,7 +731,7 @@ pocketii/
 
 ### Security
 
-- **Never commit `.env` files or real secrets.** The `.env.compose.example` contains a placeholder `SECRET_KEY` — replace it before any real deployment.
+- **Never commit `.env` files or real secrets.** The root **`.env.example`** documents dev defaults; generate a fresh `SECRET_KEY` (`openssl rand -hex 32`) before any real deployment and change `INTERNAL_API_KEY`.
 - **Rotate `SECRET_KEY` carefully.** Changing it invalidates all existing JWTs and refresh tokens, immediately logging out all users.
 - **`INTERNAL_API_KEY`** should be a random string shared between services. Without it, internal endpoints (e.g., the budget service writing user notifications) are unauthenticated on your internal network.
 - **HTTPS is enforced in production.** Fly.io sets `force_https = true`. The default HSTS max-age is 1 year (`31536000`).

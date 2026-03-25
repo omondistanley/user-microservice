@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* pocketii: optional base tweaks for Tailwind + legacy coexistence */
+/* Stitch / PocketII + legacy main.css */
 @layer base {
   html {
     @apply antialiased;
@@ -10,7 +10,45 @@
 }
 
 @layer components {
-  .tw-sidebar-pocket .sb-link.active {
-    @apply border-l-4 border-[#135bec] bg-blue-50/80 dark:bg-slate-800/80;
+  /* Centered canvas like Stitch code.html (max-w-7xl + horizontal padding) */
+  .stitch-inner {
+    @apply w-full max-w-7xl mx-auto px-4 md:px-6 pb-6 lg:pb-8;
+  }
+
+  /* App-shell pages: extra bottom space for mobile bottom nav + safe area */
+  body.app-shell-page .stitch-inner {
+    @apply max-md:pb-28;
+  }
+
+  /* Cards aligned with budgets_v3 / dashboard tokens */
+  .stitch-card {
+    @apply rounded-2xl border border-outline-variant bg-surface text-on-surface shadow-sm dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100;
+    box-shadow:
+      0 1px 3px rgba(15, 23, 42, 0.06),
+      0 0 0 1px rgba(15, 23, 42, 0.03);
+  }
+
+  .stitch-page-title {
+    @apply text-xl md:text-2xl font-extrabold tracking-tight text-on-surface dark:text-slate-50;
+  }
+
+  .stitch-muted {
+    @apply text-on-surface-variant dark:text-slate-400;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .material-symbols-guided {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   }
 }

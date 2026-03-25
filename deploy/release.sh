@@ -28,7 +28,9 @@ for f in /opt/expense_tracker/user-microservice/migrations/create_user_table.sql
          /opt/expense_tracker/user-microservice/migrations/017_webhook_event_lifecycle.sql \
          /opt/expense_tracker/user-microservice/migrations/018_calendar_subscription_token.sql \
          /opt/expense_tracker/user-microservice/migrations/019_net_worth_manual.sql \
-         /opt/expense_tracker/user-microservice/migrations/020_calendar_oauth_connection.sql; do
+         /opt/expense_tracker/user-microservice/migrations/020_calendar_oauth_connection.sql \
+         /opt/expense_tracker/user-microservice/migrations/020_lifecycle_events.sql \
+         /opt/expense_tracker/user-microservice/migrations/021_retention_policy_investments_expense.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
@@ -61,7 +63,9 @@ for f in /opt/expense/migrations/001_schema.sql \
          /opt/expense/migrations/025_classifier_corrections.sql \
          /opt/expense/migrations/026_gmail_oauth.sql \
          /opt/expense/migrations/027_global_idempotency.sql \
-         /opt/expense/migrations/028_gmail_google_account_email.sql; do
+         /opt/expense/migrations/028_gmail_google_account_email.sql \
+         /opt/expense/migrations/029_user_irregular_expenses.sql \
+         /opt/expense/migrations/030_income_ira_contribution.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 
@@ -91,6 +95,13 @@ for f in /opt/investment/migrations/001_schema.sql \
          /opt/investment/migrations/013_risk_profile_use_finance_data.sql \
          /opt/investment/migrations/014_recommendation_run_portfolio_snapshot.sql \
          /opt/investment/migrations/015_portfolio_rebalance_sessions.sql \
+         /opt/investment/migrations/016_holdings_account_type_role_label.sql \
+         /opt/investment/migrations/017_portfolio_health_snapshot.sql \
+         /opt/investment/migrations/018_recommendation_digests.sql \
+         /opt/investment/migrations/019_watchlist.sql \
+         /opt/investment/migrations/020_nudge_log.sql \
+         /opt/investment/migrations/021_etf_constituents.sql \
+         /opt/investment/migrations/022_dividend_calendar.sql \
          /opt/investment/migrations/029_recommendation_run_artifacts.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done

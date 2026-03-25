@@ -60,6 +60,63 @@ def _get_active_users(conn) -> List[int]:
         return [r[0] for r in cur.fetchall()]
 
 
+_CASHLIKE = frozenset(
+    {"SGOV", "BIL", "MINT", "VMFXX", "SWVXX", "SPAXX", "FDRXX", "USFR", "SHV", "GBIL"}
+)
+
+
+def _check_idle_cash_proxy(conn, user_id: int) -> Optional[str]:
+    """Large share of portfolio in cash-like tickers (proxy using cost basis)."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT UPPER(TRIM(symbol)), SUM(quantity * avg_cost)::float
+                   FROM holding WHERE user_id = %s GROUP BY 1""",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+        total = sum(v for _, v in rows if v)
+        cash = sum(v for s, v in rows if s in _CASHLIKE and v)
+        if total > 0 and cash / total >= 0.12:
+            pct = int(round(100 * cash / total))
+            return (
+                f"About {pct}% of your tracked holdings (by cost basis) are in cash-like instruments. "
+                "That may be intentional for safety or near-term needs. This is informational only."
+            )
+    except Exception:
+        pass
+    return None
+
+
+def _check_portfolio_review_gap(conn, user_id: int) -> Optional[str]:
+    """Nudge if no recent portfolio health snapshot."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT MAX(snapshot_date) FROM portfolio_health_snapshot WHERE user_id = %s""",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row or row[0] is None:
+                return (
+                    "We have not recorded a recent portfolio health snapshot. "
+                    "Opening the Investments page after a holdings refresh helps keep scores current. Informational only."
+                )
+            last = row[0]
+            if isinstance(last, date):
+                last_d = last
+            else:
+                last_d = date.fromisoformat(str(last)[:10])
+            if (date.today() - last_d).days > 45:
+                return (
+                    "It has been over 45 days since your last portfolio health snapshot. "
+                    "Consider a quick review of holdings and targets when convenient. Informational only."
+                )
+    except Exception:
+        pass
+    return None
+
+
 def _check_sector_drift(conn, user_id: int) -> Optional[str]:
     """Check if any sector has drifted >8% from target over 90 days."""
     try:
@@ -143,6 +200,36 @@ def run_investment_nudge_job(job_id: str = "") -> Dict[str, Any]:
                     drift_msg = _check_sector_drift(conn, user_id)
                     if drift_msg and not _already_nudged(conn, user_id, "sector_drift"):
                         _log_nudge(conn, user_id, "sector_drift", drift_msg)
+                        total_fired += 1
+
+                    idle_msg = _check_idle_cash_proxy(conn, user_id)
+                    if idle_msg and not _already_nudged(conn, user_id, "idle_cash"):
+                        _log_nudge(conn, user_id, "idle_cash", idle_msg)
+                        total_fired += 1
+
+                    review_msg = _check_portfolio_review_gap(conn, user_id)
+                    if review_msg and not _already_nudged(conn, user_id, "portfolio_review_gap"):
+                        _log_nudge(conn, user_id, "portfolio_review_gap", review_msg)
+                        total_fired += 1
+
+                    if not _already_nudged(conn, user_id, "goal_progress_hint"):
+                        _log_nudge(
+                            conn,
+                            user_id,
+                            "goal_progress_hint",
+                            "If you recently completed a savings goal, you may have freed cash flow for other priorities. "
+                            "Update goals under Expenses so surplus estimates stay realistic. Informational only.",
+                        )
+                        total_fired += 1
+
+                    if not _already_nudged(conn, user_id, "spending_pattern_hint"):
+                        _log_nudge(
+                            conn,
+                            user_id,
+                            "spending_pattern_hint",
+                            "If your spending has dropped versus prior months, your investable surplus estimate may improve—"
+                            "verify transactions are fully categorized. Informational only.",
+                        )
                         total_fired += 1
 
                     # Seasonal nudges

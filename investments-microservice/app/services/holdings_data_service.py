@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import psycopg2
+from psycopg2 import errors as pg_errors
 from psycopg2.extras import RealDictCursor
 
 SCHEMA = "investments_db"
@@ -175,13 +176,69 @@ class HoldingsDataService:
         finally:
             conn.close()
 
-    def purge_user_holdings(self, user_id: int) -> int:
+    def purge_user_holdings(self, user_id: int) -> Dict[str, int]:
+        """
+        GDPR / account deletion: remove all user-scoped investment data (not market-wide tables).
+        Returns per-table delete counts for auditing.
+        """
         conn = self._get_connection()
+        summary: Dict[str, int] = {}
+
+        def _del(label: str, sql: str, params: tuple) -> None:
+            try:
+                cur.execute(sql, params)
+                summary[label] = int(cur.rowcount or 0)
+            except pg_errors.UndefinedTable:
+                summary[label] = 0
+
         try:
             cur = conn.cursor()
+            # Order: dependent user rows first, holdings last (tax_lot cascades from holding).
+            _del(
+                "investments_db.transaction",
+                f'DELETE FROM "{SCHEMA}"."transaction" WHERE user_id = %s',
+                (user_id,),
+            )
+            _del(
+                "investments_db.recommendation_run",
+                f'DELETE FROM "{SCHEMA}".recommendation_run WHERE user_id = %s',
+                (user_id,),
+            )
+            _del("recommendation_digest", "DELETE FROM recommendation_digest WHERE user_id = %s", (user_id,))
+            _del(
+                "portfolio_health_snapshot",
+                "DELETE FROM portfolio_health_snapshot WHERE user_id = %s",
+                (user_id,),
+            )
+            _del("watchlist", "DELETE FROM watchlist WHERE user_id = %s", (user_id,))
+            _del("nudge_log", "DELETE FROM nudge_log WHERE user_id = %s", (user_id,))
+            _del(
+                "investments_db.portfolio_rebalance_session",
+                f'DELETE FROM "{SCHEMA}".portfolio_rebalance_session WHERE user_id = %s',
+                (user_id,),
+            )
+            _del(
+                "investments_db.portfolio_snapshot",
+                f'DELETE FROM "{SCHEMA}".portfolio_snapshot WHERE user_id = %s',
+                (user_id,),
+            )
+            _del(
+                "investments_db.risk_profile",
+                f'DELETE FROM "{SCHEMA}".risk_profile WHERE user_id = %s',
+                (user_id,),
+            )
+            _del(
+                "investments_db.alpaca_connection",
+                f'DELETE FROM "{SCHEMA}".alpaca_connection WHERE user_id = %s',
+                (user_id,),
+            )
             cur.execute(f'DELETE FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s', (user_id,))
+            summary[f"{SCHEMA}.{TABLE}"] = int(cur.rowcount or 0)
             conn.commit()
-            return cur.rowcount
+            return summary
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             conn.close()
 

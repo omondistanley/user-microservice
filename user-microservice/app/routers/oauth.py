@@ -5,11 +5,13 @@ Redirect to provider, then callback finds or creates user and issues JWT; redire
 import hashlib
 import logging
 import secrets
+import time
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 import httpx
+from pydantic import BaseModel
 
 from app.core.config import (
     APP_BASE_URL,
@@ -30,6 +32,13 @@ logger = logging.getLogger(__name__)
 OAUTH_STATE_COOKIE = "oauth_state"
 OAUTH_REDIRECT_URI_COOKIE = "oauth_redirect_uri"
 STATE_MAX_AGE = 600  # 10 minutes
+OAUTH_MOBILE_MODE_COOKIE = "oauth_mobile_mode"
+
+MOBILE_EXCHANGE_TTL_SECONDS = 300
+# one-time marker -> exchange context (currently used for Google)
+MOBILE_PENDING_EXCHANGES: dict[str, dict] = {}
+# one-time marker -> already-issued app tokens (currently used for Apple)
+MOBILE_TOKEN_BAG: dict[str, dict] = {}
 
 
 def _cookie_secure(request: Request) -> bool:
@@ -99,7 +108,10 @@ def _google_redirect_uri(request: Request) -> str:
 
 
 @router.get("/auth/google", include_in_schema=False)
-async def auth_google(request: Request):
+async def auth_google(
+    request: Request,
+    mobile: str | None = Query(default=None),
+):
     """Redirect to Google OAuth consent. State and redirect_uri stored in cookies for CSRF and host consistency."""
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         return RedirectResponse(url="/login?error=google_not_configured", status_code=302)
@@ -135,6 +147,16 @@ async def auth_google(request: Request):
         path="/",
         secure=secure,
     )
+    if mobile and mobile.lower() == "mobile":
+        response.set_cookie(
+            key=OAUTH_MOBILE_MODE_COOKIE,
+            value="mobile",
+            max_age=STATE_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+            path="/",
+            secure=secure,
+        )
     return response
 
 
@@ -155,6 +177,7 @@ async def auth_google_callback(
     state = _normalize_state(state)
     redirect_uri_cookie = _normalize_state(request.cookies.get(OAUTH_REDIRECT_URI_COOKIE))
     redirect_uri = redirect_uri_cookie or _google_redirect_uri(request)
+    mobile_mode = request.cookies.get(OAUTH_MOBILE_MODE_COOKIE) == "mobile"
 
     if not cookie_state or not secrets.compare_digest(cookie_state, state):
         response = RedirectResponse(url="/login?error=invalid_state", status_code=302)
@@ -168,6 +191,28 @@ async def auth_google_callback(
         )
         response.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
         response.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
+        response.delete_cookie(OAUTH_MOBILE_MODE_COOKIE, path="/", secure=secure, samesite="lax")
+        return response
+
+    if mobile_mode:
+        # Mobile codeflow:
+        # - state is already verified above
+        # - redirect back into the app with provider + code + one-time marker
+        marker = state
+        MOBILE_PENDING_EXCHANGES[marker] = {
+            "provider": "google",
+            "redirect_uri": redirect_uri,
+            "created_at": time.time(),
+        }
+
+        response = RedirectResponse(
+            url="pocketii://oauth/callback?"
+            + urlencode({"provider": "google", "code": code, "marker": marker}),
+            status_code=302,
+        )
+        response.delete_cookie(OAUTH_STATE_COOKIE, path="/", secure=secure, samesite="lax")
+        response.delete_cookie(OAUTH_REDIRECT_URI_COOKIE, path="/", secure=secure, samesite="lax")
+        response.delete_cookie(OAUTH_MOBILE_MODE_COOKIE, path="/", secure=secure, samesite="lax")
         return response
 
     try:
@@ -272,7 +317,10 @@ def _apple_redirect_uri(request: Request) -> str:
 
 
 @router.get("/auth/apple", include_in_schema=False)
-async def auth_apple(request: Request):
+async def auth_apple(
+    request: Request,
+    mobile: str | None = Query(default=None),
+):
     """Redirect to Apple Sign In. State stored in cookie for CSRF check."""
     if not APPLE_CLIENT_ID:
         return RedirectResponse(url="/login?error=apple_not_configured", status_code=302)
@@ -298,6 +346,16 @@ async def auth_apple(request: Request):
         path="/",
         secure=secure,
     )
+    if mobile and mobile.lower() == "mobile":
+        response.set_cookie(
+            key=OAUTH_MOBILE_MODE_COOKIE,
+            value="mobile",
+            max_age=STATE_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+            path="/",
+            secure=secure,
+        )
     return response
 
 
@@ -315,9 +373,11 @@ async def auth_apple_callback_post(request: Request):
     secure = _cookie_secure(request)
     cookie_state = _normalize_state(request.cookies.get(OAUTH_STATE_COOKIE))
     state = _normalize_state(state)
+    mobile_mode = request.cookies.get(OAUTH_MOBILE_MODE_COOKIE) == "mobile"
     if not cookie_state or not secrets.compare_digest(cookie_state, state):
         response = RedirectResponse(url="/login?error=invalid_state", status_code=302)
         response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
+        response.delete_cookie(OAUTH_MOBILE_MODE_COOKIE, secure=secure, samesite="lax", path="/")
         logger.warning(
             "apple_oauth_invalid_state request_id=%s cookie_state_len=%s state_len=%s cookie_state_hash=%s state_hash=%s",
             _request_id(request),
@@ -331,6 +391,7 @@ async def auth_apple_callback_post(request: Request):
     if not id_token:
         response = RedirectResponse(url="/login?error=no_id_token", status_code=302)
         response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
+        response.delete_cookie(OAUTH_MOBILE_MODE_COOKIE, secure=secure, samesite="lax", path="/")
         return response
 
     # Decode and verify Apple id_token (JWT) with Apple's JWKS.
@@ -424,6 +485,156 @@ async def auth_apple_callback_post(request: Request):
         details={"auth_provider": "apple"},
     )
 
+    if mobile_mode:
+        # Mobile codeflow:
+        # Instead of redirecting with tokens in URL fragment, store tokens server-side
+        # and redirect back into the app with a one-time marker.
+        marker = state
+        MOBILE_TOKEN_BAG[marker] = {
+            "provider": "apple",
+            "access_token": our_access,
+            "refresh_token": our_refresh,
+            "created_at": time.time(),
+        }
+
+        response = RedirectResponse(
+            url="pocketii://oauth/callback?"
+            + urlencode({"provider": "apple", "code": code or "", "marker": marker}),
+            status_code=302,
+        )
+        response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
+        response.delete_cookie(OAUTH_MOBILE_MODE_COOKIE, secure=secure, samesite="lax", path="/")
+        return response
+
     response = _redirect_with_tokens(our_access, our_refresh)
     response.delete_cookie(OAUTH_STATE_COOKIE, secure=secure, samesite="lax", path="/")
+    response.delete_cookie(OAUTH_MOBILE_MODE_COOKIE, secure=secure, samesite="lax", path="/")
     return response
+
+
+class MobileOAuthExchangeRequest(BaseModel):
+    provider: str
+    code: str
+    marker: str
+
+
+def _is_marker_expired(created_at: float) -> bool:
+    return (time.time() - created_at) > MOBILE_EXCHANGE_TTL_SECONDS
+
+
+@router.post("/api/v1/auth/oauth/exchange", include_in_schema=False)
+async def oauth_mobile_exchange(body: MobileOAuthExchangeRequest, request: Request):
+    provider = (body.provider or "").strip().lower()
+    marker = (body.marker or "").strip()
+
+    if not provider or provider not in ("google", "apple"):
+        raise HTTPException(status_code=400, detail="Unsupported provider")
+    if not marker:
+        raise HTTPException(status_code=400, detail="Missing marker")
+
+    # Apple:
+    # We already verified id_token and created our app tokens in the Apple callback.
+    if provider == "apple":
+        token_entry = MOBILE_TOKEN_BAG.pop(marker, None)
+        if not token_entry or token_entry.get("provider") != "apple":
+            raise HTTPException(status_code=400, detail="Invalid or expired marker")
+        if _is_marker_expired(float(token_entry.get("created_at") or 0)):
+            raise HTTPException(status_code=400, detail="Invalid or expired marker")
+
+        access_token = token_entry.get("access_token")
+        refresh_token = token_entry.get("refresh_token")
+        if not access_token:
+            raise HTTPException(status_code=500, detail="Token issuance failed")
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "refresh_token": refresh_token,
+        }
+
+    # Google:
+    # Exchange the Google authorization code into our app JWT + refresh token.
+    if provider == "google":
+        entry = MOBILE_PENDING_EXCHANGES.pop(marker, None)
+        if not entry or entry.get("provider") != "google":
+            raise HTTPException(status_code=400, detail="Invalid or expired marker")
+        if _is_marker_expired(float(entry.get("created_at") or 0)):
+            raise HTTPException(status_code=400, detail="Invalid or expired marker")
+
+        redirect_uri = entry.get("redirect_uri")
+        if not redirect_uri:
+            raise HTTPException(status_code=500, detail="Missing redirect_uri for exchange")
+
+        code = body.code
+        if not code:
+            raise HTTPException(status_code=400, detail="Missing authorization code")
+
+        try:
+            async with httpx.AsyncClient() as client:
+                token_resp = await client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "code": code,
+                        "client_id": GOOGLE_CLIENT_ID,
+                        "client_secret": GOOGLE_CLIENT_SECRET,
+                        "redirect_uri": redirect_uri,
+                        "grant_type": "authorization_code",
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+
+            if token_resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Google token exchange failed")
+
+            token_data = token_resp.json()
+            access_token_google = token_data.get("access_token")
+            if not access_token_google:
+                raise HTTPException(status_code=400, detail="Google token missing access_token")
+
+            async with httpx.AsyncClient() as client:
+                userinfo_resp = await client.get(
+                    "https://www.googleapis.com/oauth2/v2/userinfo",
+                    headers={"Authorization": f"Bearer {access_token_google}"},
+                )
+
+            if userinfo_resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Google userinfo failed")
+
+            userinfo = userinfo_resp.json()
+            email = (userinfo.get("email") or "").strip()
+            if not email:
+                raise HTTPException(status_code=400, detail="Google userinfo missing email")
+
+            sub = userinfo.get("sub") or ""
+            first_name = (userinfo.get("given_name") or "").strip() or None
+            last_name = (userinfo.get("family_name") or "").strip() or None
+
+            res = ServiceFactory.get_service("UserResource")
+            if not res:
+                raise HTTPException(status_code=500, detail="Internal server error")
+            row = res.find_or_create_oauth_user("google", sub, email, first_name, last_name)
+
+            our_access = create_access_token(sub=str(row["id"]), email=row["email"])
+            _session_id = create_session(row["id"], device_meta="oauth-google-mobile")
+            our_refresh = create_refresh_token(row["id"], session_id=_session_id)
+
+            write_audit_log(
+                action="login",
+                user_id=row["id"],
+                ip_address=_client_ip(request),
+                request_id=_request_id(request),
+                details={"auth_provider": "google"},
+            )
+
+            return {
+                "access_token": our_access,
+                "token_type": "bearer",
+                "refresh_token": our_refresh,
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception("Google mobile exchange failed: %s", e)
+            raise HTTPException(status_code=500, detail="Google mobile exchange failed")
+
+    raise HTTPException(status_code=400, detail="Unsupported provider")

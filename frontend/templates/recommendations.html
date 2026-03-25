@@ -3,9 +3,27 @@
 {% block title %}Recommendations — pocketii{% endblock %}
 {% block head_extra %}{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="page-header" style="flex-wrap:wrap;gap:0.5rem;">
     <h1 class="page-title">Recommendations</h1>
-    <button type="button" id="rec-run-btn" class="btn btn-primary">Run Analysis</button>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+        <button type="button" id="rec-onboarding-open" class="btn btn-ghost btn-sm icon-btn-label" title="How this page works"><span class="material-symbols-rounded">help</span> Tour</button>
+        <button type="button" id="rec-prefs-focus" class="btn btn-ghost btn-sm icon-btn-label" title="Jump to preferences"><span class="material-symbols-rounded">settings</span> Preferences</button>
+        <button type="button" id="rec-run-btn" class="btn btn-primary">Run Analysis</button>
+    </div>
+</div>
+
+<!-- Surplus waterfall (spec 6-1): after income, bills, goals, reserve — what may be genuinely yours to consider for investing -->
+<div id="rec-surplus-waterfall-card" class="card" style="margin-bottom:1.25rem;display:none;">
+    <div class="page-header" style="margin-bottom:0.75rem;">
+        <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">waterfall_chart</span> Your monthly surplus</h2>
+    </div>
+    <p class="muted" style="font-size:0.8125rem;margin-bottom:1rem;">
+        This walks from income through committed costs to what might remain. Numbers are estimates from your linked data.
+        <span style="opacity:0.75;">Not financial advice. Does not tell you to buy or sell any security.</span>
+    </p>
+    <ul id="rec-surplus-waterfall-list" class="rec-surplus-waterfall-list"></ul>
+    <p id="rec-surplus-waterfall-summary" class="rec-surplus-waterfall-summary muted" style="font-size:0.875rem;margin-top:0.75rem;"></p>
+    <p id="rec-surplus-waterfall-empty" class="muted" style="font-size:0.875rem;display:none;">Connect income and expenses under Expenses to see a surplus breakdown here.</p>
 </div>
 
 <!-- Finance Context Strip -->
@@ -14,9 +32,30 @@
     <span id="rec-finance-text"></span>
     <a href="/investments" style="margin-left:0.5rem;font-size:0.8125rem;">View portfolio →</a>
 </div>
+<div id="rec-north-star-strip" style="display:none;background:var(--surface,#f0f7ff);border-left:3px solid #0ea5e9;border-radius:4px;padding:0.6rem 1rem;margin-bottom:1rem;font-size:0.875rem;">
+    <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;margin-right:0.35rem;">north</span>
+    <span id="rec-north-star-text"></span>
+    <a id="rec-north-star-link" href="#recommendations-results" style="margin-left:0.5rem;font-size:0.8125rem;display:none;">Jump to ranked list →</a>
+</div>
+
+<div id="rec-action-queue-card" class="card" style="margin-bottom:1.25rem;display:none;">
+    <h2 class="page-title" style="font-size:1.05rem;margin-bottom:0.5rem;">Suggested next looks (max 3)</h2>
+    <p class="muted" style="font-size:0.8125rem;margin-bottom:0.75rem;">Short list from your latest run—informational, not instructions to trade.</p>
+    <div id="rec-action-queue-list"></div>
+</div>
+
+<!-- Weekly Digest (digest-first order vs Run card) -->
+<div class="card" id="rec-digest-card" style="margin-bottom:1.25rem;display:none;">
+    <div class="page-header" style="margin-bottom:0.5rem;">
+        <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">mail</span> Weekly Digest</h2>
+        <span id="rec-digest-week" class="muted" style="font-size:0.8125rem;"></span>
+    </div>
+    <p id="rec-digest-headline" style="font-weight:600;margin-bottom:0.25rem;"></p>
+    <p id="rec-digest-body" class="muted" style="font-size:0.875rem;"></p>
+</div>
 
 <!-- Run Analysis card -->
-<div class="card">
+<div class="card" id="rec-run-analysis-card">
     <div class="page-header" style="margin-bottom: 0.75rem;">
         <h2 class="page-title" style="font-size: 1.1rem;">Run Analysis</h2>
     </div>
@@ -27,9 +66,13 @@
         <br><span style="opacity:0.7;">Not financial advice. For informational purposes only.</span>
     </p>
 
-    <!-- Preferences form -->
-    <div id="rec-preferences-section">
-        <h3 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary);">Your preferences</h3>
+    <!-- Preferences: collapsible “drawer” (native details) -->
+    <details id="rec-preferences-details" class="rec-prefs-details" style="margin-bottom:1rem;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;background:var(--surface-alt,#f8fafc);">
+        <summary style="cursor:pointer;font-weight:600;list-style-position:outside;padding:0.25rem 0;">
+            <span class="material-symbols-rounded" style="font-size:1.1rem;vertical-align:middle;">tune</span>
+            Your preferences <span class="muted" style="font-weight:400;font-size:0.8125rem;">(expand to edit)</span>
+        </summary>
+        <div id="rec-preferences-section" style="margin-top:0.75rem;">
         <p class="muted" style="font-size: 0.8125rem; margin-bottom: 0.75rem;">
             These shape how we score and explain suggestions (industry focus, risk tolerance, Sharpe objective, loss aversion).
         </p>
@@ -73,7 +116,8 @@
         <div style="margin-top: 0.75rem;">
             <button type="button" id="rec-prefs-save" class="btn btn-primary">Save preferences</button>
         </div>
-    </div>
+        </div>
+    </details>
 
     <hr style="border: none; border-top: 1px solid var(--border); margin: 1.25rem 0;" />
 
@@ -119,6 +163,15 @@
         </div>
     </div>
 </div>
+<div id="rec-first-run-banner" style="display:none;" class="card" style="margin-top:1.25rem;background:var(--surface,#f0f7ff);border-left:3px solid #135bec;">
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+        <span class="material-symbols-rounded" style="color:#135bec;font-size:1.5rem;">rocket_launch</span>
+        <div>
+            <strong>Getting started</strong>
+            <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Save your preferences and run analysis to see ranked suggestions. With no holdings yet, you’ll get a starter list to explore—not a directive to buy. Not financial advice.</p>
+        </div>
+    </div>
+</div>
 
 <!-- Portfolio Risk Snapshot card -->
 <div class="card" style="margin-top: 1.25rem;">
@@ -128,16 +181,6 @@
     <div id="rec-portfolio-summary" class="muted">
         No recommendation run yet.
     </div>
-</div>
-
-<!-- Weekly Digest Card -->
-<div class="card" id="rec-digest-card" style="margin-top:1.25rem;display:none;">
-    <div class="page-header" style="margin-bottom:0.5rem;">
-        <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">mail</span> Weekly Digest</h2>
-        <span id="rec-digest-week" class="muted" style="font-size:0.8125rem;"></span>
-    </div>
-    <p id="rec-digest-headline" style="font-weight:600;margin-bottom:0.25rem;"></p>
-    <p id="rec-digest-body" class="muted" style="font-size:0.875rem;"></p>
 </div>
 
 <!-- Monte Carlo Scenario Modeller -->
@@ -256,6 +299,22 @@
         </div>
     </div>
 </div>
+
+<!-- First-run onboarding (3-step copy in one card; dismiss persists) -->
+<div id="rec-onboarding-root" style="display:none;">
+    <div id="rec-onboarding-backdrop" style="position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:1200;display:flex;align-items:center;justify-content:center;padding:1rem;">
+        <div class="card" style="max-width:440px;position:relative;box-shadow:0 20px 50px rgba(0,0,0,0.2);">
+            <button type="button" id="rec-onboarding-close" class="btn btn-ghost" style="position:absolute;top:0.35rem;right:0.35rem;line-height:1;padding:0.25rem 0.5rem;" aria-label="Close">×</button>
+            <h3 class="page-title" style="font-size:1.15rem;margin-bottom:0.75rem;padding-right:2rem;">How to use this page</h3>
+            <ol style="font-size:0.875rem;line-height:1.55;padding-left:1.2rem;margin:0 0 1rem;color:var(--text-secondary);">
+                <li style="margin-bottom:0.5rem;"><strong>Preferences</strong> — expand the block below and save risk, sectors, and whether to use linked cashflow data.</li>
+                <li style="margin-bottom:0.5rem;"><strong>Surplus &amp; digest</strong> — read these as context only; they do not tell you to buy or sell.</li>
+                <li><strong>Run analysis</strong> — ranked cards explain scores; open details for more (still informational, not personalized advice).</li>
+            </ol>
+            <button type="button" class="btn btn-primary" id="rec-onboarding-done">Got it</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/recommendations.js"></script>
@@ -296,6 +355,41 @@
         if (n >= 0.40) return 'badge-amber';
         return 'badge-rose';
     };
+
+    var obKey = 'pocketii_rec_onboarding_v1';
+    function hideOnboarding() {
+        var root = document.getElementById('rec-onboarding-root');
+        if (root) root.style.display = 'none';
+        try { localStorage.setItem(obKey, '1'); } catch (e) {}
+    }
+    function showOnboarding() {
+        var root = document.getElementById('rec-onboarding-root');
+        if (root) { root.style.display = 'block'; }
+    }
+    try {
+        if (!localStorage.getItem(obKey)) showOnboarding();
+    } catch (e) { showOnboarding(); }
+    var obDone = document.getElementById('rec-onboarding-done');
+    var obClose = document.getElementById('rec-onboarding-close');
+    var obOpen = document.getElementById('rec-onboarding-open');
+    var obBackdrop = document.getElementById('rec-onboarding-backdrop');
+    if (obDone) obDone.addEventListener('click', hideOnboarding);
+    if (obClose) obClose.addEventListener('click', hideOnboarding);
+    if (obOpen) obOpen.addEventListener('click', showOnboarding);
+    if (obBackdrop) obBackdrop.addEventListener('click', function (ev) {
+        if (ev.target === obBackdrop) hideOnboarding();
+    });
+
+    var prefsBtn = document.getElementById('rec-prefs-focus');
+    if (prefsBtn) {
+        prefsBtn.addEventListener('click', function () {
+            var d = document.getElementById('rec-preferences-details');
+            if (d) {
+                d.open = true;
+                d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+    }
 })();
 </script>
 {% endblock %}

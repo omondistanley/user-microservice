@@ -18,6 +18,7 @@ from app.core.dependencies import get_current_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["surplus"])
+SCHEMA = "expenses_db"
 
 
 def _get_conn():
@@ -28,7 +29,35 @@ def _get_conn():
         password=DB_PASSWORD or "postgres",
         dbname=DB_NAME or "expenses_db",
         connect_timeout=5,
+        options=f"-c search_path={SCHEMA}",
     )
+
+
+def _income_totals_last_three_months(user_id: int) -> List[float]:
+    """Sum of income per calendar month for up to the last 3 distinct months (partial window)."""
+    try:
+        conn = _get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT SUM(amount) AS s
+                    FROM expenses_db.income
+                    WHERE user_id = %s
+                      AND date >= (CURRENT_DATE - INTERVAL '120 days')
+                    GROUP BY TO_CHAR(date, 'YYYY-MM')
+                    ORDER BY TO_CHAR(date, 'YYYY-MM') DESC
+                    LIMIT 3
+                    """,
+                    (user_id,),
+                )
+                rows = cur.fetchall()
+                return [float(r[0]) for r in rows if r and r[0] is not None]
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.debug("income three-month buckets: %s", e)
+    return []
 
 
 def _get_monthly_income(user_id: int, months: int = 1) -> float:
@@ -39,7 +68,7 @@ def _get_monthly_income(user_id: int, months: int = 1) -> float:
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT COALESCE(SUM(amount), 0) FROM income WHERE user_id = %s AND date >= %s",
+                    f'SELECT COALESCE(SUM(amount), 0) FROM "{SCHEMA}"."income" WHERE user_id = %s AND date >= %s',
                     (user_id, cutoff.isoformat()),
                 )
                 row = cur.fetchone()
@@ -69,7 +98,7 @@ def _get_fixed_recurring(user_id: int) -> float:
                             ELSE amount
                         END
                     ), 0)
-                    FROM recurring_expense
+                    FROM expenses_db.recurring_expense
                     WHERE user_id = %s AND (end_date IS NULL OR end_date >= CURRENT_DATE)""",
                     (user_id,),
                 )
@@ -91,7 +120,7 @@ def _get_variable_avg(user_id: int, months: int = 3) -> float:
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT COALESCE(SUM(amount), 0)
-                       FROM expense
+                       FROM expenses_db.expense
                        WHERE user_id = %s AND date >= %s AND deleted_at IS NULL""",
                     (user_id, cutoff.isoformat()),
                 )
@@ -120,7 +149,7 @@ def _get_goal_contributions(user_id: int) -> float:
                             ELSE 0
                         END
                     ), 0)
-                    FROM savings_goal
+                    FROM expenses_db.savings_goal
                     WHERE user_id = %s AND (is_completed IS NULL OR is_completed = FALSE)""",
                     (user_id,),
                 )
@@ -147,7 +176,7 @@ def _get_irregular_reserve(user_id: int) -> float:
                             ELSE estimated_amount
                         END
                     ), 0)
-                    FROM user_irregular_expense
+                    FROM expenses_db.user_irregular_expense
                     WHERE user_id = %s""",
                     (user_id,),
                 )
@@ -169,6 +198,19 @@ async def get_surplus(
     Informational only. Not financial advice.
     """
     income = _get_monthly_income(user_id, months=1)
+    income_3m_avg = _get_monthly_income(user_id, months=3)
+    month_buckets = _income_totals_last_three_months(user_id)
+    p25_income = income
+    cv_income = 0.0
+    if month_buckets:
+        sorted_b = sorted(month_buckets)
+        p25_income = float(sorted_b[max(0, len(sorted_b) // 4)])
+        m_b = sum(month_buckets) / len(month_buckets)
+        if m_b > 0 and len(month_buckets) >= 2:
+            var_b = sum((x - m_b) ** 2 for x in month_buckets) / (len(month_buckets) - 1)
+            cv_income = (var_b**0.5) / m_b
+    income_mode = "variable" if cv_income > 0.15 else "steady"
+
     fixed_recurring = _get_fixed_recurring(user_id)
     variable_avg = _get_variable_avg(user_id, months=3)
     goal_contributions = _get_goal_contributions(user_id)
@@ -176,6 +218,7 @@ async def get_surplus(
 
     total_expenses = fixed_recurring + variable_avg + goal_contributions + irregular_reserve
     investable_surplus = income - total_expenses
+    investable_surplus_p25 = p25_income - total_expenses
 
     waterfall = [
         {"label": "Monthly income", "amount": round(income, 2), "type": "income"},
@@ -192,11 +235,16 @@ async def get_surplus(
 
     return {
         "income": round(income, 2),
+        "income_3m_avg": round(income_3m_avg, 2),
+        "income_mode": income_mode,
+        "income_cv": round(cv_income, 4),
+        "income_p25_monthly_estimate": round(p25_income, 2),
         "fixed_recurring": round(fixed_recurring, 2),
         "variable_avg": round(variable_avg, 2),
         "goal_contributions": round(goal_contributions, 2),
         "irregular_reserve": round(irregular_reserve, 2),
         "investable_surplus": round(investable_surplus, 2),
+        "investable_surplus_p25_path": round(investable_surplus_p25, 2),
         "waterfall": waterfall,
         "disclaimer": "Not financial advice. For informational purposes only.",
     }

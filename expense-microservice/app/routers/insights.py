@@ -45,6 +45,29 @@ async def get_anomalies(
     return {"anomalies": svc.detect_anomalies(user_id, household_id=household_id, limit=limit)}
 
 
+@router.get("/insights/irregular-expense-candidates")
+async def get_irregular_expense_candidates(
+    user_id: int = Depends(get_current_user_id),
+    household_id: Optional[str] = Query(None),
+    lookback_months: int = Query(18, ge=3, le=36),
+    min_amount: float = Query(150.0, ge=25.0),
+    min_hits: int = Query(1, ge=1, le=5),
+    max_hits: int = Query(3, ge=1, le=8),
+    limit: int = Query(25, ge=1, le=50),
+):
+    """Heuristic clusters that may represent annual or lumpy expenses (suggestions only)."""
+    svc = _get_insights_service()
+    return svc.detect_irregular_expense_candidates(
+        user_id,
+        household_id=household_id,
+        lookback_months=lookback_months,
+        min_amount=min_amount,
+        min_hits=min_hits,
+        max_hits=max_hits,
+        limit=limit,
+    )
+
+
 @router.get("/insights/health-score")
 async def get_health_score(
     savings_rate: float = Query(..., description="(income - spend) / income, e.g. 0.15 for 15%"),

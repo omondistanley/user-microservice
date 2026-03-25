@@ -79,6 +79,7 @@ class InsightsService:
             password=self.context["password"],
             dbname=self.context["dbname"],
             cursor_factory=RealDictCursor,
+            options=f"-c search_path={SCHEMA}",
         )
 
     def _conn_autocommit(self):
@@ -676,6 +677,82 @@ class InsightsService:
                 (user_id, limit),
             )
             return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def detect_irregular_expense_candidates(
+        self,
+        user_id: int,
+        household_id: Optional[str] = None,
+        lookback_months: int = 18,
+        min_amount: float = 150.0,
+        min_hits: int = 1,
+        max_hits: int = 3,
+        limit: int = 25,
+    ) -> Dict[str, Any]:
+        """
+        Surface merchant/description clusters that look like irregular (lumpy) spend:
+        few occurrences over the lookback window with material amounts.
+        Suggestions only — user confirms via user_irregular_expense.
+        """
+        start_d = (date.today().replace(day=1) - timedelta(days=1)).replace(day=1)
+        for _ in range(max(0, lookback_months - 1)):
+            start_d = (start_d.replace(day=1) - timedelta(days=1)).replace(day=1)
+
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            conditions = ["user_id = %s", "deleted_at IS NULL", "date >= %s", "amount >= %s"]
+            params: List[Any] = [user_id, start_d, min_amount]
+            if household_id is not None:
+                conditions.append("household_id = %s::uuid")
+                params.append(household_id)
+            where_sql = " AND ".join(conditions)
+            cur.execute(
+                f"""
+                WITH base AS (
+                    SELECT
+                        expense_id,
+                        date,
+                        amount,
+                        category_code,
+                        category_name,
+                        LEFT(
+                            LOWER(TRIM(REGEXP_REPLACE(COALESCE(description, ''), '[[:space:]]+', ' ', 'g'))),
+                            120
+                        ) AS desc_key
+                    FROM "{SCHEMA}"."{TABLE}"
+                    WHERE {where_sql}
+                )
+                SELECT
+                    desc_key,
+                    category_code,
+                    category_name,
+                    COUNT(*)::int AS hit_count,
+                    SUM(amount)::float AS total_amount,
+                    MIN(date) AS first_date,
+                    MAX(date) AS last_date,
+                    MAX(amount)::float AS largest_charge
+                FROM base
+                WHERE LENGTH(desc_key) > 3
+                GROUP BY desc_key, category_code, category_name
+                HAVING COUNT(*) >= %s AND COUNT(*) <= %s
+                ORDER BY total_amount DESC
+                LIMIT %s
+                """,
+                params + [min_hits, max_hits, limit],
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            for r in rows:
+                if r.get("first_date") and hasattr(r["first_date"], "isoformat"):
+                    r["first_date"] = r["first_date"].isoformat()
+                if r.get("last_date") and hasattr(r["last_date"], "isoformat"):
+                    r["last_date"] = r["last_date"].isoformat()
+            return {
+                "lookback_months": lookback_months,
+                "candidates": rows,
+                "note": "Heuristic suggestions for irregular or annual-style expenses; not tax or legal advice.",
+            }
         finally:
             conn.close()
 

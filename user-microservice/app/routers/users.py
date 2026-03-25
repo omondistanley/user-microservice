@@ -478,6 +478,16 @@ async def export_me(
 
     expenses_payload = {"items": [], "total": 0}
     budgets_payload = {"items": [], "total": 0}
+    investments_payload: dict[str, Any] = {
+        "holdings": None,
+        "watchlist": None,
+        "recommendations_latest": None,
+        "recommendation_digest": None,
+        "risk_profile": None,
+        "portfolio_health": None,
+    }
+    surplus_payload: Any = None
+    insights_irregular: Any = None
     warnings: list[str] = []
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -519,13 +529,73 @@ async def export_me(
         else:
             warnings.append("budget_export_failed:not_configured")
 
+        if INVESTMENT_SERVICE_URL:
+            inv_headers = dict(headers)
+            inv_paths = [
+                ("holdings", "/api/v1/holdings?page=1&page_size=500"),
+                ("watchlist", "/api/v1/watchlist"),
+                ("recommendations_latest", "/api/v1/recommendations/latest?page=1&page_size=50"),
+                ("recommendation_digest", "/api/v1/recommendations/digest/latest"),
+                ("risk_profile", "/api/v1/risk-profile"),
+                ("portfolio_health", "/api/v1/portfolio/health"),
+            ]
+            for key, path in inv_paths:
+                try:
+                    r = await client.get(f"{INVESTMENT_SERVICE_URL}{path}", headers=inv_headers)
+                    if r.status_code == 200:
+                        try:
+                            investments_payload[key] = r.json()
+                        except Exception:
+                            investments_payload[key] = {"raw": r.text[:2000]}
+                    else:
+                        warnings.append(f"investments_{key}_failed:{r.status_code}")
+                except Exception:
+                    warnings.append(f"investments_{key}_failed:network_error")
+        else:
+            warnings.append("investments_export_failed:not_configured")
+
+        if EXPENSE_SERVICE_URL:
+            try:
+                r = await client.get(f"{EXPENSE_SERVICE_URL}/api/v1/surplus", headers=headers)
+                if r.status_code == 200:
+                    try:
+                        surplus_payload = r.json()
+                    except Exception:
+                        surplus_payload = None
+                else:
+                    warnings.append(f"surplus_export_failed:{r.status_code}")
+            except Exception:
+                warnings.append("surplus_export_failed:network_error")
+            try:
+                r2 = await client.get(
+                    f"{EXPENSE_SERVICE_URL}/api/v1/insights/irregular-expense-candidates",
+                    headers=headers,
+                )
+                if r2.status_code == 200:
+                    try:
+                        insights_irregular = r2.json()
+                    except Exception:
+                        insights_irregular = None
+                else:
+                    warnings.append(f"insights_irregular_failed:{r2.status_code}")
+            except Exception:
+                warnings.append("insights_irregular_failed:network_error")
+
     export_payload = {
         "exported_at": datetime.utcnow().isoformat() + "Z",
         "user": user_row or {"id": user_id, "email": current_user.get("email")},
         "expenses": expenses_payload,
         "budgets": budgets_payload,
+        "investments": investments_payload,
+        "surplus": surplus_payload,
+        "insights_irregular_expense_candidates": insights_irregular,
         "convert_to": convert_to.strip().upper() if convert_to and len(convert_to.strip()) == 3 else None,
         "warnings": warnings,
+        "privacy_note": (
+            "This export may include inferred figures (surplus, health scores, recommendation scores) used only "
+            "to power product features. It is not legal, tax, or investment advice. "
+            "Where automated profiling occurs, you can request human review or object per applicable law."
+        ),
     }
 
     zip_buffer = io.BytesIO()

@@ -21,6 +21,11 @@
     <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;margin-right:0.35rem;">account_balance_wallet</span>
     <span id="finance-context-text"></span>
 </div>
+<div id="inv-north-star-strip" style="display:none;background:var(--surface,#f0f7ff);border-left:3px solid #0ea5e9;border-radius:4px;padding:0.6rem 1rem;margin-bottom:1rem;font-size:0.875rem;">
+    <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;margin-right:0.35rem;">north</span>
+    <span id="inv-north-star-text"></span>
+    <a id="inv-north-star-link" href="/recommendations" style="margin-left:0.5rem;font-size:0.8125rem;display:none;">Top suggestion →</a>
+</div>
 
 <div id="inv-view-overview">
 <!-- Portfolio Health Score -->
@@ -136,10 +141,14 @@
                 <tr>
                     <th>Symbol</th>
                     <th>Source</th>
+                    <th>Role</th>
                     <th>Quantity</th>
                     <th>Avg Cost</th>
                     <th>Market Price</th>
                     <th>Market Value</th>
+                    <th>Unrealized P&amp;L</th>
+                    <th>7d</th>
+                    <th>Ann. ret.</th>
                     <th>Change %</th>
                     <th></th>
                 </tr>
@@ -351,7 +360,7 @@
 
         var items = listEl.querySelectorAll('.holding-item');
         if (!items.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="muted" style="padding:1rem;">No holdings yet. Click "+ Add holding" to track a position.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="muted" style="padding:1rem;">No holdings yet. Click "+ Add holding" to track a position.</td></tr>';
             if (totalEl) totalEl.textContent = '$0.00';
             if (costEl) costEl.textContent = '$0.00';
             if (dayChangeEl) dayChangeEl.textContent = '$0.00';
@@ -390,13 +399,20 @@
                 ? '<span class="badge" style="font-size:0.7rem;padding:1px 6px;">Alpaca</span>'
                 : '<span style="font-size:0.75rem;color:var(--s400);">Manual</span>';
 
+            var role = li.getAttribute('data-role') || '';
+            var unr = li.getAttribute('data-unrealized');
+            var unrNum = (unr !== '' && unr != null) ? parseFloat(unr) : null;
             rows += '<tr>';
             rows += '<td><strong>' + sym + '</strong></td>';
             rows += '<td>' + sourceLabel + '</td>';
+            rows += '<td style="font-size:0.78rem;">' + (role ? role : '<span class="muted">—</span>') + '</td>';
             rows += '<td>' + qty + '</td>';
             rows += '<td>' + fmt(cost) + '</td>';
             rows += '<td>' + (priceNum != null ? fmt(priceNum) : '<span class="muted">—</span>') + '</td>';
             rows += '<td>' + fmt(marketValue) + '</td>';
+            rows += '<td>' + (unrNum != null && !isNaN(unrNum) ? '<span style="color:' + (unrNum >= 0 ? 'var(--green,#38a169)' : 'var(--red,#e53e3e)') + ';">' + fmt(unrNum) + '</span>' : '<span class="muted">—</span>') + '</td>';
+            rows += '<td><span class="muted" title="Connect history API for sparkline">—</span></td>';
+            rows += '<td><span class="muted" title="Requires holding age / history">—</span></td>';
             rows += '<td>' + fmtChangePct(changePct !== '' ? changePct : null) + '</td>';
             rows += '<td style="white-space:nowrap;">';
             rows += '<button type="button" class="btn btn-ghost holding-table-details"'

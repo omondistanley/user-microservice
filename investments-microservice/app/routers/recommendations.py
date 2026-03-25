@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -23,6 +24,7 @@ from app.core.config import (
     RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS,
     RECOMMENDATIONS_NEWS_CACHE_TTL_SECONDS,
     RECOMMENDATIONS_SENTIMENT_CACHE_TTL_SECONDS,
+    REDIS_URL,
     SENTIMENT_LOOKBACK_DAYS,
 )
 from app.core.dependencies import get_current_user_id
@@ -361,6 +363,124 @@ def _build_pagination_links(
     return links
 
 
+def _vix_is_volatile_from_redis() -> bool:
+    """True when VIX monitor job cached volatile (e.g. VIX >= 30)."""
+    try:
+        import redis as redis_lib
+
+        r = redis_lib.from_url(REDIS_URL or "redis://localhost:6379", decode_responses=True)
+        raw = r.get("vix:latest")
+        if not raw:
+            return False
+        data = json.loads(raw)
+        return bool(data.get("volatile"))
+    except Exception as exc:
+        logger.debug("vix redis read for page_state: %s", exc)
+        return False
+
+
+def _portfolio_snapshot_volatile(portfolio: Optional[Dict[str, Any]]) -> bool:
+    """Elevated volatility when portfolio max drawdown (from run snapshot) >= 15%."""
+    if not portfolio:
+        return False
+    try:
+        mdd = float(portfolio.get("max_drawdown") or 0)
+        return mdd >= 0.15
+    except (TypeError, ValueError):
+        return False
+
+
+def _run_artifacts_dict(run: Dict[str, Any]) -> Dict[str, Any]:
+    ra = run.get("run_artifacts")
+    if ra is None:
+        return {}
+    if isinstance(ra, dict):
+        return ra
+    if isinstance(ra, str):
+        try:
+            return json.loads(ra)
+        except Exception:
+            return {}
+    return {}
+
+
+def _is_first_run_page_state(run: Optional[Dict[str, Any]], total_items: int) -> bool:
+    if not run:
+        return True
+    if total_items == 0:
+        return True
+    arts = _run_artifacts_dict(run)
+    return arts.get("scoring_mode") == "starter_portfolio"
+
+
+def _fetch_latest_health_snapshot_row(user_id: int, db_ctx: Dict[str, Any]) -> Optional[Tuple[Any, ...]]:
+    import psycopg2
+
+    try:
+        conn = psycopg2.connect(
+            host=db_ctx.get("host", "localhost"),
+            port=int(db_ctx.get("port", 5432)),
+            user=db_ctx.get("user", "postgres"),
+            password=db_ctx.get("password", "postgres"),
+            dbname=db_ctx.get("dbname", "investments_db"),
+            connect_timeout=3,
+        )
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT tier, components_json, flags_json
+                       FROM portfolio_health_snapshot
+                       WHERE user_id = %s
+                       ORDER BY snapshot_date DESC
+                       LIMIT 1""",
+                    (user_id,),
+                )
+                return cur.fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.debug("health snapshot for page_state user_id=%s: %s", user_id, exc)
+        return None
+
+
+def compute_recommendations_page_state(
+    user_id: int,
+    run: Optional[Dict[str, Any]],
+    portfolio: Optional[Dict[str, Any]],
+    total_items: int,
+) -> str:
+    """
+    UI trust mode: first_run | active | steady | volatile (spec 6-6 / 6-7).
+    - volatile: VIX cache says volatile OR portfolio max drawdown in snapshot >= 15%.
+    - steady: not volatile, latest health snapshot tier green and no sector-drift flag.
+    - first_run: no run, empty items, or starter-portfolio scoring mode.
+    """
+    if _is_first_run_page_state(run, total_items):
+        return "first_run"
+    assert run is not None
+    if _vix_is_volatile_from_redis() or _portfolio_snapshot_volatile(portfolio):
+        return "volatile"
+    row = _fetch_latest_health_snapshot_row(user_id, _db_context())
+    if row:
+        tier, flags_raw = row[0], row[2]
+        flags: List[Any]
+        if flags_raw is None:
+            flags = []
+        elif isinstance(flags_raw, list):
+            flags = flags_raw
+        else:
+            try:
+                flags = json.loads(flags_raw) if isinstance(flags_raw, str) else list(flags_raw)
+            except Exception:
+                flags = []
+        drift_flag = any(
+            isinstance(f, str) and "drift" in f.lower() for f in flags
+        )
+        if tier == "green" and not drift_flag:
+            return "steady"
+    return "active"
+
+
 @router.get("/recommendations/latest", response_model=dict)
 async def latest_recommendations(
     user_id: int = Depends(get_current_user_id),
@@ -375,6 +495,8 @@ async def latest_recommendations(
         return {
             "run": None,
             "items": [],
+            "page_state": "first_run",
+            "action_queue": [],
             "pagination": {"page": 1, "page_size": page_size, "total_items": 0, "total_pages": 0},
             "_links": _build_pagination_links(1, page_size, 0),
         }
@@ -407,6 +529,23 @@ async def latest_recommendations(
             row["full_name"] = sec["full_name"]
             row["description"] = sec["description"]
             row["asset_type"] = sec["asset_type"]
+        expl_raw = i.get("explanation_json")
+        expl: Dict[str, Any] = {}
+        if isinstance(expl_raw, dict):
+            expl = expl_raw
+        elif isinstance(expl_raw, str):
+            try:
+                expl = json.loads(expl_raw)
+            except Exception:
+                expl = {}
+        if isinstance(expl, dict):
+            thesis = expl.get("thesis") if isinstance(expl.get("thesis"), dict) else {}
+            row["earnings_gate"] = expl.get("earnings_gate")
+            row["bull_case"] = (thesis.get("bull_case") or "")[:800]
+            row["bear_case"] = (thesis.get("bear_case") or "")[:800]
+            row["consensus"] = expl.get("consensus")
+            row["data_badges"] = expl.get("data_badges") if isinstance(expl.get("data_badges"), list) else []
+            row["why_shown_one_line"] = expl.get("why_shown_one_line") or ""
         summary_items.append(row)
 
     if enrich and summary_items:
@@ -435,13 +574,49 @@ async def latest_recommendations(
     if isinstance(ps, dict):
         portfolio = ps
 
-    page_state = "first_run" if not run else "active"
+    page_state = compute_recommendations_page_state(user_id, run, portfolio, total_items)
+
+    action_queue: List[Dict[str, Any]] = []
+    try:
+        rid = run.get("run_id")
+        if rid:
+            top3, _ = rec_svc.list_items_for_run_paginated(rid, 3, 0)
+            for ti in top3:
+                sym = str(ti.get("symbol") or "").strip().upper()
+                if not sym:
+                    continue
+                expl_t: Dict[str, Any] = {}
+                er = ti.get("explanation_json")
+                if isinstance(er, dict):
+                    expl_t = er
+                elif isinstance(er, str):
+                    try:
+                        expl_t = json.loads(er)
+                    except Exception:
+                        expl_t = {}
+                why = ""
+                if isinstance(expl_t, dict):
+                    why = str(expl_t.get("why_shown_one_line") or "")
+                    if not why:
+                        ws = expl_t.get("why_selected")
+                        if isinstance(ws, list) and ws:
+                            why = str(ws[0])
+                action_queue.append(
+                    {
+                        "symbol": sym,
+                        "headline": f"Review {sym}",
+                        "detail": (why or "See Recommendations for full scoring context.")[:280],
+                    }
+                )
+    except Exception as exc:
+        logger.debug("action_queue build: %s", exc)
 
     return {
         "run": run,
         "items": summary_items,
         "portfolio": portfolio,
         "page_state": page_state,
+        "action_queue": action_queue,
         "pagination": {
             "page": page,
             "page_size": page_size,

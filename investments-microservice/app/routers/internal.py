@@ -45,7 +45,8 @@ async def purge_user_holdings(
     return {
         "user_id": user_id,
         "request_id": request_id or None,
-        "deleted_count": result,
+        "purge_summary": result,
+        "deleted_count": result.get("investments_db.holding", 0),
     }
 
 

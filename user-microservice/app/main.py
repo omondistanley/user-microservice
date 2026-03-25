@@ -34,6 +34,8 @@ from app.core.config import (
     CSP_POLICY,
     RATE_LIMIT_API_PER_MINUTE,
     RATE_LIMIT_EXPENSIVE_PER_USER_PER_MINUTE,
+    STATIC_ASSETS_NO_CACHE,
+    DISABLE_SERVICE_WORKER,
 )
 from app.core.dependencies import get_current_user as get_current_user_dep
 from app.proxy import proxy_request
@@ -58,6 +60,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
 )
+
+
+@app.middleware("http")
+async def static_assets_cache_control(request: Request, call_next):
+    """Avoid stale UI: /static/* should not be stored long-term when STATIC_ASSETS_NO_CACHE is on."""
+    response = await call_next(request)
+    if STATIC_ASSETS_NO_CACHE and request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.middleware("http")
@@ -319,6 +331,7 @@ def _render(page: str, request: Request, **context):
         "csp_nonce": csp_nonce,
         "demo_public_url": demo_public_url,
         "static_asset_version": _static_asset_version(),
+        "disable_service_worker": DISABLE_SERVICE_WORKER,
     }
     base_context.update(context)
     return templates.TemplateResponse(page, base_context)

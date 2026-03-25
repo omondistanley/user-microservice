@@ -127,6 +127,19 @@ GOOGLE_CALENDAR_REDIRECT_URI: str = os.environ.get("GOOGLE_CALENDAR_REDIRECT_URI
 APPLE_CALENDAR_CLIENT_ID: str = os.environ.get("APPLE_CALENDAR_CLIENT_ID", APPLE_CLIENT_ID)
 APPLE_CALENDAR_REDIRECT_URI: str = os.environ.get("APPLE_CALENDAR_REDIRECT_URI", "").rstrip("/")
 
+# Static files: send Cache-Control so browsers do not keep stale CSS/JS (set false in prod if you use a CDN TTL)
+STATIC_ASSETS_NO_CACHE: bool = os.environ.get("STATIC_ASSETS_NO_CACHE", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+# Skip service worker registration entirely (PWA/offline hooks disabled; use false for offline API fallback)
+DISABLE_SERVICE_WORKER: bool = os.environ.get("DISABLE_SERVICE_WORKER", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 
 def get_webhook_secrets() -> dict[str, str]:
     """Return provider->secret map from WEBHOOK_SECRETS_JSON, fail-closed to empty map."""

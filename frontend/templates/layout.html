@@ -23,7 +23,7 @@
 </head>
 {% set _public_paths = ['/', '/landing', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/verify-email/pending', '/welcome'] %}
 {% set _use_app_shell = request.url.path not in _public_paths %}
-<body class="{% if _use_app_shell %}app-shell-page {% endif %}font-sans antialiased bg-[#f6f6f8] text-[#0f172a] dark:bg-slate-950 dark:text-slate-100 {% block body_class %}{% endblock %}" id="app-body">
+<body class="{% if _use_app_shell %}app-shell-page {% endif %}font-sans antialiased bg-background text-on-surface dark:bg-slate-950 dark:text-slate-100 min-h-screen {% block body_class %}{% endblock %}" id="app-body">
     <a href="#main-content" class="skip-to-content">Skip to main content</a>
 
     <!-- ===== APP SHELL ===== -->
@@ -128,21 +128,32 @@
 
         <!-- MAIN CONTENT AREA -->
         <main class="app-main" id="app-main-area">
-            <header class="topbar">
-                <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
-                <span class="topbar-date" id="topbar-date"></span>
-                <span id="shell-sync-status" class="topbar-date text-xs md:text-sm max-w-[200px] truncate opacity-80 dark:opacity-70" title="Connection status" aria-live="polite"></span>
-                <span class="topbar-date" style="opacity:.9;">No ads • We never sell your data</span>
-                <button type="button" class="topbar-bell" id="topbar-bell-btn" aria-label="Notifications">
-                    <span class="material-symbols-rounded">notifications</span>
-                    <span id="topbar-notif-badge" class="topbar-badge" style="display:none;"></span>
-                </button>
-                <button type="button" class="btn btn-primary btn-sm topbar-add-btn" id="topbar-add-expense-btn" title="Add expense, budget, goal, or link bank">+ Add</button>
+            <header class="topbar topbar--stitch">
+                <div class="topbar-lead">
+                    <span class="topbar-greeting" id="topbar-greeting">Welcome back</span>
+                    <span class="topbar-date topbar-date--inline" id="topbar-date"></span>
+                </div>
+                <div class="topbar-search" role="search">
+                    <label for="shell-global-search" class="sr-only">Search</label>
+                    <span class="material-symbols-outlined topbar-search-icon" aria-hidden="true">search</span>
+                    <input type="search" id="shell-global-search" name="q" autocomplete="off" placeholder="Search transactions, budgets…" aria-label="Search app" />
+                </div>
+                <div class="topbar-trail">
+                    <span id="shell-sync-status" class="topbar-pill text-xs md:text-sm max-w-[min(200px,32vw)] truncate" title="Connection status" aria-live="polite"></span>
+                    <span class="topbar-pill hidden xl:inline !ml-0">No ads • We never sell your data</span>
+                    <button type="button" class="topbar-bell" id="topbar-bell-btn" aria-label="Notifications">
+                        <span class="material-symbols-rounded">notifications</span>
+                        <span id="topbar-notif-badge" class="topbar-badge" style="display:none;"></span>
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm topbar-add-btn" id="topbar-add-expense-btn" title="Add expense, budget, goal, or link bank">+ Add</button>
+                </div>
             </header>
-            <div class="content-area" id="main-content" tabindex="-1">
+            <div class="content-area content-area--stitch max-w-none" id="main-content" tabindex="-1">
                 {% if _use_app_shell %}
-                {% block back_link %}{% endblock %}
-                {% block content %}{% endblock %}
+                <div class="stitch-inner">
+                    {% block back_link %}{% endblock %}
+                    {% block content %}{% endblock %}
+                </div>
                 {% endif %}
             </div>
         </main>
@@ -637,11 +648,13 @@
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/notifications.js?v={{ _static_v }}"></script>
     <script nonce="{{ csp_nonce | default('') }}" src="/static/js/layout.js?v={{ _static_v }}"></script>
     <script nonce="{{ csp_nonce | default('') }}">
+    {% if not (disable_service_worker | default(false)) %}
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
             navigator.serviceWorker.register('/static/sw.js?v={{ _static_v }}').catch(function () {});
         });
     }
+    {% endif %}
     </script>
     {% block scripts %}{% endblock %}
 </body>

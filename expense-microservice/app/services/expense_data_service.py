@@ -11,6 +11,7 @@ from uuid import UUID
 
 import psycopg2
 from fastapi import HTTPException
+from psycopg2 import errors as pg_errors
 from psycopg2.extras import RealDictCursor, Json
 
 from app.events import expense_event_payload, publish_expense_event
@@ -95,6 +96,7 @@ class ExpenseDataService:
             password=self.context["password"],
             dbname=self.context["dbname"],
             cursor_factory=RealDictCursor,
+            options=f"-c search_path={SCHEMA}",
         )
         return conn
 
@@ -126,7 +128,8 @@ class ExpenseDataService:
 
         # S5-3: encrypt description before storing
         if "description" in data and data["description"] is not None:
-            data = dict(data)
+            # Mutate in-place so callers that pass a shared dict can still
+            # observe inserted keys like `expense_id`.
             data["description"] = encrypt_field(str(data["description"]))
 
         cols = [
@@ -2158,6 +2161,17 @@ class ExpenseDataService:
                 (user_id,),
             )
             summary["income_deleted"] = cur.rowcount or 0
+
+            for tbl, key in (
+                ("anomaly_feedback", "anomaly_feedback_deleted"),
+                ("classifier_correction", "classifier_corrections_deleted"),
+                ("user_irregular_expense", "irregular_expenses_deleted"),
+            ):
+                try:
+                    cur.execute(f'DELETE FROM "{SCHEMA}".{tbl} WHERE user_id = %s', (user_id,))
+                    summary[key] = cur.rowcount or 0
+                except pg_errors.UndefinedTable:
+                    summary[key] = 0
 
             cur.execute(
                 f'DELETE FROM "{SCHEMA}"."{TABLE}" WHERE user_id = %s',

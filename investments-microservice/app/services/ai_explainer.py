@@ -11,6 +11,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -34,6 +35,27 @@ from app.core.config import (
 )
 
 logger = logging.getLogger("investments_ai_explainer")
+_PROVIDER_COOLDOWN_UNTIL: Dict[str, float] = {}
+_PROVIDER_FAIL_LOG_UNTIL: Dict[str, float] = {}
+_DEFAULT_PROVIDER_COOLDOWN_SECONDS = 300
+_RATE_LIMIT_COOLDOWN_SECONDS = 120
+_AUTH_COOLDOWN_SECONDS = 900
+
+
+def _provider_on_cooldown(name: str) -> bool:
+    return _PROVIDER_COOLDOWN_UNTIL.get(name, 0.0) > time.monotonic()
+
+
+def _set_provider_cooldown(name: str, seconds: int) -> None:
+    _PROVIDER_COOLDOWN_UNTIL[name] = time.monotonic() + max(1, seconds)
+
+
+def _log_provider_fail_once(name: str, msg: str, *, window_seconds: int = 60) -> None:
+    now = time.monotonic()
+    if _PROVIDER_FAIL_LOG_UNTIL.get(name, 0.0) > now:
+        return
+    _PROVIDER_FAIL_LOG_UNTIL[name] = now + max(1, window_seconds)
+    logger.warning(msg)
 
 # Blocklist phrases that imply financial advice; narrative rejected or truncated when found.
 # Expanded (Sprint 1) to cover: imperative directives, guarantee language, urgency framing,
@@ -139,12 +161,34 @@ async def _generic_generate(payload: Dict[str, Any]) -> Optional[str]:
     try:
         async with httpx.AsyncClient(timeout=float(AI_EXPLAINER_TIMEOUT_SECONDS)) as client:
             resp = await client.post(url, json=body, headers=headers)
+        if resp.status_code in (401, 403):
+            _set_provider_cooldown("generic", _AUTH_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "generic",
+                f"AI explainer generic auth failed ({resp.status_code}); cooling down provider.",
+            )
+            return None
+        if resp.status_code == 422:
+            _set_provider_cooldown("generic", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "generic",
+                "AI explainer generic request invalid (422); cooling down provider.",
+            )
+            return None
+        if resp.status_code == 429:
+            _set_provider_cooldown("generic", _RATE_LIMIT_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "generic",
+                "AI explainer generic rate limited (429); cooling down provider.",
+            )
+            return None
         resp.raise_for_status()
         data = resp.json() or {}
         text = data.get("text") or data.get("message") or ""
         return text.strip() or None
     except Exception as exc:
-        logger.warning("AI explainer generic call failed: %s", exc)
+        _set_provider_cooldown("generic", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+        _log_provider_fail_once("generic", f"AI explainer generic call failed: {exc}")
         return None
 
 
@@ -174,7 +218,22 @@ async def _groq_generate(payload: Dict[str, Any]) -> Optional[str]:
         async with httpx.AsyncClient(timeout=float(GROQ_TIMEOUT_SECONDS)) as client:
             resp = await client.post(url, json=body, headers=headers)
         if resp.status_code == 429:
-            logger.warning("Groq rate limit (429)")
+            _set_provider_cooldown("groq", _RATE_LIMIT_COOLDOWN_SECONDS)
+            _log_provider_fail_once("groq", "Groq rate limit (429); cooling down provider.")
+            return None
+        if resp.status_code in (401, 403):
+            _set_provider_cooldown("groq", _AUTH_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "groq",
+                f"AI explainer Groq auth failed ({resp.status_code}); cooling down provider.",
+            )
+            return None
+        if resp.status_code == 422:
+            _set_provider_cooldown("groq", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "groq",
+                "AI explainer Groq request invalid (422); cooling down provider.",
+            )
             return None
         resp.raise_for_status()
         data = resp.json() or {}
@@ -185,7 +244,8 @@ async def _groq_generate(payload: Dict[str, Any]) -> Optional[str]:
         text = msg.get("content") or ""
         return text.strip() or None
     except Exception as exc:
-        logger.warning("AI explainer Groq call failed: %s", exc)
+        _set_provider_cooldown("groq", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+        _log_provider_fail_once("groq", f"AI explainer Groq call failed: {exc}")
         return None
 
 
@@ -214,6 +274,27 @@ async def _brave_generate(payload: Dict[str, Any]) -> Optional[str]:
     try:
         async with httpx.AsyncClient(timeout=float(BRAVE_TIMEOUT_SECONDS)) as client:
             resp = await client.post(url, json=body, headers=headers)
+        if resp.status_code in (401, 403):
+            _set_provider_cooldown("brave", _AUTH_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "brave",
+                f"AI explainer Brave auth failed ({resp.status_code}); cooling down provider.",
+            )
+            return None
+        if resp.status_code == 422:
+            _set_provider_cooldown("brave", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "brave",
+                "AI explainer Brave request invalid (422); cooling down provider.",
+            )
+            return None
+        if resp.status_code == 429:
+            _set_provider_cooldown("brave", _RATE_LIMIT_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "brave",
+                "AI explainer Brave rate limited (429); cooling down provider.",
+            )
+            return None
         resp.raise_for_status()
         data = resp.json() or {}
         choice = (data.get("choices") or [None])[0]
@@ -223,7 +304,8 @@ async def _brave_generate(payload: Dict[str, Any]) -> Optional[str]:
         text = msg.get("content") or ""
         return text.strip() or None
     except Exception as exc:
-        logger.warning("AI explainer Brave call failed: %s", exc)
+        _set_provider_cooldown("brave", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+        _log_provider_fail_once("brave", f"AI explainer Brave call failed: {exc}")
         return None
 
 
@@ -410,6 +492,8 @@ async def generate_narrative(
     if not order:
         order = ["groq", "brave", "generic"]
     for name in order:
+        if _provider_on_cooldown(name):
+            continue
         raw: Optional[str] = None
         if name == "groq":
             raw = await _groq_generate(payload)

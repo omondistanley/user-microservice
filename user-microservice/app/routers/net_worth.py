@@ -74,9 +74,13 @@ async def _fetch_expense_components(request: Request) -> Dict[str, Any]:
             "metadata": {"warning": "expense_service_not_configured"},
         }
     headers: dict[str, str] = {}
-    auth = request.headers.get("authorization")
+    # Downstream services accept either X-User-Id (set by API gateway) or a Bearer token.
+    auth = request.headers.get("Authorization") or request.headers.get("authorization")
     if auth:
-        headers["authorization"] = auth
+        headers["Authorization"] = auth
+    x_user_id = request.headers.get("X-User-Id") or request.headers.get("x-user-id")
+    if x_user_id:
+        headers["X-User-Id"] = x_user_id
     request_id = getattr(request.state, "request_id", None)
     if request_id:
         headers["x-request-id"] = str(request_id)
@@ -114,9 +118,12 @@ async def _fetch_investments_portfolio(request: Request) -> Optional[Dict[str, A
     if not INVESTMENT_SERVICE_URL:
         return None
     headers: dict[str, str] = {}
-    auth = request.headers.get("authorization")
+    auth = request.headers.get("Authorization") or request.headers.get("authorization")
     if auth:
-        headers["authorization"] = auth
+        headers["Authorization"] = auth
+    x_user_id = request.headers.get("X-User-Id") or request.headers.get("x-user-id")
+    if x_user_id:
+        headers["X-User-Id"] = x_user_id
     request_id = getattr(request.state, "request_id", None)
     if request_id:
         headers["x-request-id"] = str(request_id)
@@ -138,25 +145,41 @@ async def _fetch_budget_totals(request: Request) -> Optional[Dict[str, Decimal]]
     if not BUDGET_SERVICE_URL:
         return None
     headers: dict[str, str] = {}
-    auth = request.headers.get("authorization")
+    auth = request.headers.get("Authorization") or request.headers.get("authorization")
     if auth:
-        headers["authorization"] = auth
+        headers["Authorization"] = auth
+    x_user_id = request.headers.get("X-User-Id") or request.headers.get("x-user-id")
+    if x_user_id:
+        headers["X-User-Id"] = x_user_id
     request_id = getattr(request.state, "request_id", None)
     if request_id:
         headers["x-request-id"] = str(request_id)
     try:
+        # Budget service caps `page_size` at 100. Page until we have all active budgets.
+        budget_total = Decimal("0")
+        page = 1
+        page_size = 100
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(
-                f"{BUDGET_SERVICE_URL}/api/v1/budgets?page=1&page_size=1000&include_inactive=false",
-                headers=headers,
-            )
-        if not resp.is_success:
-            return None
-        data = resp.json()
-        items = data.get("items") if isinstance(data, dict) else data
-        if not isinstance(items, list):
-            return None
-        budget_total = sum((_to_decimal(it.get("amount")) for it in items if isinstance(it, dict)), Decimal("0"))
+            while True:
+                resp = await client.get(
+                    f"{BUDGET_SERVICE_URL}/api/v1/budgets"
+                    f"?page={page}&page_size={page_size}&include_inactive=false",
+                    headers=headers,
+                )
+                if not resp.is_success:
+                    return None
+                data = resp.json()
+                items = data.get("items") if isinstance(data, dict) else data
+                if not isinstance(items, list):
+                    return None
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    budget_total += _to_decimal(it.get("amount"))
+                # Stop when we fetched the last page.
+                if len(items) < page_size:
+                    break
+                page += 1
         return {"active_budget_total": budget_total}
     except Exception:
         return None

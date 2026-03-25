@@ -30,6 +30,7 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/goals", EXPENSE_SERVICE_URL),
     ("/api/v1/alert-preferences", EXPENSE_SERVICE_URL),
     ("/api/v1/insights", EXPENSE_SERVICE_URL),
+    ("/api/v1/surplus", EXPENSE_SERVICE_URL),
     ("/api/v1/reminders", EXPENSE_SERVICE_URL),
     ("/api/v1/export", EXPENSE_SERVICE_URL),
     ("/api/v1/apple-wallet", EXPENSE_SERVICE_URL),
@@ -43,7 +44,12 @@ ROUTES: list[tuple[str, str]] = [
     ("/api/v1/import", EXPENSE_SERVICE_URL),
     # Budget
     ("/api/v1/budgets", BUDGET_SERVICE_URL),
-    # Investment
+    # Investment (specific API groups for mobile / single GatewayBaseURL)
+    ("/api/v1/watchlist", INVESTMENT_SERVICE_URL),
+    ("/api/v1/scenario", INVESTMENT_SERVICE_URL),
+    ("/api/v1/rebalance", INVESTMENT_SERVICE_URL),
+    ("/api/v1/windfall", INVESTMENT_SERVICE_URL),
+    ("/api/v1/ira", INVESTMENT_SERVICE_URL),
     ("/api/v1/holdings", INVESTMENT_SERVICE_URL),
     ("/api/v1/alpaca", INVESTMENT_SERVICE_URL),
     ("/api/v1/recommendations", INVESTMENT_SERVICE_URL),
