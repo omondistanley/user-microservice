@@ -435,10 +435,13 @@ async def latest_recommendations(
     if isinstance(ps, dict):
         portfolio = ps
 
+    page_state = "first_run" if not run else "active"
+
     return {
         "run": run,
         "items": summary_items,
         "portfolio": portfolio,
+        "page_state": page_state,
         "pagination": {
             "page": page,
             "page_size": page_size,
@@ -447,6 +450,72 @@ async def latest_recommendations(
         },
         "_links": _build_pagination_links(page, page_size, total_pages),
     }
+
+
+@router.get("/recommendations/digest/latest", response_model=dict)
+async def latest_digest(
+    user_id: int = Depends(get_current_user_id),
+) -> Dict[str, Any]:
+    """
+    Return the most recent weekly digest for the current user.
+    Not financial advice. For informational purposes only.
+    """
+    import psycopg2
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST or "localhost",
+            port=int(DB_PORT) if DB_PORT else 5432,
+            user=DB_USER or "postgres",
+            password=DB_PASSWORD or "postgres",
+            dbname=DB_NAME or "investments_db",
+            connect_timeout=5,
+        )
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT digest_id, week_start_date, headline, body_text,
+                              portfolio_score, surplus_amount, digest_json, delivered, created_at
+                       FROM recommendation_digest
+                       WHERE user_id = %s
+                       ORDER BY week_start_date DESC
+                       LIMIT 1""",
+                    (user_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        "digest": None,
+                        "disclaimer": "Not financial advice. For informational purposes only.",
+                    }
+                import json as _json
+                digest_json = row[6]
+                if digest_json and not isinstance(digest_json, dict):
+                    try:
+                        digest_json = _json.loads(digest_json)
+                    except Exception:
+                        digest_json = {}
+                return {
+                    "digest": {
+                        "digest_id": row[0],
+                        "week_start_date": row[1].isoformat() if row[1] else None,
+                        "headline": row[2],
+                        "body_text": row[3],
+                        "portfolio_score": row[4],
+                        "surplus_amount": float(row[5]) if row[5] is not None else None,
+                        "digest_json": digest_json,
+                        "delivered": row[7],
+                        "created_at": row[8].isoformat() if row[8] else None,
+                    },
+                    "disclaimer": "Not financial advice. For informational purposes only.",
+                }
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.debug("latest_digest error: %s", e)
+        return {
+            "digest": None,
+            "disclaimer": "Not financial advice. For informational purposes only.",
+        }
 
 
 @router.get("/recommendations/{run_id}/explain", response_model=dict)

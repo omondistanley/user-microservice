@@ -31,6 +31,7 @@ from app.routers import (
     receipts,
     recurring_expenses,
     reminders,
+    surplus,
     tags,
     teller,
     truelayer,
@@ -322,6 +323,7 @@ app.include_router(net_worth.router)
 app.include_router(apple_wallet_webhook.router)
 app.include_router(gmail_webhook.router)
 app.include_router(internal.router)
+app.include_router(surplus.router)
 
 
 @app.get("/", include_in_schema=False)

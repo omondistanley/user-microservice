@@ -8,6 +8,13 @@
     <button type="button" id="rec-run-btn" class="btn btn-primary">Run Analysis</button>
 </div>
 
+<!-- Finance Context Strip -->
+<div id="rec-finance-strip" style="display:none;background:var(--surface,#f0f7ff);border-left:3px solid #135bec;border-radius:4px;padding:0.6rem 1rem;margin-bottom:1rem;font-size:0.875rem;">
+    <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;margin-right:0.35rem;">account_balance_wallet</span>
+    <span id="rec-finance-text"></span>
+    <a href="/investments" style="margin-left:0.5rem;font-size:0.8125rem;">View portfolio →</a>
+</div>
+
 <!-- Run Analysis card -->
 <div class="card">
     <div class="page-header" style="margin-bottom: 0.75rem;">
@@ -93,6 +100,26 @@
     </div>
 </div>
 
+<!-- Page state banners -->
+<div id="rec-steady-banner" style="display:none;" class="card" style="margin-top:1.25rem;background:var(--green-light,#f0fff4);border-left:3px solid #38a169;">
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+        <span class="material-symbols-rounded" style="color:#38a169;font-size:1.5rem;">check_circle</span>
+        <div>
+            <strong>Portfolio is on track</strong>
+            <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Your allocation is within your stated targets. No specific action needed this week.</p>
+        </div>
+    </div>
+</div>
+<div id="rec-volatile-banner" style="display:none;" class="card" style="margin-top:1.25rem;background:#fffbeb;border-left:3px solid #ecc94b;">
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+        <span class="material-symbols-rounded" style="color:#ecc94b;font-size:1.5rem;">warning</span>
+        <div>
+            <strong>Markets are showing elevated volatility</strong>
+            <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Recommendations are shown for informational purposes. Your long-term allocation plan has not changed.</p>
+        </div>
+    </div>
+</div>
+
 <!-- Portfolio Risk Snapshot card -->
 <div class="card" style="margin-top: 1.25rem;">
     <div class="page-header" style="margin-bottom: 0.75rem;">
@@ -100,6 +127,105 @@
     </div>
     <div id="rec-portfolio-summary" class="muted">
         No recommendation run yet.
+    </div>
+</div>
+
+<!-- Weekly Digest Card -->
+<div class="card" id="rec-digest-card" style="margin-top:1.25rem;display:none;">
+    <div class="page-header" style="margin-bottom:0.5rem;">
+        <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">mail</span> Weekly Digest</h2>
+        <span id="rec-digest-week" class="muted" style="font-size:0.8125rem;"></span>
+    </div>
+    <p id="rec-digest-headline" style="font-weight:600;margin-bottom:0.25rem;"></p>
+    <p id="rec-digest-body" class="muted" style="font-size:0.875rem;"></p>
+</div>
+
+<!-- Monte Carlo Scenario Modeller -->
+<div class="card" style="margin-top:1.25rem;">
+    <div class="page-header" style="margin-bottom:0.75rem;">
+        <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">show_chart</span> Scenario Modeller</h2>
+    </div>
+    <p class="muted" style="font-size:0.8125rem;margin-bottom:1rem;">
+        Illustrative projection using Monte Carlo simulation (1,000 paths).
+        <span style="opacity:0.7;">Projections are illustrative only. Past returns do not guarantee future results. Not financial advice.</span>
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:1rem;">
+        <div class="form-group">
+            <label for="mc-initial">Starting value ($)</label>
+            <input type="number" id="mc-initial" class="form-input" value="10000" min="0" step="100" />
+        </div>
+        <div class="form-group">
+            <label for="mc-monthly">Monthly contribution ($)</label>
+            <input type="number" id="mc-monthly" class="form-input" value="500" min="0" step="50" />
+        </div>
+        <div class="form-group">
+            <label for="mc-years">Years</label>
+            <input type="number" id="mc-years" class="form-input" value="20" min="1" max="50" />
+        </div>
+        <div class="form-group">
+            <label for="mc-return">Return assumption (%)</label>
+            <input type="number" id="mc-return" class="form-input" value="7" min="0" max="30" step="0.5" />
+        </div>
+        <div class="form-group">
+            <label for="mc-goal">Goal amount (optional $)</label>
+            <input type="number" id="mc-goal" class="form-input" placeholder="e.g. 500000" min="0" step="1000" />
+        </div>
+    </div>
+    <button type="button" id="mc-run-btn" class="btn btn-primary" style="margin-bottom:1rem;">Run projection</button>
+    <div id="mc-results" style="display:none;">
+        <div id="mc-chart" style="min-height:260px;margin-bottom:1rem;"></div>
+        <div id="mc-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.5rem;margin-bottom:0.75rem;"></div>
+        <p id="mc-goal-prob" style="font-size:0.9rem;font-weight:600;display:none;"></p>
+        <p style="font-size:0.75rem;color:var(--text-muted);opacity:0.8;">
+            Projections are illustrative estimates based on historical averages and the assumptions shown.
+            Actual results will differ. This is not financial advice.
+        </p>
+    </div>
+</div>
+
+<!-- Watchlist Card -->
+<div class="card" style="margin-top:1.25rem;">
+    <div class="page-header" style="margin-bottom:0.75rem;">
+        <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">visibility</span> Watchlist</h2>
+        <button type="button" id="watchlist-add-btn" class="btn btn-sm btn-primary icon-btn-label"><span class="material-symbols-rounded">add</span> Add</button>
+    </div>
+    <p class="muted" style="font-size:0.8125rem;margin-bottom:0.75rem;">
+        Track symbols with optional price alerts. Alerts fire on daily closing price.
+        <span style="opacity:0.7;">Price alerts are informational only.</span>
+    </p>
+    <div id="watchlist-list" class="muted">Loading watchlist...</div>
+</div>
+
+<!-- Add to Watchlist Modal -->
+<div id="watchlist-modal-wrap" class="modal-wrap" style="display:none;" aria-hidden="true">
+    <div class="modal-backdrop" id="watchlist-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-labelledby="watchlist-modal-title" aria-modal="true">
+        <h3 id="watchlist-modal-title" class="modal-title">Add to Watchlist</h3>
+        <form id="watchlist-add-form" class="form">
+            <div class="form-group">
+                <label for="watchlist-symbol">Symbol <span class="required">*</span></label>
+                <input type="text" id="watchlist-symbol" class="form-input" placeholder="e.g. AAPL" maxlength="20" required />
+            </div>
+            <div class="form-group">
+                <label for="watchlist-price">Target price (optional)</label>
+                <input type="number" id="watchlist-price" class="form-input" placeholder="e.g. 150.00" step="0.01" min="0" />
+            </div>
+            <div class="form-group">
+                <label for="watchlist-direction">Alert when price is</label>
+                <select id="watchlist-direction" class="form-select form-select--touch">
+                    <option value="below">Below target</option>
+                    <option value="above">Above target</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="watchlist-notes">Notes</label>
+                <input type="text" id="watchlist-notes" class="form-input" maxlength="512" placeholder="Optional" />
+            </div>
+            <div class="form-actions">
+                <button type="button" id="watchlist-modal-cancel" class="btn btn-ghost">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
     </div>
 </div>
 

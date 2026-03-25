@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.routers import users, oauth, notifications, settings, households, saved_views, sessions, integrations, net_worth
+from app.routers import users, oauth, notifications, settings, households, saved_views, sessions, integrations, net_worth, lifecycle_events
 from app.services.email_verification_service import verify_email_token
 from app.core.config import (
     get_cors_origins,
@@ -97,6 +97,7 @@ app.include_router(saved_views.router)
 app.include_router(sessions.router)
 app.include_router(integrations.router)
 app.include_router(net_worth.router)
+app.include_router(lifecycle_events.router)
 
 # Proxy /api/v1/* to backends only when gateway is not used (frontend then uses same-origin and we proxy)
 if EXPENSE_SERVICE_URL and not GATEWAY_PUBLIC_URL:

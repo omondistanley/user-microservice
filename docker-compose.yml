@@ -58,7 +58,8 @@ services:
              python run_migration.py migrations/017_webhook_event_lifecycle.sql &&
              python run_migration.py migrations/018_calendar_subscription_token.sql &&
              python run_migration.py migrations/019_net_worth_manual.sql &&
-             python run_migration.py migrations/020_calendar_oauth_connection.sql"
+             python run_migration.py migrations/020_calendar_oauth_connection.sql &&
+             python run_migration.py migrations/020_lifecycle_events.sql"
     restart: "no"
 
   expense-migrations:
@@ -102,7 +103,9 @@ services:
              python run_migration.py migrations/025_classifier_corrections.sql &&
              python run_migration.py migrations/026_gmail_oauth.sql &&
              python run_migration.py migrations/027_global_idempotency.sql &&
-             python run_migration.py migrations/028_gmail_google_account_email.sql"
+             python run_migration.py migrations/028_gmail_google_account_email.sql &&
+             python run_migration.py migrations/029_user_irregular_expenses.sql &&
+             python run_migration.py migrations/030_income_ira_contribution.sql"
     restart: "no"
 
   budget-migrations:
@@ -122,7 +125,8 @@ services:
       sh -c "python run_migration.py migrations/001_schema.sql &&
              python run_migration.py migrations/002_budget_alerts.sql &&
              python run_migration.py migrations/003_spend_pace_event.sql &&
-             python run_migration.py migrations/003_household_scope.sql"
+             python run_migration.py migrations/003_household_scope.sql &&
+             python run_migration.py migrations/004_recurring_budget.sql"
     restart: "no"
 
   investment-migrations:
@@ -138,7 +142,27 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "python run_migration.py migrations/001_schema.sql && python run_migration.py migrations/003_recommendations_preferences.sql && python run_migration.py migrations/004_security_universe.sql && python run_migration.py migrations/005_sector_cache.sql && python run_migration.py migrations/006_etf_holdings.sql && python run_migration.py migrations/008_tax_lots.sql && python run_migration.py migrations/009_scenarios.sql && python run_migration.py migrations/010_fundamental_snapshot.sql && python run_migration.py migrations/011_sentiment_snapshot.sql && python run_migration.py migrations/012_alpaca_connection.sql && python run_migration.py migrations/013_risk_profile_use_finance_data.sql && python run_migration.py migrations/014_recommendation_run_portfolio_snapshot.sql && python run_migration.py migrations/015_portfolio_rebalance_sessions.sql"
+    command: >
+      sh -c "python run_migration.py migrations/001_schema.sql &&
+             python run_migration.py migrations/003_recommendations_preferences.sql &&
+             python run_migration.py migrations/004_security_universe.sql &&
+             python run_migration.py migrations/005_sector_cache.sql &&
+             python run_migration.py migrations/006_etf_holdings.sql &&
+             python run_migration.py migrations/008_tax_lots.sql &&
+             python run_migration.py migrations/009_scenarios.sql &&
+             python run_migration.py migrations/010_fundamental_snapshot.sql &&
+             python run_migration.py migrations/011_sentiment_snapshot.sql &&
+             python run_migration.py migrations/012_alpaca_connection.sql &&
+             python run_migration.py migrations/013_risk_profile_use_finance_data.sql &&
+             python run_migration.py migrations/014_recommendation_run_portfolio_snapshot.sql &&
+             python run_migration.py migrations/015_portfolio_rebalance_sessions.sql &&
+             python run_migration.py migrations/016_holdings_account_type_role_label.sql &&
+             python run_migration.py migrations/017_portfolio_health_snapshot.sql &&
+             python run_migration.py migrations/018_recommendation_digests.sql &&
+             python run_migration.py migrations/019_watchlist.sql &&
+             python run_migration.py migrations/020_nudge_log.sql &&
+             python run_migration.py migrations/021_etf_constituents.sql &&
+             python run_migration.py migrations/022_dividend_calendar.sql"
     restart: "no"
 
   expense:

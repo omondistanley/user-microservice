@@ -343,3 +343,212 @@ async def gains_history(
         "note": "Based on current holdings and historical prices.",
     }
 
+
+@router.get("/portfolio/health", response_model=dict)
+async def portfolio_health(
+    user_id: int = Depends(get_current_user_id),
+    ds: HoldingsDataService = Depends(_get_data_service),
+    market_router: MarketDataRouter = Depends(_get_market_router),
+):
+    """
+    Composite portfolio health score (0-100) with tier, components, and flags.
+    Not financial advice. For informational purposes only.
+    """
+    from app.services.portfolio_health_service import compute_health_score
+    from app.services.sector_exposure_service import aggregate_by_sector
+
+    rows = ds.list_all_holdings_for_user(user_id)
+    if not rows:
+        return {
+            "score": 0,
+            "tier": "amber",
+            "headline": "Add holdings to calculate your portfolio health score",
+            "components": {},
+            "flags": [],
+            "disclaimer": "Not financial advice. For informational purposes only.",
+        }
+
+    positions = await _build_positions_with_value(rows, market_router)
+    context = _db_context()
+
+    sector_data = aggregate_by_sector(context, positions)
+    sector_breakdown: dict = {}
+    for item in (sector_data.get("sectors") or []):
+        name = item.get("sector") or item.get("name") or ""
+        pct = float(item.get("weight") or item.get("pct") or 0)
+        if name:
+            sector_breakdown[name] = pct
+
+    result = compute_health_score(
+        user_id=user_id,
+        positions=positions,
+        sector_breakdown=sector_breakdown,
+        db_context=context,
+        save=True,
+    )
+    return result
+
+
+@router.get("/portfolio/benchmark", response_model=dict)
+async def portfolio_benchmark(
+    user_id: int = Depends(get_current_user_id),
+    ds: HoldingsDataService = Depends(_get_data_service),
+    market_router: MarketDataRouter = Depends(_get_market_router),
+    benchmark: str = Query("sp500", regex="^(sp500|nasdaq|60_40|dividend)$"),
+    days: int = Query(90, ge=7, le=365),
+):
+    """
+    Compare portfolio TWR against a benchmark index over N days.
+    Benchmarks: sp500 (SPY), nasdaq (QQQ), 60_40 (blend SPY+BND), dividend (VYM).
+    Not financial advice. For informational purposes only.
+    """
+    _BENCHMARK_SYMBOLS = {
+        "sp500": ["SPY"],
+        "nasdaq": ["QQQ"],
+        "60_40": ["SPY", "BND"],
+        "dividend": ["VYM"],
+    }
+    _BENCHMARK_WEIGHTS = {
+        "sp500": [1.0],
+        "nasdaq": [1.0],
+        "60_40": [0.6, 0.4],
+        "dividend": [1.0],
+    }
+    _BENCHMARK_LABELS = {
+        "sp500": "S&P 500 (SPY)",
+        "nasdaq": "Nasdaq (QQQ)",
+        "60_40": "60/40 Portfolio",
+        "dividend": "Dividend (VYM)",
+    }
+
+    end_dt = datetime.now(timezone.utc)
+    start_dt = end_dt - timedelta(days=days)
+    symbols = _BENCHMARK_SYMBOLS[benchmark]
+    weights = _BENCHMARK_WEIGHTS[benchmark]
+
+    rows = ds.list_all_holdings_for_user(user_id)
+    portfolio_symbols = list({(r.get("symbol") or "").strip().upper() for r in rows if (r.get("symbol") or "").strip()})
+
+    # Fetch all bar data concurrently
+    all_symbols = list(set(portfolio_symbols + symbols))
+    bar_tasks = {sym: market_router.get_bars(sym, "1d", start_dt, end_dt) for sym in all_symbols}
+
+    bars_by_symbol: Dict[str, Any] = {}
+    for sym, task in bar_tasks.items():
+        try:
+            bars = await asyncio.wait_for(task, timeout=BARS_TIMEOUT)
+            bars_by_symbol[sym] = bars or []
+        except Exception:
+            bars_by_symbol[sym] = []
+
+    def twr_series(bar_list):
+        """Return list of (date_str, cumulative_twr) from bars."""
+        if not bar_list:
+            return []
+        result = []
+        base = float(bar_list[0].close) if bar_list[0].close else None
+        if not base or base == 0:
+            return []
+        for b in bar_list:
+            ps = b.period_start
+            dt_key = (ps.date() if hasattr(ps, "date") else ps).isoformat()
+            twr = (float(b.close) - base) / base * 100
+            result.append({"date": dt_key, "value": round(twr, 3)})
+        return result
+
+    # Portfolio TWR: equal-weight across held symbols (simplified)
+    portfolio_series_list = [twr_series(bars_by_symbol.get(s, [])) for s in portfolio_symbols]
+    portfolio_series_list = [s for s in portfolio_series_list if s]
+
+    # Benchmark TWR: weighted blend
+    bench_series_list = []
+    for i, sym in enumerate(symbols):
+        s = twr_series(bars_by_symbol.get(sym, []))
+        w = weights[i]
+        bench_series_list.append((s, w))
+
+    # Build aligned date set
+    all_dates: set = set()
+    for s in portfolio_series_list:
+        for pt in s:
+            all_dates.add(pt["date"])
+    sorted_dates = sorted(all_dates)
+
+    def lookup(series, date_str):
+        for pt in series:
+            if pt["date"] == date_str:
+                return pt["value"]
+        return None
+
+    portfolio_points = []
+    benchmark_points = []
+    for d in sorted_dates:
+        # Portfolio: average of all held symbols
+        p_vals = [lookup(s, d) for s in portfolio_series_list]
+        p_vals = [v for v in p_vals if v is not None]
+        p_avg = round(sum(p_vals) / len(p_vals), 3) if p_vals else None
+
+        # Benchmark: weighted average
+        b_val = 0.0
+        b_weight_total = 0.0
+        for (bs, bw) in bench_series_list:
+            v = lookup(bs, d)
+            if v is not None:
+                b_val += v * bw
+                b_weight_total += bw
+        b_avg = round(b_val / b_weight_total, 3) if b_weight_total > 0 else None
+
+        if p_avg is not None and b_avg is not None:
+            portfolio_points.append({"date": d, "value": p_avg})
+            benchmark_points.append({"date": d, "value": b_avg})
+
+    # Alpha = last portfolio TWR - last benchmark TWR
+    alpha = None
+    if portfolio_points and benchmark_points:
+        alpha = round(portfolio_points[-1]["value"] - benchmark_points[-1]["value"], 3)
+
+    return {
+        "benchmark": benchmark,
+        "benchmark_label": _BENCHMARK_LABELS[benchmark],
+        "days": days,
+        "portfolio": portfolio_points,
+        "benchmark_series": benchmark_points,
+        "alpha_pct": alpha,
+        "disclaimer": "Past performance does not guarantee future results. Returns shown are informational estimates only.",
+    }
+
+
+@router.get("/portfolio/etf-overlap", response_model=dict)
+async def etf_overlap(
+    user_id: int = Depends(get_current_user_id),
+    ds: HoldingsDataService = Depends(_get_data_service),
+    market_router: MarketDataRouter = Depends(_get_market_router),
+):
+    """
+    Detect ETF double-exposure and ETF-to-ETF overlap.
+    Informational only. Not financial advice.
+    """
+    from app.services.etf_overlap_service import calculate_etf_overlap, detect_cross_account_concentration
+    rows = ds.list_all_holdings_for_user(user_id)
+    positions = await _build_positions_with_value(rows, market_router)
+    context = _db_context()
+    warnings = calculate_etf_overlap(context, positions)
+
+    # Build positions list for cross-account concentration (needs market_value and account_type)
+    value_by_symbol = {p["symbol"]: float(p["value"]) for p in positions}
+    cross_positions = [
+        {
+            "symbol": (r.get("symbol") or "").strip().upper(),
+            "market_value": value_by_symbol.get((r.get("symbol") or "").strip().upper(), 0.0),
+            "account_type": r.get("account_type") or "taxable",
+        }
+        for r in rows
+    ]
+    cross_account_warnings = detect_cross_account_concentration(cross_positions)
+
+    return {
+        "warnings": warnings,
+        "count": len(warnings),
+        "cross_account_warnings": cross_account_warnings,
+        "disclaimer": "Overlap estimates are based on publicly available ETF holdings data. Constituent weights change frequently — this is an approximation.",
+    }

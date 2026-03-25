@@ -79,6 +79,56 @@ async def update_holding(
     return resource.update(hid, user_id, payload)
 
 
+@router.get("/holdings/by-symbol/{symbol}/detail", response_model=dict)
+async def holding_symbol_detail(
+    symbol: str,
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Aggregate detail for a symbol across all of the user's holdings.
+    Returns quantity, cost basis, account types, and role label.
+    Not financial advice. For informational purposes only.
+    """
+    from decimal import Decimal
+    resource = _get_holding_resource()
+    from app.models.holdings import HoldingListParams
+    items, _ = resource.list(user_id, HoldingListParams(symbol=symbol.upper(), page=1, page_size=100))
+
+    if not items:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"No holdings found for symbol {symbol.upper()}")
+
+    total_qty = Decimal("0")
+    total_cost = Decimal("0")
+    account_types = []
+    role_labels = []
+
+    for item in items:
+        qty = Decimal(str(item.get("quantity") or 0))
+        cost = Decimal(str(item.get("avg_cost") or 0))
+        total_qty += qty
+        total_cost += qty * cost
+        at = item.get("account_type")
+        rl = item.get("role_label")
+        if at and at not in account_types:
+            account_types.append(at)
+        if rl and rl not in role_labels:
+            role_labels.append(rl)
+
+    avg_cost = (total_cost / total_qty) if total_qty > 0 else Decimal("0")
+
+    return {
+        "symbol": symbol.upper(),
+        "total_quantity": float(total_qty),
+        "avg_cost": float(avg_cost),
+        "total_cost_basis": float(total_cost),
+        "account_types": account_types,
+        "role_labels": role_labels,
+        "positions_count": len(items),
+        "disclaimer": "Not financial advice. For informational purposes only.",
+    }
+
+
 @router.delete("/holdings/{holding_id}", status_code=204)
 async def delete_holding(
     holding_id: str,

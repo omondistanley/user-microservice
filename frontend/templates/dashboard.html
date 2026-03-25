@@ -184,6 +184,27 @@
             </div>
         </div>
     </div>
+<!-- Monthly Review CTA -->
+<div style="margin-top:1.5rem;padding:1rem 1.25rem;background:var(--surface-alt,#f8fafc);border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+    <div>
+        <strong style="font-size:0.9375rem;">Monthly portfolio review</strong>
+        <p class="muted" style="font-size:0.8125rem;margin:0.2rem 0 0;">Takes about 10 minutes. See what changed, what's available, and one relevant piece of information.</p>
+    </div>
+    <button type="button" id="monthly-review-btn" class="btn btn-primary">Start review</button>
+</div>
+
+<!-- Monthly Review Wizard Overlay -->
+<div id="review-wizard-wrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;" aria-hidden="true">
+    <div style="background:var(--surface,#fff);border-radius:12px;max-width:520px;width:90%;padding:2rem;position:relative;max-height:90vh;overflow-y:auto;">
+        <button type="button" id="review-wizard-close" style="position:absolute;top:1rem;right:1rem;background:none;border:none;cursor:pointer;font-size:1.5rem;color:var(--text-muted);">×</button>
+        <div id="review-step-indicator" style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem;"></div>
+        <div id="review-wizard-content" style="min-height:180px;"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:1.5rem;">
+            <button type="button" id="review-prev-btn" class="btn btn-ghost" style="display:none;">Back</button>
+            <button type="button" id="review-next-btn" class="btn btn-primary">Next</button>
+        </div>
+    </div>
+</div>
 </div><!-- end .m-dash-desktop -->
 {% endblock %}
 {% block scripts %}
@@ -602,6 +623,131 @@
     }
     function esc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     if (window.Auth && window.Auth.getAuthHeaders) setTimeout(loadMobile, 50);
+})();
+</script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    function getAuthHeaders() {
+        if (window.Auth && window.Auth.getAuthHeaders) {
+            var h = window.Auth.getAuthHeaders();
+            if (h && Object.keys(h).length) return h;
+        }
+        var token = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        if (!token) return {};
+        return { 'Authorization': 'Bearer ' + token };
+    }
+
+    function initReviewWizard() {
+        var openBtn = document.getElementById('monthly-review-btn');
+        var wrap = document.getElementById('review-wizard-wrap');
+        var closeBtn = document.getElementById('review-wizard-close');
+        var nextBtn = document.getElementById('review-next-btn');
+        var prevBtn = document.getElementById('review-prev-btn');
+        var content = document.getElementById('review-wizard-content');
+        var indicator = document.getElementById('review-step-indicator');
+        if (!openBtn || !wrap) return;
+
+        var _step = 0;
+        var _data = {};
+
+        var steps = [
+            {
+                title: 'Amount available',
+                load: function(cb) {
+                    var expBase = (window.EXPENSE_API_BASE || '');
+                    fetch(expBase + '/api/v1/surplus', { headers: getAuthHeaders() })
+                        .then(function(r) { return r.ok ? r.json() : null; })
+                        .then(function(d) { _data.surplus = d; cb(); })
+                        .catch(function() { _data.surplus = null; cb(); });
+                },
+                render: function() {
+                    var s = _data.surplus;
+                    var amt = s ? parseFloat(s.investable_surplus || 0) : null;
+                    var fmt = function(n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
+                    return '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;">Your available amount</h3>'
+                        + (amt != null
+                            ? '<p style="font-size:1.75rem;font-weight:800;color:' + (amt >= 0 ? '#38a169' : '#e53e3e') + ';">' + fmt(amt) + '</p>'
+                              + '<p class="muted" style="font-size:0.875rem;">After your bills, subscriptions, and goal contributions — this is what\'s genuinely available to invest.</p>'
+                            : '<p class="muted">Link a bank account or add income to calculate your available amount.</p>');
+                }
+            },
+            {
+                title: 'Portfolio health',
+                load: function(cb) {
+                    fetch((window.API_BASE || '') + '/api/v1/portfolio/health', { headers: getAuthHeaders() })
+                        .then(function(r) { return r.ok ? r.json() : null; })
+                        .then(function(d) { _data.health = d; cb(); })
+                        .catch(function() { _data.health = null; cb(); });
+                },
+                render: function() {
+                    var h = _data.health;
+                    if (!h) return '<h3 style="font-size:1.1rem;font-weight:700;">Portfolio health</h3><p class="muted">Add holdings to see your health score.</p>';
+                    var tierColor = { green: '#38a169', amber: '#ecc94b', red: '#e53e3e' }[h.tier] || '#718096';
+                    return '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;">Portfolio health</h3>'
+                        + '<p style="font-size:2rem;font-weight:800;color:' + tierColor + ';">' + h.score + '<span style="font-size:1rem;opacity:0.6;">/100</span></p>'
+                        + '<p class="muted" style="font-size:0.875rem;">' + (h.headline || '') + '</p>'
+                        + (h.flags && h.flags.length ? '<ul style="margin-top:0.75rem;font-size:0.875rem;">' + h.flags.map(function(f) { return '<li>\u26a0 ' + f + '</li>'; }).join('') + '</ul>' : '');
+                }
+            },
+            {
+                title: 'One thing to know',
+                load: function(cb) {
+                    fetch((window.API_BASE || '') + '/api/v1/recommendations/digest/latest', { headers: getAuthHeaders() })
+                        .then(function(r) { return r.ok ? r.json() : null; })
+                        .then(function(d) { _data.digest = d; cb(); })
+                        .catch(function() { _data.digest = null; cb(); });
+                },
+                render: function() {
+                    var d = _data.digest && _data.digest.digest;
+                    return '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;">One thing to know this week</h3>'
+                        + (d
+                            ? '<p style="font-weight:600;margin-bottom:0.5rem;">' + (d.headline || '') + '</p><p class="muted" style="font-size:0.875rem;">' + (d.body_text || '') + '</p>'
+                            : '<p class="muted">Run an analysis on the Recommendations page to generate your weekly digest.</p>');
+                }
+            },
+            {
+                title: 'Done',
+                load: function(cb) { cb(); },
+                render: function() {
+                    return '<div style="text-align:center;padding:1rem 0;">'
+                        + '<span class="material-symbols-rounded" style="font-size:3rem;color:#38a169;">check_circle</span>'
+                        + '<h3 style="font-size:1.1rem;font-weight:700;margin:0.75rem 0 0.5rem;">You\'re up to date</h3>'
+                        + '<p class="muted" style="font-size:0.875rem;">Your review is complete. See you next month.</p>'
+                        + '</div>';
+                }
+            }
+        ];
+
+        function showStep() {
+            var step = steps[_step];
+            if (indicator) indicator.textContent = 'Step ' + (_step + 1) + ' of ' + steps.length;
+            if (content) content.innerHTML = '<p class="muted" style="font-size:0.875rem;">Loading...</p>';
+            if (prevBtn) prevBtn.style.display = _step > 0 ? 'inline-block' : 'none';
+            if (nextBtn) nextBtn.textContent = _step === steps.length - 1 ? 'Close' : 'Next';
+            step.load(function() {
+                if (content) content.innerHTML = step.render();
+            });
+        }
+
+        openBtn.addEventListener('click', function() {
+            _step = 0;
+            wrap.style.display = 'flex';
+            wrap.setAttribute('aria-hidden', 'false');
+            showStep();
+        });
+        if (closeBtn) closeBtn.addEventListener('click', function() { wrap.style.display = 'none'; wrap.setAttribute('aria-hidden', 'true'); });
+        if (nextBtn) nextBtn.addEventListener('click', function() {
+            if (_step === steps.length - 1) { wrap.style.display = 'none'; wrap.setAttribute('aria-hidden', 'true'); }
+            else { _step++; showStep(); }
+        });
+        if (prevBtn) prevBtn.addEventListener('click', function() { if (_step > 0) { _step--; showStep(); } });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initReviewWizard);
+    } else {
+        initReviewWizard();
+    }
 })();
 </script>
 {% endblock %}

@@ -27,6 +27,50 @@ def main():
 
     sql = migration.read_text()
 
+    def _split_sql(text: str) -> list:
+        """
+        Split SQL on semicolons while respecting dollar-quoted blocks ($$...$$).
+        A plain sql.split(";") breaks plpgsql functions that contain semicolons
+        inside their body.
+        """
+        statements = []
+        current = []
+        in_dollar_quote = False
+        dollar_tag = ""
+        i = 0
+        while i < len(text):
+            # Detect start/end of a dollar-quote block
+            if text[i] == "$":
+                # Find matching closing $
+                j = text.index("$", i + 1) if "$" in text[i + 1:] else -1
+                if j != -1:
+                    tag = text[i:j + 1]  # e.g. $$ or $BODY$
+                    if not in_dollar_quote:
+                        in_dollar_quote = True
+                        dollar_tag = tag
+                        current.append(text[i:j + 1])
+                        i = j + 1
+                        continue
+                    elif tag == dollar_tag:
+                        in_dollar_quote = False
+                        dollar_tag = ""
+                        current.append(text[i:j + 1])
+                        i = j + 1
+                        continue
+            if text[i] == ";" and not in_dollar_quote:
+                stmt = "".join(current).strip()
+                if stmt:
+                    statements.append(stmt)
+                current = []
+            else:
+                current.append(text[i])
+            i += 1
+        # Remainder after last semicolon
+        stmt = "".join(current).strip()
+        if stmt:
+            statements.append(stmt)
+        return statements
+
     def strip_comments(chunk: str) -> str:
         """Remove line and inline comments (-- ...) and return stripped SQL."""
         lines = []
@@ -47,7 +91,7 @@ def main():
         return out
 
     statements = []
-    for s in sql.split(";"):
+    for s in _split_sql(sql):
         stmt = strip_comments(s)
         if stmt:
             statements.append(stmt)

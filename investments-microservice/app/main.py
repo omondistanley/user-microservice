@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from app.routers import holdings, internal, news, portfolio, market, recommendations, risk_profile, tax, sentiment, alpaca, rebalance
+from app.routers import holdings, internal, news, portfolio, market, recommendations, risk_profile, tax, sentiment, alpaca, rebalance, rebalance_plan, watchlist, import_broker, monte_carlo, ira_features, windfall
 from app.core.config import (
     get_cors_origins,
     SECRET_KEY,
@@ -164,6 +164,12 @@ app.include_router(tax.router)
 app.include_router(sentiment.router)
 app.include_router(alpaca.router)
 app.include_router(rebalance.router)
+app.include_router(rebalance_plan.router)
+app.include_router(watchlist.router)
+app.include_router(import_broker.router)
+app.include_router(monte_carlo.router)
+app.include_router(ira_features.router)
+app.include_router(windfall.router)
 app.include_router(internal.router)
 
 

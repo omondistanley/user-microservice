@@ -5,7 +5,10 @@
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">Investments</h1>
-    <button type="button" id="holdings-add-btn" class="btn btn-primary icon-btn-label"><span class="material-symbols-rounded">add</span> Add holding</button>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <button type="button" id="import-csv-open-btn" class="btn btn-secondary icon-btn-label"><span class="material-symbols-rounded">upload_file</span> Import from Broker CSV</button>
+        <button type="button" id="holdings-add-btn" class="btn btn-primary icon-btn-label"><span class="material-symbols-rounded">add</span> Add holding</button>
+    </div>
 </div>
 
 <nav class="flex flex-wrap gap-1 mb-4 border-b border-slate-200 dark:border-slate-700" role="tablist" aria-label="Investments views">
@@ -13,7 +16,30 @@
     <button type="button" class="inv-view-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200" data-inv-view="holdings" role="tab" aria-selected="false">Holdings</button>
 </nav>
 
+<!-- Finance Context Strip -->
+<div id="finance-context-strip" style="display:none;background:var(--surface,#f0f7ff);border-left:3px solid #135bec;border-radius:4px;padding:0.6rem 1rem;margin-bottom:1rem;font-size:0.875rem;">
+    <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;margin-right:0.35rem;">account_balance_wallet</span>
+    <span id="finance-context-text"></span>
+</div>
+
 <div id="inv-view-overview">
+<!-- Portfolio Health Score -->
+<div class="card" id="inv-health-card" style="margin-bottom:1rem;">
+    <div class="section-head" style="margin-bottom:0.75rem;">
+        <h2 class="section-title-sm"><span class="material-symbols-rounded">favorite</span> Portfolio Health</h2>
+        <span id="inv-health-badge" class="badge" style="font-size:0.75rem;"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+        <div style="flex:1;background:var(--border);border-radius:99px;height:10px;overflow:hidden;">
+            <div id="inv-health-bar-fill" style="height:100%;border-radius:99px;width:0%;transition:width 0.7s ease;background:linear-gradient(90deg,#e53e3e 0%,#ecc94b 50%,#38a169 100%);"></div>
+        </div>
+        <span id="inv-health-score-label" style="font-size:1.25rem;font-weight:700;min-width:3rem;text-align:right;">—</span>
+    </div>
+    <p id="inv-health-headline" class="muted" style="font-size:0.875rem;margin-bottom:0.75rem;"></p>
+    <div id="inv-health-components" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-bottom:0.5rem;"></div>
+    <div id="inv-health-flags" style="font-size:0.8125rem;color:var(--text-muted);"></div>
+    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem;opacity:0.7;">Not financial advice. Score is based on your stated preferences and portfolio data only.</p>
+</div>
 <div class="stat-row">
     <div class="stat-card">
         <div class="stat-label">Portfolio Value</div>
@@ -62,6 +88,36 @@
         <p id="inv-gains-note" class="muted" style="font-size: 0.75rem; margin-top: 0.5rem; display:none;"></p>
     </div>
 </div>
+
+<!-- Benchmark Comparison -->
+<div class="card" id="inv-benchmark-card" style="margin-top:1rem">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+    <h3 class="card-title" style="margin:0">Performance vs Benchmark</h3>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <select id="benchmark-select" class="form-input" style="font-size:.8125rem;padding:.25rem .5rem;height:auto">
+        <option value="sp500">S&amp;P 500 (SPY)</option>
+        <option value="nasdaq">NASDAQ (QQQ)</option>
+        <option value="60_40">60/40 (SPY+BND)</option>
+        <option value="dividend">Dividend (VYM)</option>
+      </select>
+      <select id="benchmark-days" class="form-input" style="font-size:.8125rem;padding:.25rem .5rem;height:auto">
+        <option value="30">30 days</option>
+        <option value="90" selected>90 days</option>
+        <option value="180">180 days</option>
+        <option value="365">1 year</option>
+      </select>
+      <button class="btn btn-secondary" id="benchmark-refresh-btn" style="font-size:.8125rem;padding:.25rem .75rem">Refresh</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="benchmark-loading" style="display:none;text-align:center;padding:2rem;color:var(--text-secondary)">Loading...</div>
+    <div id="benchmark-chart-wrap" style="height:240px;position:relative">
+      <canvas id="benchmark-chart" style="width:100%;height:100%"></canvas>
+    </div>
+    <div id="benchmark-alpha" style="margin-top:.75rem;font-size:.875rem;color:var(--text-secondary);text-align:right"></div>
+    <p style="font-size:.75rem;color:var(--text-tertiary,#999);margin-top:.5rem">Not financial advice. Past performance does not predict future results. For informational purposes only.</p>
+  </div>
+</div>
 </div>
 
 <div id="inv-view-holdings" style="display: none;">
@@ -96,14 +152,43 @@
 </div>
 
 <div class="card">
-    <div class="section-head" style="margin-bottom: 1rem;">
+    <div class="section-head" style="margin-bottom:1rem;">
         <h2 class="section-title-sm"><span class="material-symbols-rounded">donut_large</span> Allocation</h2>
+        <div style="display:flex;gap:0.5rem;">
+            <button type="button" class="btn btn-sm btn-ghost alloc-tab-btn active-tab" data-tab="weights">Weights</button>
+            <button type="button" class="btn btn-sm btn-ghost alloc-tab-btn" data-tab="sectors">Sectors</button>
+        </div>
     </div>
-    <p class="muted" style="font-size: 0.875rem; margin-bottom: 1rem;">
-        Breakdown of your portfolio by position weight. Run
-        <a href="/recommendations">Recommendations</a> to see sector-level analysis and risk notes.
-    </p>
-    <div id="inv-allocation-list" class="muted">Add holdings above to see allocation.</div>
+    <div id="alloc-tab-weights">
+        <div id="inv-allocation-list" class="muted">Add holdings above to see allocation.</div>
+    </div>
+    <div id="alloc-tab-sectors" style="display:none;">
+        <div id="inv-sector-treemap" style="min-height:200px;"></div>
+        <div id="inv-sector-drift" style="margin-top:0.75rem;"></div>
+        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem;">Sector data from ETF look-through. Drift vs stated targets shown in amber when &gt;5% off target.</p>
+    </div>
+</div>
+
+<!-- Dividend Calendar (Phase 3) -->
+<div class="card" id="inv-dividend-card" style="margin-top:1rem;">
+    <div class="section-head" style="margin-bottom:0.75rem;">
+        <h2 class="section-title-sm"><span class="material-symbols-rounded">calendar_month</span> Dividend Calendar</h2>
+        <button type="button" id="inv-dividend-toggle" class="btn btn-sm btn-ghost">Show</button>
+    </div>
+    <div id="inv-dividend-body" style="display:none;">
+        <p class="muted" style="font-size:0.8125rem;margin-bottom:0.75rem;">
+            Projected annual dividend income based on current holdings and historical yields.
+            <span style="opacity:0.7;">Dividend amounts and dates are estimates. Companies may change or cancel dividends at any time.</span>
+        </p>
+        <div id="inv-dividend-list" class="muted">Loading dividend data...</div>
+    </div>
+</div>
+
+<!-- Cash Opportunity Cost Strip (Phase 3) -->
+<div id="inv-cash-strip" style="display:none;background:#f0fff4;border-left:3px solid #38a169;border-radius:4px;padding:0.6rem 1rem;margin-top:0.75rem;font-size:0.875rem;">
+    <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;margin-right:0.35rem;">savings</span>
+    <span id="inv-cash-strip-text"></span>
+    <span style="font-size:0.75rem;color:var(--text-muted);display:block;margin-top:0.2rem;">This is informational. No affiliate relationship. Actual rates vary.</span>
 </div>
 </div>
 
@@ -111,6 +196,39 @@
     View personalised stock and ETF suggestions on the
     <a href="/recommendations" class="btn btn-ghost" style="display:inline-block; padding: 0.25rem 0.75rem; margin-left: 0.25rem;">Recommendations</a> page.
 </p>
+
+<!-- CSV Import Modal -->
+<div id="import-csv-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="import-csv-title">
+  <div class="modal-box" style="max-width:460px">
+    <div class="modal-header">
+      <h2 id="import-csv-title" class="modal-title">Import Holdings from CSV</h2>
+      <button class="modal-close" id="import-csv-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:1rem">
+      <p style="font-size:.875rem;color:var(--text-secondary)">Supported brokers: Fidelity, Schwab, Vanguard, eToro, TD Ameritrade. Leave broker blank for auto-detection.</p>
+      <div class="form-group">
+        <label for="import-broker-select" class="form-label">Broker (optional)</label>
+        <select id="import-broker-select" class="form-input">
+          <option value="">Auto-detect</option>
+          <option value="fidelity">Fidelity</option>
+          <option value="schwab">Schwab</option>
+          <option value="vanguard">Vanguard</option>
+          <option value="etoro">eToro</option>
+          <option value="td_ameritrade">TD Ameritrade</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="import-csv-file" class="form-label">CSV File</label>
+        <input type="file" id="import-csv-file" accept=".csv" class="form-input" />
+      </div>
+      <div id="import-csv-feedback" style="display:none;font-size:.875rem;padding:.5rem;border-radius:6px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="import-csv-cancel">Cancel</button>
+      <button class="btn btn-primary" id="import-csv-submit">Import</button>
+    </div>
+  </div>
+</div>
 
 <!-- Add Holding Modal -->
 <div id="add-holding-form-wrap" class="modal-wrap" style="display: none;" aria-hidden="true">
@@ -139,6 +257,17 @@
                     maxlength="3" class="form-input" />
             </div>
             <div class="form-group">
+                <label for="holding-account-type">Account type</label>
+                <select id="holding-account-type" name="account_type" class="form-select form-select--touch">
+                    <option value="taxable" selected>Taxable</option>
+                    <option value="traditional_ira">Traditional IRA</option>
+                    <option value="roth_ira">Roth IRA</option>
+                    <option value="401k">401(k) / 403(b)</option>
+                    <option value="hsa">HSA</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="holding-notes">Notes</label>
                 <input type="text" id="holding-notes" name="notes" maxlength="512"
                     placeholder="Optional" class="form-input" />
@@ -150,9 +279,29 @@
         </form>
     </div>
 </div>
+<!-- Holding Detail Drawer -->
+<div id="holding-detail-wrap" class="modal-wrap" style="display:none;" aria-hidden="true">
+    <div class="modal-backdrop" id="holding-detail-backdrop"></div>
+    <div class="modal-card modal-wide" role="dialog" aria-labelledby="holding-detail-title" aria-modal="true"
+         style="position:fixed;right:0;top:0;height:100vh;max-width:480px;width:100%;overflow-y:auto;border-radius:0 0 0 8px;margin:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 id="holding-detail-title" class="modal-title" style="margin:0;"></h3>
+            <button type="button" id="holding-detail-close" class="btn btn-ghost" style="padding:0.25rem 0.5rem;">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+        <div id="holding-detail-body">
+            <p class="muted">Loading...</p>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:1rem;opacity:0.7;">
+            Not financial advice. For informational purposes only.
+        </p>
+    </div>
+</div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script nonce="{{ csp_nonce | default('') }}" src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/investments.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function () {
@@ -250,6 +399,9 @@
             rows += '<td>' + fmt(marketValue) + '</td>';
             rows += '<td>' + fmtChangePct(changePct !== '' ? changePct : null) + '</td>';
             rows += '<td style="white-space:nowrap;">';
+            rows += '<button type="button" class="btn btn-ghost holding-table-details"'
+                + ' style="font-size:0.75rem;padding:0.15rem 0.5rem;margin-right:0.25rem;"'
+                + ' data-symbol="' + sym + '">Details</button>';
             if (source === 'alpaca' && window.Investments && window.Investments.sellHolding) {
                 rows += '<button type="button" class="btn btn-ghost holding-table-sell"'
                     + ' style="font-size:0.75rem;padding:0.15rem 0.5rem;margin-right:0.25rem;"'
@@ -267,6 +419,14 @@
         });
 
         tbody.innerHTML = rows;
+        tbody.querySelectorAll('.holding-table-details').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var s = btn.getAttribute('data-symbol');
+                if (s && window.Investments && window.Investments.openHoldingDrawer) {
+                    window.Investments.openHoldingDrawer(s);
+                }
+            });
+        });
         tbody.querySelectorAll('.holding-table-sell').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var s = btn.getAttribute('data-symbol');
@@ -316,6 +476,90 @@
         document.addEventListener('DOMContentLoaded', function () { setTimeout(syncTableFromList, 400); });
     } else {
         setTimeout(syncTableFromList, 400);
+    }
+})();
+(function() {
+    // Allocation tab switching
+    document.querySelectorAll('.alloc-tab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.alloc-tab-btn').forEach(function(b) { b.classList.remove('active-tab'); });
+            btn.classList.add('active-tab');
+            var tab = btn.getAttribute('data-tab');
+            var weights = document.getElementById('alloc-tab-weights');
+            var sectors = document.getElementById('alloc-tab-sectors');
+            if (weights) weights.style.display = tab === 'weights' ? '' : 'none';
+            if (sectors) sectors.style.display = tab === 'sectors' ? '' : 'none';
+            if (tab === 'sectors' && !window._sectorLoaded) {
+                window._sectorLoaded = true;
+                loadSectorView();
+            }
+        });
+    });
+
+    function loadSectorView() {
+        var token = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        if (!token) return;
+        var base = window.API_BASE || '';
+        Promise.all([
+            fetch(base + '/api/v1/portfolio/sector-breakdown', { headers: { 'Authorization': 'Bearer ' + token } }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; }),
+            fetch(base + '/api/v1/portfolio/etf-overlap', { headers: { 'Authorization': 'Bearer ' + token } }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
+        ]).then(function(results) {
+            var sectorData = results[0];
+            var overlapData = results[1];
+            renderSectorTreemap(sectorData);
+            renderSectorDrift(sectorData);
+            renderOverlapWarnings(overlapData);
+        });
+    }
+
+    function renderSectorTreemap(data) {
+        var el = document.getElementById('inv-sector-treemap');
+        if (!el || !data) return;
+        var sectors = data.sectors || data.by_sector || [];
+        if (!sectors.length) { el.innerHTML = '<p class="muted">No sector data available.</p>'; return; }
+        var total = sectors.reduce(function(s, x) { return s + parseFloat(x.weight || x.pct || 0); }, 0);
+        if (!total) return;
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+        sectors.forEach(function(s) {
+            var pct = parseFloat(s.weight || s.pct || 0);
+            var name = s.sector || s.name || 'Other';
+            var flex = Math.max(8, Math.round(pct / total * 100));
+            var colors = ['#6366f1','#10b981','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#14b8a6','#f97316','#06b6d4','#84cc16'];
+            var colorIdx = Math.abs(name.charCodeAt(0)) % colors.length;
+            html += '<div style="flex:' + flex + ';min-width:60px;background:' + colors[colorIdx] + ';border-radius:4px;padding:6px 8px;color:#fff;font-size:0.75rem;">';
+            html += '<div style="font-weight:600;">' + name + '</div>';
+            html += '<div>' + pct.toFixed(1) + '%</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    function renderSectorDrift(data) {
+        var el = document.getElementById('inv-sector-drift');
+        if (!el || !data) return;
+        var warnings = data.warnings || data.concentration_warnings || [];
+        if (!warnings.length) { el.innerHTML = ''; return; }
+        var html = '<div style="margin-top:0.5rem;">';
+        warnings.forEach(function(w) {
+            html += '<div style="background:#fffbeb;border-left:3px solid #ecc94b;border-radius:4px;padding:0.5rem 0.75rem;margin-bottom:0.5rem;font-size:0.8125rem;">';
+            html += (typeof w === 'string' ? w : (w.message || JSON.stringify(w)));
+            html += '</div>';
+        });
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    function renderOverlapWarnings(data) {
+        var el = document.getElementById('inv-sector-drift');
+        if (!el || !data || !data.warnings || !data.warnings.length) return;
+        var html = el.innerHTML;
+        data.warnings.forEach(function(w) {
+            html += '<div style="background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;padding:0.5rem 0.75rem;margin-bottom:0.5rem;font-size:0.8125rem;">';
+            html += w.message || JSON.stringify(w);
+            html += '</div>';
+        });
+        el.innerHTML = html;
     }
 })();
 </script>

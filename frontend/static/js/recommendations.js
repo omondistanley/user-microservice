@@ -629,10 +629,258 @@
         });
     }
 
+    // ── Finance Context Strip ────────────────────────────────────────────────
+
+    function fetchSurplusForStrip() {
+        var expBase = (typeof window !== 'undefined' && window.EXPENSE_API_BASE) ? window.EXPENSE_API_BASE : (API || '');
+        return fetch(expBase + '/api/v1/surplus', { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function renderRecFinanceStrip(surplus) {
+        var strip = document.getElementById('rec-finance-strip');
+        var text = document.getElementById('rec-finance-text');
+        if (!strip || !text || !surplus) return;
+        var s = parseFloat(surplus.investable_surplus || 0);
+        var fmt = function (n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
+        if (s > 0) {
+            text.textContent = 'You have approximately ' + fmt(s) + ' available this month after your bills and goals.';
+        } else if (s < 0) {
+            text.textContent = 'Your tracked spending exceeded income by ' + fmt(Math.abs(s)) + ' this month. This is informational only.';
+            strip.style.borderLeftColor = '#e53e3e';
+        } else {
+            return;
+        }
+        strip.style.display = 'block';
+    }
+
+    // ── Page State Banners ────────────────────────────────────────────────────
+
+    function applyPageState(pageState) {
+        var steadyBanner = document.getElementById('rec-steady-banner');
+        var volatileBanner = document.getElementById('rec-volatile-banner');
+        if (!steadyBanner || !volatileBanner) return;
+        steadyBanner.style.display = 'none';
+        volatileBanner.style.display = 'none';
+        if (pageState === 'steady') {
+            steadyBanner.style.display = 'block';
+        } else if (pageState === 'volatile') {
+            volatileBanner.style.display = 'block';
+        }
+    }
+
+    // ── Weekly Digest Card ────────────────────────────────────────────────────
+
+    function fetchLatestDigest() {
+        return fetch(API + '/api/v1/recommendations/digest/latest', { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function renderDigestCard(data) {
+        var card = document.getElementById('rec-digest-card');
+        var weekEl = document.getElementById('rec-digest-week');
+        var headlineEl = document.getElementById('rec-digest-headline');
+        var bodyEl = document.getElementById('rec-digest-body');
+        if (!card || !data || !data.digest) return;
+        var d = data.digest;
+        if (weekEl) weekEl.textContent = d.week_start_date ? 'Week of ' + d.week_start_date : '';
+        if (headlineEl) headlineEl.textContent = d.headline || '';
+        if (bodyEl) bodyEl.textContent = d.body_text || '';
+        card.style.display = 'block';
+    }
+
+    // ── Wire up page_state from fetchLatest ──────────────────────────────────
+    // Patch fetchLatest response to apply page state banner
+
+    var _origFetchLatest = fetchLatest;
+    fetchLatest = function (page, enrich) {
+        return _origFetchLatest(page, enrich).then(function (data) {
+            if (data && data.page_state) {
+                applyPageState(data.page_state);
+            }
+            return data;
+        });
+    };
+
+    // ── Watchlist ─────────────────────────────────────────────────────────────
+
+    function fetchWatchlist() {
+        return fetch(API + '/api/v1/watchlist', { headers: getAuthHeaders() })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .catch(function() { return null; });
+    }
+
+    function renderWatchlist(data) {
+        var el = document.getElementById('watchlist-list');
+        if (!el) return;
+        if (!data || !data.items || !data.items.length) {
+            el.innerHTML = '<p class="muted" style="font-size:0.875rem;">No symbols on your watchlist yet. Click "+ Add" to track a symbol.</p>';
+            return;
+        }
+        var html = '<ul style="list-style:none;padding:0;margin:0;">';
+        data.items.forEach(function(item) {
+            html += '<li style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);">';
+            html += '<div>';
+            html += '<strong style="margin-right:0.5rem;">' + escapeHtml(item.symbol) + '</strong>';
+            if (item.target_price) {
+                html += '<span class="muted" style="font-size:0.8125rem;">' + item.direction + ' $' + Number(item.target_price).toFixed(2) + '</span>';
+            }
+            if (item.notes) html += '<span class="muted" style="font-size:0.8125rem;margin-left:0.5rem;">' + escapeHtml(item.notes) + '</span>';
+            html += '</div>';
+            html += '<button type="button" class="btn btn-ghost watchlist-remove" data-id="' + item.watchlist_id + '" style="font-size:0.75rem;padding:0.1rem 0.4rem;">Remove</button>';
+            html += '</li>';
+        });
+        html += '</ul>';
+        el.innerHTML = html;
+        el.querySelectorAll('.watchlist-remove').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var id = btn.getAttribute('data-id');
+                if (!id || !confirm('Remove from watchlist?')) return;
+                fetch(API + '/api/v1/watchlist/' + id, { method: 'DELETE', headers: getAuthHeaders() })
+                    .then(function() { return fetchWatchlist(); })
+                    .then(renderWatchlist)
+                    .catch(function() { alert('Failed to remove'); });
+            });
+        });
+    }
+
+    function initWatchlist() {
+        fetchWatchlist().then(renderWatchlist);
+        var addBtn = document.getElementById('watchlist-add-btn');
+        var wrap = document.getElementById('watchlist-modal-wrap');
+        var backdrop = document.getElementById('watchlist-modal-backdrop');
+        var cancelBtn = document.getElementById('watchlist-modal-cancel');
+        var form = document.getElementById('watchlist-add-form');
+        if (addBtn && wrap) addBtn.addEventListener('click', function() { wrap.style.display = 'block'; wrap.setAttribute('aria-hidden', 'false'); });
+        if (backdrop) backdrop.addEventListener('click', function() { wrap.style.display = 'none'; wrap.setAttribute('aria-hidden', 'true'); });
+        if (cancelBtn) cancelBtn.addEventListener('click', function() { wrap.style.display = 'none'; wrap.setAttribute('aria-hidden', 'true'); });
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var sym = (document.getElementById('watchlist-symbol').value || '').trim().toUpperCase();
+                var price = parseFloat(document.getElementById('watchlist-price').value) || null;
+                var dir = document.getElementById('watchlist-direction').value || 'below';
+                var notes = (document.getElementById('watchlist-notes').value || '').trim() || null;
+                if (!sym) return;
+                var headers = getAuthHeaders();
+                headers['Content-Type'] = 'application/json';
+                fetch(API + '/api/v1/watchlist', {
+                    method: 'POST', headers: headers,
+                    body: JSON.stringify({ symbol: sym, target_price: price, direction: dir, notes: notes })
+                }).then(function(r) { return r.ok ? r.json() : Promise.reject('Failed'); })
+                  .then(function() {
+                      wrap.style.display = 'none'; form.reset();
+                      fetchWatchlist().then(renderWatchlist);
+                  }).catch(function() { alert('Failed to add to watchlist'); });
+            });
+        }
+    }
+
+    // ── Monte Carlo ───────────────────────────────────────────────────────────
+
+    var _mcChartInstance = null;
+
+    function runMonteCarlo() {
+        var initial = parseFloat(document.getElementById('mc-initial').value) || 10000;
+        var monthly = parseFloat(document.getElementById('mc-monthly').value) || 500;
+        var years = parseInt(document.getElementById('mc-years').value) || 20;
+        var ret = parseFloat(document.getElementById('mc-return').value) || 7;
+        var goal = parseFloat(document.getElementById('mc-goal').value) || null;
+        var url = API + '/api/v1/scenario/monte-carlo?initial_value=' + initial
+            + '&monthly_contribution=' + monthly + '&years=' + years + '&return_pct=' + ret;
+        if (goal) url += '&goal_amount=' + goal;
+        return fetch(url, { headers: getAuthHeaders() }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+    }
+
+    function renderMonteCarlo(data) {
+        if (!data) return;
+        var resultsEl = document.getElementById('mc-results');
+        var statsEl = document.getElementById('mc-stats');
+        var chartEl = document.getElementById('mc-chart');
+        var goalProbEl = document.getElementById('mc-goal-prob');
+        if (resultsEl) resultsEl.style.display = 'block';
+
+        var fmt = function(n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
+        if (statsEl) {
+            var stats = [
+                { label: 'Pessimistic (P5)', value: fmt(data.p5), color: '#e53e3e' },
+                { label: 'Low (P25)', value: fmt(data.p25), color: '#ecc94b' },
+                { label: 'Median (P50)', value: fmt(data.p50), color: '#38a169' },
+                { label: 'High (P75)', value: fmt(data.p75), color: '#3182ce' },
+                { label: 'Optimistic (P95)', value: fmt(data.p95), color: '#805ad5' },
+            ];
+            statsEl.innerHTML = stats.map(function(s) {
+                return '<div style="background:var(--surface-alt,#f8fafc);border-radius:6px;padding:0.5rem 0.75rem;text-align:center;">'
+                    + '<div style="font-size:0.75rem;color:var(--text-muted);">' + s.label + '</div>'
+                    + '<div style="font-weight:700;color:' + s.color + ';font-size:1rem;">' + s.value + '</div>'
+                    + '</div>';
+            }).join('');
+        }
+
+        if (goalProbEl && data.goal_probability != null) {
+            goalProbEl.textContent = 'Estimated probability of reaching your goal: ' + data.goal_probability + '% (based on these assumptions).';
+            goalProbEl.style.display = 'block';
+        }
+
+        if (chartEl && typeof ApexCharts !== 'undefined' && data.sample_paths && data.sample_paths.length) {
+            if (_mcChartInstance) { try { _mcChartInstance.destroy(); } catch(e) {} _mcChartInstance = null; }
+            chartEl.innerHTML = '';
+            var mcYears = data.assumptions ? data.assumptions.years : 20;
+            var labels = Array.from({length: data.months + 1}, function(_, i) {
+                return i % 12 === 0 ? 'Year ' + Math.floor(i/12) : '';
+            });
+            var series = data.sample_paths.slice(0, 10).map(function(path, idx) {
+                return { name: 'Path ' + (idx+1), data: path };
+            });
+            _mcChartInstance = new ApexCharts(chartEl, {
+                chart: { type: 'line', height: 260, toolbar: { show: false }, animations: { enabled: false } },
+                series: series,
+                xaxis: { categories: labels, labels: { rotate: 0 } },
+                yaxis: { labels: { formatter: function(v) { return '$' + Math.round(v/1000) + 'k'; } } },
+                stroke: { width: 1, curve: 'smooth' },
+                legend: { show: false },
+                colors: Array(10).fill('#94a3b8'),
+                dataLabels: { enabled: false },
+                tooltip: { enabled: false },
+            });
+            _mcChartInstance.render();
+        }
+    }
+
+    function initMonteCarlo() {
+        var btn = document.getElementById('mc-run-btn');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            runMonteCarlo().then(function(data) {
+                renderMonteCarlo(data);
+                btn.disabled = false;
+                btn.textContent = 'Run projection';
+            }).catch(function() {
+                btn.disabled = false;
+                btn.textContent = 'Run projection';
+                alert('Projection failed. Please try again.');
+            });
+        });
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', function () {
+            init();
+            fetchSurplusForStrip().then(renderRecFinanceStrip);
+            fetchLatestDigest().then(renderDigestCard);
+            initWatchlist();
+            initMonteCarlo();
+        });
     } else {
         init();
+        fetchSurplusForStrip().then(renderRecFinanceStrip);
+        fetchLatestDigest().then(renderDigestCard);
+        initWatchlist();
+        initMonteCarlo();
     }
 })();
 

@@ -445,7 +445,8 @@
                     alert('Please fill symbol, quantity (positive), and avg. cost (≥ 0).');
                     return;
                 }
-                var payload = { symbol: symbol, quantity: quantity, avg_cost: avgCost, currency: currency || 'USD' };
+                var accountType = (((document.getElementById('holding-account-type') || {}).value) || 'taxable').trim();
+                var payload = { symbol: symbol, quantity: quantity, avg_cost: avgCost, currency: currency || 'USD', account_type: accountType };
                 if (notes) payload.notes = notes;
                 createHolding(payload).then(function () {
                     hideAddForm();
@@ -484,11 +485,439 @@
         }
     }
 
+    // ── Portfolio Health Score ──────────────────────────────────────────────
+
+    function fetchPortfolioHealth() {
+        return gatewayJson('/api/v1/portfolio/health').catch(function () { return null; });
+    }
+
+    function renderHealthScore(data) {
+        if (!data) return;
+        var scoreLabel = document.getElementById('inv-health-score-label');
+        var barFill = document.getElementById('inv-health-bar-fill');
+        var badge = document.getElementById('inv-health-badge');
+        var headline = document.getElementById('inv-health-headline');
+        var components = document.getElementById('inv-health-components');
+        var flags = document.getElementById('inv-health-flags');
+
+        var score = data.score || 0;
+        var tier = data.tier || 'amber';
+        var tierColors = { green: '#38a169', amber: '#ecc94b', red: '#e53e3e' };
+        var color = tierColors[tier] || tierColors.amber;
+
+        if (scoreLabel) scoreLabel.textContent = score + '/100';
+        if (barFill) barFill.style.width = score + '%';
+        if (badge) {
+            badge.textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
+            badge.style.background = color;
+            badge.style.color = '#fff';
+            badge.style.padding = '2px 10px';
+            badge.style.borderRadius = '99px';
+        }
+        if (headline) headline.textContent = data.headline || '';
+
+        if (components && data.components) {
+            var html = '';
+            Object.keys(data.components).forEach(function (key) {
+                var c = data.components[key];
+                var cScore = Math.round(c.score || 0);
+                var cColor = cScore >= 70 ? '#38a169' : (cScore >= 40 ? '#ecc94b' : '#e53e3e');
+                html += '<div style="background:var(--surface-alt,#f8fafc);border-radius:6px;padding:0.5rem 0.75rem;">';
+                html += '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.2rem;">' + escapeHtml(c.label || key) + '</div>';
+                html += '<div style="font-weight:700;font-size:1rem;color:' + cColor + ';">' + cScore + '</div>';
+                html += '</div>';
+            });
+            components.innerHTML = html;
+        }
+
+        if (flags && data.flags && data.flags.length) {
+            flags.innerHTML = data.flags.map(function (f) {
+                return '<span style="display:inline-block;margin-right:0.5rem;margin-bottom:0.25rem;background:#fef3c7;border-radius:4px;padding:2px 8px;font-size:0.78rem;">⚠ ' + escapeHtml(f) + '</span>';
+            }).join('');
+        }
+    }
+
+    // ── Finance Context Strip ────────────────────────────────────────────────
+
+    function fetchSurplus() {
+        var expenseBase = (typeof window !== 'undefined' && window.EXPENSE_API_BASE) ? window.EXPENSE_API_BASE : '';
+        var url = (expenseBase || '') + '/api/v1/surplus';
+        return fetch(url, { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function renderFinanceStrip(surplus) {
+        var strip = document.getElementById('finance-context-strip');
+        var text = document.getElementById('finance-context-text');
+        if (!strip || !text) return;
+        if (!surplus) return;
+        var s = parseFloat(surplus.investable_surplus || 0);
+        var fmt = function (n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
+        if (s > 0) {
+            text.textContent = 'You have approximately ' + fmt(s) + ' available this month after your bills and goals. View your portfolio for investment context.';
+        } else if (s < 0) {
+            text.textContent = 'Your tracked spending exceeded income by ' + fmt(s) + ' this month. This is informational — some transactions may not be captured.';
+        } else {
+            return;
+        }
+        strip.style.display = 'block';
+    }
+
+    // ── Holding Detail Drawer ────────────────────────────────────────────────
+
+    function fetchHoldingDetail(symbol) {
+        return gatewayJson('/api/v1/holdings/by-symbol/' + encodeURIComponent(symbol) + '/detail')
+            .catch(function () { return null; });
+    }
+
+    function openHoldingDrawer(symbol) {
+        var wrap = document.getElementById('holding-detail-wrap');
+        var title = document.getElementById('holding-detail-title');
+        var body = document.getElementById('holding-detail-body');
+        if (!wrap) return;
+        if (title) title.textContent = symbol;
+        if (body) body.innerHTML = '<p class="muted" style="padding:1rem 0;">Loading...</p>';
+        wrap.style.display = 'block';
+        wrap.setAttribute('aria-hidden', 'false');
+
+        fetchHoldingDetail(symbol).then(function (data) {
+            if (!body) return;
+            if (!data) {
+                body.innerHTML = '<p class="muted">Could not load details for ' + escapeHtml(symbol) + '.</p>';
+                return;
+            }
+            var fmt = function (n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+            var accountLabel = { taxable: 'Taxable', traditional_ira: 'Traditional IRA', roth_ira: 'Roth IRA', '401k': '401(k)', hsa: 'HSA', other: 'Other' };
+            var html = '';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">';
+            html += '<div><div style="font-size:0.75rem;color:var(--text-muted);">Total quantity</div><div style="font-weight:700;">' + (data.total_quantity || 0) + '</div></div>';
+            html += '<div><div style="font-size:0.75rem;color:var(--text-muted);">Avg cost</div><div style="font-weight:700;">' + fmt(data.avg_cost || 0) + '</div></div>';
+            html += '<div><div style="font-size:0.75rem;color:var(--text-muted);">Total cost basis</div><div style="font-weight:700;">' + fmt(data.total_cost_basis || 0) + '</div></div>';
+            html += '<div><div style="font-size:0.75rem;color:var(--text-muted);">Positions</div><div style="font-weight:700;">' + (data.positions_count || 1) + '</div></div>';
+            html += '</div>';
+            if (data.account_types && data.account_types.length) {
+                html += '<div style="margin-bottom:0.75rem;"><span style="font-size:0.8125rem;color:var(--text-muted);">Account types: </span>';
+                data.account_types.forEach(function (at) {
+                    html += '<span style="display:inline-block;background:#e2e8f0;border-radius:4px;padding:1px 8px;margin-right:4px;font-size:0.8125rem;">' + escapeHtml(accountLabel[at] || at) + '</span>';
+                });
+                html += '</div>';
+            }
+            if (data.role_labels && data.role_labels.length) {
+                var roleColors = { core: '#38a169', growth: '#3182ce', income: '#805ad5', hedge: '#718096', speculative: '#dd6b20' };
+                html += '<div style="margin-bottom:0.75rem;"><span style="font-size:0.8125rem;color:var(--text-muted);">Role: </span>';
+                data.role_labels.forEach(function (rl) {
+                    var rc = roleColors[rl] || '#718096';
+                    html += '<span style="display:inline-block;background:' + rc + ';color:#fff;border-radius:4px;padding:1px 8px;margin-right:4px;font-size:0.8125rem;">' + escapeHtml(rl) + '</span>';
+                });
+                html += '</div>';
+            }
+            body.innerHTML = html;
+        });
+    }
+
+    function closeHoldingDrawer() {
+        var wrap = document.getElementById('holding-detail-wrap');
+        if (wrap) { wrap.style.display = 'none'; wrap.setAttribute('aria-hidden', 'true'); }
+    }
+
+    function initHoldingDrawer() {
+        var closeBtn = document.getElementById('holding-detail-close');
+        var backdrop = document.getElementById('holding-detail-backdrop');
+        if (closeBtn) closeBtn.addEventListener('click', closeHoldingDrawer);
+        if (backdrop) backdrop.addEventListener('click', closeHoldingDrawer);
+    }
+
+    // ── Patch form submit to include account_type ────────────────────────────
+
+    function patchFormSubmit() {
+        var form = document.getElementById('add-holding-form');
+        if (!form) return;
+        // We re-attach to capture account_type from the new select field
+        var origSubmit = form.onsubmit;
+        form.addEventListener('submit', function (e) {
+            // account_type is now read in the existing handler via getElementById
+            // This patch ensures the existing handler reads it
+            var atEl = document.getElementById('holding-account-type');
+            if (atEl && atEl.value) {
+                form._pendingAccountType = atEl.value;
+            }
+        }, true);
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
 
-    window.Investments = { fetchHoldings: fetchHoldings, renderHoldings: renderHoldings, sellHolding: sellHolding };
+    // Run health + strip after init
+    // ── Dividend Calendar ─────────────────────────────────────────────────────
+
+    function initDividendCalendar() {
+        var toggleBtn = document.getElementById('inv-dividend-toggle');
+        var body = document.getElementById('inv-dividend-body');
+        var list = document.getElementById('inv-dividend-list');
+        if (!toggleBtn || !body) return;
+        var loaded = false;
+        toggleBtn.addEventListener('click', function() {
+            var isHidden = body.style.display === 'none' || body.style.display === '';
+            if (isHidden) {
+                body.style.display = 'block';
+                toggleBtn.textContent = 'Hide';
+                if (!loaded) {
+                    loaded = true;
+                    gatewayJson('/api/v1/holdings').then(function(data) {
+                        var items = (data && data.items) || [];
+                        if (!items.length) { if (list) list.innerHTML = '<p class="muted">Add holdings to see dividend information.</p>'; return; }
+                        var rows = items.filter(function(h) { return h.symbol; });
+                        var html = '<ul style="list-style:none;padding:0;margin:0;">';
+                        rows.forEach(function(h) {
+                            html += '<li style="padding:0.4rem 0;border-bottom:1px solid var(--border);font-size:0.875rem;">';
+                            html += '<strong>' + escapeHtml(h.symbol || '') + '</strong>';
+                            html += '<span class="muted" style="margin-left:0.5rem;">Dividend yield data available via market data providers when configured.</span>';
+                            html += '</li>';
+                        });
+                        html += '</ul>';
+                        html += '<p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem;">Dividend amounts and dates are estimates based on historical data. Companies may change or cancel dividends at any time.</p>';
+                        if (list) list.innerHTML = html;
+                    }).catch(function() {
+                        if (list) list.innerHTML = '<p class="muted">Could not load dividend data.</p>';
+                    });
+                }
+            } else {
+                body.style.display = 'none';
+                toggleBtn.textContent = 'Show';
+            }
+        });
+    }
+
+    // ── Cash Opportunity Cost Strip ───────────────────────────────────────────
+
+    function checkCashOpportunity() {
+        var strip = document.getElementById('inv-cash-strip');
+        var text = document.getElementById('inv-cash-strip-text');
+        if (!strip || !text) return;
+        fetchSurplus().then(function(data) {
+            if (!data) return;
+            var surplus = parseFloat(data.investable_surplus || 0);
+            if (surplus > 500) {
+                var hysa_low = (surplus * 0.04).toFixed(0);
+                var hysa_high = (surplus * 0.05).toFixed(0);
+                text.textContent = 'Your estimated available amount of $' + Math.round(surplus).toLocaleString() +
+                    ' could earn approximately $' + hysa_low + '\u2013$' + hysa_high +
+                    '/year in a high-yield savings account (vs. a typical bank rate). This is informational \u2014 actual rates vary.';
+                strip.style.display = 'block';
+            }
+        });
+    }
+
+    // ── CSV Import ──────────────────────────────────────────
+    function initCsvImport() {
+        var openBtn = document.getElementById('import-csv-open-btn');
+        var modal = document.getElementById('import-csv-modal');
+        var closeBtn = document.getElementById('import-csv-close');
+        var cancelBtn = document.getElementById('import-csv-cancel');
+        var submitBtn = document.getElementById('import-csv-submit');
+        var fileInput = document.getElementById('import-csv-file');
+        var brokerSelect = document.getElementById('import-broker-select');
+        var feedback = document.getElementById('import-csv-feedback');
+
+        if (!modal) return;
+
+        function openModal() { modal.classList.remove('hidden'); modal.removeAttribute('aria-hidden'); }
+        function closeModal() { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); if (fileInput) fileInput.value = ''; if (feedback) feedback.style.display = 'none'; }
+
+        if (openBtn) openBtn.addEventListener('click', openModal);
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
+
+        function showFeedback(msg, type) {
+            if (!feedback) return;
+            feedback.textContent = msg;
+            feedback.style.display = 'block';
+            feedback.style.background = type === 'success' ? 'var(--green-bg,#ecfdf5)' : 'var(--red-bg,#fef2f2)';
+            feedback.style.color = type === 'success' ? 'var(--green-text,#065f46)' : 'var(--red-text,#991b1b)';
+        }
+
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function() {
+                if (!fileInput || !fileInput.files[0]) {
+                    showFeedback('Please select a CSV file.', 'error'); return;
+                }
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Importing\u2026';
+                var formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                if (brokerSelect && brokerSelect.value) formData.append('broker', brokerSelect.value);
+                var token = localStorage.getItem('authToken') || (window.Auth && window.Auth.getToken && window.Auth.getToken()) || '';
+                fetch((window.API_BASE || '') + '/api/v1/holdings/import-csv', {
+                    method: 'POST',
+                    headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+                    body: formData,
+                }).then(function(res) {
+                    return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+                }).then(function(result) {
+                    if (result.ok) {
+                        showFeedback('Imported ' + (result.data.imported || 0) + ' holdings successfully.', 'success');
+                        setTimeout(function() { closeModal(); if (typeof fetchHoldings === 'function') fetchHoldings(); }, 1500);
+                    } else {
+                        showFeedback((result.data && result.data.detail) || 'Import failed. Check your CSV format.', 'error');
+                    }
+                }).catch(function() {
+                    showFeedback('Network error. Please try again.', 'error');
+                }).finally(function() {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Import';
+                });
+            });
+        }
+    }
+
+    // ── Benchmark Chart ──────────────────────────────────────
+    function fetchBenchmarkData(benchmark, days) {
+        var token = localStorage.getItem('authToken') || (window.Auth && window.Auth.getToken && window.Auth.getToken()) || '';
+        return fetch((window.API_BASE || '') + '/api/v1/portfolio/benchmark?benchmark=' + encodeURIComponent(benchmark) + '&days=' + encodeURIComponent(days), {
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+        }).then(function(res) {
+            if (!res.ok) return null;
+            return res.json();
+        }).catch(function() { return null; });
+    }
+
+    function renderBenchmarkChart(data) {
+        var canvas = document.getElementById('benchmark-chart');
+        var alphaEl = document.getElementById('benchmark-alpha');
+        if (!canvas || !data) return;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        if (canvas._chartInstance) { canvas._chartInstance.destroy(); }
+
+        var portfolioPoints = data.portfolio_points || [];
+        var benchmarkSeries = data.benchmark_series || [];
+        var labels = portfolioPoints.map(function(_, i) {
+            return i === 0 ? 'Start' : (i === portfolioPoints.length - 1 ? 'Now' : '');
+        });
+
+        if (typeof Chart === 'undefined') {
+            var wrap = document.getElementById('benchmark-chart-wrap');
+            if (wrap) wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary)">Chart.js required for benchmark chart.</div>';
+            return;
+        }
+
+        canvas._chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Your Portfolio',
+                        data: portfolioPoints,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.08)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.3,
+                        fill: true,
+                    },
+                    {
+                        label: data.benchmark_label || 'Benchmark',
+                        data: benchmarkSeries,
+                        borderColor: '#94a3b8',
+                        borderWidth: 1.5,
+                        borderDash: [4, 4],
+                        pointRadius: 0,
+                        tension: 0.3,
+                        fill: false,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { font: { size: 12 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(c) { return c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(2) + '%'; },
+                        },
+                    },
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: function(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; },
+                            font: { size: 11 },
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                    },
+                    x: { display: false },
+                },
+            },
+        });
+
+        if (alphaEl && data.alpha_pct != null) {
+            var alpha = parseFloat(data.alpha_pct);
+            alphaEl.textContent = 'Alpha vs ' + (data.benchmark_label || 'benchmark') + ': ' + (alpha >= 0 ? '+' : '') + alpha.toFixed(2) + '%';
+            alphaEl.style.color = alpha >= 0 ? 'var(--green-text,#065f46)' : 'var(--red-text,#991b1b)';
+        }
+    }
+
+    function loadBenchmark() {
+        var benchmarkSelect = document.getElementById('benchmark-select');
+        var daysSelect = document.getElementById('benchmark-days');
+        var loading = document.getElementById('benchmark-loading');
+        var chartWrap = document.getElementById('benchmark-chart-wrap');
+        if (!benchmarkSelect) return;
+        var benchmark = benchmarkSelect.value || 'sp500';
+        var days = daysSelect ? daysSelect.value : '90';
+        if (loading) loading.style.display = 'block';
+        if (chartWrap) chartWrap.style.opacity = '0.4';
+        fetchBenchmarkData(benchmark, days).then(function(data) {
+            if (loading) loading.style.display = 'none';
+            if (chartWrap) chartWrap.style.opacity = '1';
+            if (data) renderBenchmarkChart(data);
+        });
+    }
+
+    function initBenchmarkChart() {
+        var refreshBtn = document.getElementById('benchmark-refresh-btn');
+        var benchmarkSelect = document.getElementById('benchmark-select');
+        var daysSelect = document.getElementById('benchmark-days');
+        if (refreshBtn) refreshBtn.addEventListener('click', loadBenchmark);
+        if (benchmarkSelect) benchmarkSelect.addEventListener('change', loadBenchmark);
+        if (daysSelect) daysSelect.addEventListener('change', loadBenchmark);
+        loadBenchmark();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            fetchPortfolioHealth().then(renderHealthScore);
+            fetchSurplus().then(renderFinanceStrip);
+            initHoldingDrawer();
+            patchFormSubmit();
+            initDividendCalendar();
+            checkCashOpportunity();
+            initCsvImport();
+            initBenchmarkChart();
+        });
+    } else {
+        fetchPortfolioHealth().then(renderHealthScore);
+        fetchSurplus().then(renderFinanceStrip);
+        initHoldingDrawer();
+        patchFormSubmit();
+        initDividendCalendar();
+        checkCashOpportunity();
+        initCsvImport();
+        initBenchmarkChart();
+    }
+
+    window.Investments = {
+        fetchHoldings: fetchHoldings,
+        renderHoldings: renderHoldings,
+        sellHolding: sellHolding,
+        openHoldingDrawer: openHoldingDrawer,
+    };
 })();

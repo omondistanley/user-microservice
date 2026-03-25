@@ -31,10 +31,48 @@ def main():
         sys.exit(1)
 
     sql = migration.read_text()
-    # Run each statement (split by ;). Strip leading full-line comments so
+
+    def _split_sql(text: str) -> list:
+        """Split SQL on semicolons while respecting dollar-quoted blocks ($$...$$)."""
+        statements = []
+        current = []
+        in_dollar_quote = False
+        dollar_tag = ""
+        i = 0
+        while i < len(text):
+            if text[i] == "$":
+                j = text.index("$", i + 1) if "$" in text[i + 1:] else -1
+                if j != -1:
+                    tag = text[i:j + 1]
+                    if not in_dollar_quote:
+                        in_dollar_quote = True
+                        dollar_tag = tag
+                        current.append(text[i:j + 1])
+                        i = j + 1
+                        continue
+                    elif tag == dollar_tag:
+                        in_dollar_quote = False
+                        dollar_tag = ""
+                        current.append(text[i:j + 1])
+                        i = j + 1
+                        continue
+            if text[i] == ";" and not in_dollar_quote:
+                stmt = "".join(current).strip()
+                if stmt:
+                    statements.append(stmt)
+                current = []
+            else:
+                current.append(text[i])
+            i += 1
+        stmt = "".join(current).strip()
+        if stmt:
+            statements.append(stmt)
+        return statements
+
+    # Run each statement. Strip leading full-line comments so
     # ";\n-- comment\nCREATE TABLE ..." is not skipped.
     statements = []
-    for s in sql.split(";"):
+    for s in _split_sql(sql):
         s = s.strip()
         if not s:
             continue

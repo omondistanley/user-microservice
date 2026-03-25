@@ -14,6 +14,8 @@ class HoldingCreate(BaseModel):
     exchange: Optional[str] = Field(None, max_length=32)
     notes: Optional[str] = Field(None, max_length=512)
     household_id: Optional[UUID] = None
+    account_type: Optional[str] = Field(default="taxable", max_length=32)
+    role_label: Optional[str] = Field(None, max_length=32)
 
 
 class HoldingUpdate(BaseModel):
@@ -21,6 +23,8 @@ class HoldingUpdate(BaseModel):
     avg_cost: Optional[Decimal] = Field(None, ge=0)
     exchange: Optional[str] = Field(None, max_length=32)
     notes: Optional[str] = Field(None, max_length=512)
+    account_type: Optional[str] = Field(None, max_length=32)
+    role_label: Optional[str] = Field(None, max_length=32)
 
 
 class HoldingResponse(BaseModel):
@@ -35,6 +39,8 @@ class HoldingResponse(BaseModel):
     notes: Optional[str] = None
     source: Optional[str] = None
     external_id: Optional[str] = None
+    account_type: Optional[str] = None
+    role_label: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

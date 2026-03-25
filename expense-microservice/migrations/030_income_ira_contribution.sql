@@ -1,0 +1,1 @@
+ALTER TABLE income_records ADD COLUMN IF NOT EXISTS is_ira_contribution BOOLEAN NOT NULL DEFAULT FALSE;

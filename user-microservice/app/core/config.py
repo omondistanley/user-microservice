@@ -107,6 +107,7 @@ DB_NAME: Optional[str] = os.environ.get("DB_NAME", "users_db")
 # Internal service URLs used by background jobs.
 EXPENSE_SERVICE_INTERNAL_URL: str = os.environ.get("EXPENSE_SERVICE_INTERNAL_URL", "http://localhost:3001").rstrip("/")
 BUDGET_SERVICE_INTERNAL_URL: str = os.environ.get("BUDGET_SERVICE_INTERNAL_URL", "http://localhost:3002").rstrip("/")
+INVESTMENTS_SERVICE_URL: str = os.environ.get("INVESTMENTS_SERVICE_URL", "http://localhost:3003").rstrip("/")
 
 # Webhook processing / validation config
 WEBHOOK_MAX_ATTEMPTS: int = int(os.environ.get("WEBHOOK_MAX_ATTEMPTS", "5"))
