@@ -318,9 +318,26 @@ def _render(page: str, request: Request, **context):
         "plaid_flow": (os.environ.get("PLAID_FLOW", "hosted") or "hosted").strip().lower(),
         "csp_nonce": csp_nonce,
         "demo_public_url": demo_public_url,
+        "static_asset_version": _static_asset_version(),
     }
     base_context.update(context)
     return templates.TemplateResponse(page, base_context)
+
+
+def _static_asset_version() -> str:
+    """
+    Return a simple cache-busting version derived from the latest static file mtime.
+    This keeps mobile browsers from pinning stale CSS/JS between UI updates.
+    """
+    try:
+        latest_mtime = 0.0
+        if _STATIC_DIR.exists():
+            for path in _STATIC_DIR.rglob("*"):
+                if path.is_file():
+                    latest_mtime = max(latest_mtime, path.stat().st_mtime)
+        return str(int(latest_mtime)) if latest_mtime else "0"
+    except Exception:
+        return "0"
 
 
 def _db_readiness_check() -> tuple[bool, str | None]:

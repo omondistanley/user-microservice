@@ -1,12 +1,16 @@
-/* Phase 6: Service worker — cache-first static, network-first API. Version for invalidation. */
-const CACHE_VERSION = 'v1';
+/* Phase 6: Service worker — network-first static and API, versioned for invalidation. */
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = 'expense-static-' + CACHE_VERSION;
 const API_CACHE = 'expense-api-' + CACHE_VERSION;
 
 const STATIC_ASSETS = [
+  '/static/css/app.tw.css',
   '/static/css/main.css',
   '/static/js/auth.js',
   '/static/js/app.js',
+  '/static/js/theme.js',
+  '/static/js/offline_queue.js',
+  '/static/js/onboarding.js',
   '/static/js/layout.js',
   '/static/js/settings.js',
   '/static/js/notifications.js',
@@ -44,11 +48,18 @@ self.addEventListener('fetch', function (e) {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.indexOf('/static/') === 0 && e.request.method === 'GET') {
     e.respondWith(
-      caches.match(e.request).then(function (cached) {
-        return cached || fetch(e.request).then(function (res) {
-          var clone = res.clone();
-          caches.open(STATIC_CACHE).then(function (cache) { cache.put(e.request, clone); });
-          return res;
+      fetch(e.request).then(function (res) {
+        var clone = res.clone();
+        caches.open(STATIC_CACHE).then(function (cache) { cache.put(e.request, clone); });
+        return res;
+      }).catch(function () {
+        return caches.match(e.request).then(function (cached) {
+          if (cached) return cached;
+          return fetch(e.request).then(function (res) {
+            var clone = res.clone();
+            caches.open(STATIC_CACHE).then(function (cache) { cache.put(e.request, clone); });
+            return res;
+          });
         });
       })
     );
