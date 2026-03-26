@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Goal = {
@@ -162,7 +163,7 @@ export default function GoalDetailScreen() {
         { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
       );
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.detail ? String(data.detail) : "Failed to add contribution.");
+      if (!res.ok) throw new Error(formatApiDetail(data?.detail, "Failed to add contribution."));
 
       // Reload progress + contributions
       const [pRes, cRes] = await Promise.all([
@@ -202,7 +203,7 @@ export default function GoalDetailScreen() {
         <Pressable hitSlop={12} onPress={() => router.back()} style={styles.backHit}>
           <MaterialCommunityIcons name="arrow-left" size={26} color={theme.colors.primary} />
         </Pressable>
-        <Text style={styles.topBrand}>Indigo Vault</Text>
+        <Text style={styles.topBrand}>pocketii</Text>
         <Pressable
           hitSlop={12}
           onPress={() => router.push("/notifications")}
@@ -365,7 +366,7 @@ export default function GoalDetailScreen() {
                 <MaterialCommunityIcons name="lightbulb" size={20} color={theme.colors.onPrimaryContainer} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.aiTitle}>Vault Intelligence</Text>
+                <Text style={styles.aiTitle}>pocketii insights</Text>
                 <Text style={styles.aiBody}>
                   Based on your current spending habits, if you increase your monthly contribution by $450, you could reach your goal 3 months earlier than planned.
                 </Text>

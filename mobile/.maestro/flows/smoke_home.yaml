@@ -1,0 +1,11 @@
+# Expects an existing session (tokens in secure storage). Do not use clearState.
+appId: com.pocketii.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "e2e-dashboard-hero"
+    timeout: 90000
+- assertVisible:
+    id: "e2e-dashboard-hero"
+- assertVisible: "TOTAL BALANCE"

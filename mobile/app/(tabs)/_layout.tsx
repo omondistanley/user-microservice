@@ -47,6 +47,7 @@ export default function TabLayout() {
         name="transactions"
         options={{
           title: "Transactions",
+          headerShown: false,
           tabBarIcon: tabIcon("receipt-text-outline"),
         }}
       />

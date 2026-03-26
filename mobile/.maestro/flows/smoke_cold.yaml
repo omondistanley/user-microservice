@@ -1,0 +1,14 @@
+# Cold launch: no persisted session. CI / simulators should use clearState.
+# Requires a dev or release build with bundle id com.pocketii.app (not Expo Go).
+# Run: npx expo run:ios | run:android, then: npm run e2e:maestro
+appId: com.pocketii.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "e2e-auth-screen"
+    timeout: 90000
+- assertVisible:
+    id: "e2e-auth-screen"
+- assertVisible: "Welcome Back"

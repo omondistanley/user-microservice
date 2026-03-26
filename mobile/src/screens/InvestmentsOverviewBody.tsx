@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +14,11 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../config";
 import { authClient } from "../authClient";
+import { gatewayJson, gatewayJsonOptional } from "../gatewayRequest";
 import { theme } from "../theme";
+import { formatApiDetail } from "../formatApiDetail";
+import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
 
 export type PortfolioValueResponse = {
   total_market_value?: number | string;
@@ -25,7 +31,26 @@ export type PortfolioValueResponse = {
     currency?: string;
     cost_basis?: number | string;
     market_value?: number | string;
+    source?: string;
+    holding_id?: string | null;
   }>;
+};
+
+type GainsHistory = {
+  dates?: string[];
+  series?: {
+    total?: { gain_loss?: number[] };
+    manual?: { gain_loss?: number[] };
+    alpaca?: { gain_loss?: number[] };
+  };
+  note?: string;
+};
+
+type AlpacaStatus = {
+  connected?: boolean;
+  is_paper?: boolean;
+  last_sync_at?: string | null;
+  alpaca_account_id?: string | null;
 };
 
 type HealthResponse = {
@@ -55,6 +80,23 @@ const HOLDING_ACCENTS = [
 
 const RANGE_OPTIONS = ["1W", "1M", "3M", "1Y", "ALL"] as const;
 
+function rangeToDays(r: (typeof RANGE_OPTIONS)[number]): number {
+  switch (r) {
+    case "1W":
+      return 7;
+    case "1M":
+      return 30;
+    case "3M":
+      return 90;
+    case "1Y":
+      return 365;
+    case "ALL":
+      return 365;
+    default:
+      return 90;
+  }
+}
+
 function bucketForSymbol(sym: string): "stocks" | "crypto" | "bonds" | "cash" {
   const s = sym.toUpperCase();
   if (/(BTC|ETH|SOL|CRYPTO)/.test(s)) return "crypto";
@@ -70,8 +112,20 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PortfolioValueResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [meInitial, setMeInitial] = useState("•");
   const [range, setRange] = useState<(typeof RANGE_OPTIONS)[number]>("1W");
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [gainsHistory, setGainsHistory] = useState<GainsHistory | null>(null);
+  const [gainsLoading, setGainsLoading] = useState(false);
+  const [gainsSeries, setGainsSeries] = useState<"total" | "manual" | "alpaca">("total");
+  const [alpacaStatus, setAlpacaStatus] = useState<AlpacaStatus | null>(null);
+  const [alpacaBusy, setAlpacaBusy] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addSymbol, setAddSymbol] = useState("");
+  const [addQty, setAddQty] = useState("");
+  const [addCost, setAddCost] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+
+  const bumpRefresh = useCallback(() => setRefreshTick((t) => t + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,35 +133,31 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
       setLoading(true);
       setError(null);
       try {
-        const [portRes, healthRes, meRes] = await Promise.all([
+        const [portRes, healthRes, alpacaRes] = await Promise.all([
           authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/portfolio/value`, {
             method: "GET",
           }),
           authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/portfolio/health`, {
             method: "GET",
           }),
-          authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/user/me`, { method: "GET" }),
+          gatewayJsonOptional<AlpacaStatus>("/api/v1/alpaca/status", { method: "GET" }),
         ]);
         const portJson = (await portRes.json().catch(() => null)) as PortfolioValueResponse | null;
         if (!portRes.ok) {
-          throw new Error(
-            (portJson as any)?.detail ? String((portJson as any).detail) : "Failed to load investments.",
-          );
+          throw new Error(formatApiDetail((portJson as any)?.detail, "Failed to load investments."));
         }
         if (cancelled) return;
         setData(portJson);
+        if (alpacaRes.ok && alpacaRes.data) {
+          setAlpacaStatus(alpacaRes.data);
+        } else {
+          setAlpacaStatus({ connected: false });
+        }
         if (healthRes.ok) {
           const h = (await healthRes.json().catch(() => null)) as HealthResponse;
           setHealth(h);
         } else {
           setHealth(null);
-        }
-        if (meRes.ok) {
-          const m = await meRes.json().catch(() => null);
-          const fn = m?.first_name?.trim?.();
-          const em = m?.email?.trim?.();
-          const ch = fn ? fn.charAt(0) : em ? em.charAt(0) : "•";
-          setMeInitial(String(ch).toUpperCase());
         }
       } catch (e: any) {
         if (cancelled) return;
@@ -120,7 +170,29 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshTick]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setGainsLoading(true);
+      try {
+        const days = rangeToDays(range);
+        const gh = await gatewayJson<GainsHistory>(
+          `/api/v1/portfolio/gains-history?days=${encodeURIComponent(String(days))}`,
+          { method: "GET" },
+        );
+        if (!cancelled) setGainsHistory(gh);
+      } catch {
+        if (!cancelled) setGainsHistory(null);
+      } finally {
+        if (!cancelled) setGainsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [range, refreshTick]);
 
   const totalMv = toNumber(data?.total_market_value);
   const costBasis = toNumber(data?.total_cost_basis);
@@ -180,13 +252,24 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
     return { segments, centerPct, centerLabel };
   }, [data]);
 
-  const bars = useMemo(() => {
+  const sparkHeights = useMemo(() => {
+    const raw = gainsHistory?.series?.[gainsSeries]?.gain_loss;
+    const gl = raw?.map((v) => Number(v)).filter((n) => Number.isFinite(n));
+    if (gl && gl.length > 0) {
+      const slice = gl.slice(-12);
+      const min = Math.min(...slice);
+      const max = Math.max(...slice);
+      const span = max - min || 1;
+      return slice.map((v) => ({
+        h: Math.min(1, Math.max(0.08, 0.12 + 0.88 * ((v - min) / span))),
+      }));
+    }
     const t = totalMv ?? 0;
     const seed = Math.max(1, Math.floor(t % 97) || 3);
     return [0.4, 0.55, 0.5, 0.72, 0.65, 0.88, 1].map((h, i) => ({
       h: Math.min(1, h * (0.85 + ((seed + i * 7) % 10) / 100)),
     }));
-  }, [totalMv]);
+  }, [gainsHistory, gainsSeries, totalMv]);
 
   const bucketAlloc = useMemo(() => {
     const positions = data?.positions ?? [];
@@ -221,20 +304,139 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
       .map((p, idx) => {
         const mv = toNumber(p?.market_value);
         const cb = toNumber(p?.cost_basis);
+        const qty = toNumber(p?.quantity);
         const pctMv = total > 0 && mv !== null ? (mv / total) * 100 : 0;
         const plPct =
           cb !== null && cb > 0 && mv !== null ? ((mv - cb) / cb) * 100 : null;
+        const source = String(p?.source ?? "manual").toLowerCase();
         return {
-          key: `${String(p?.symbol ?? "p")}-${idx}`,
+          key: `${String(p?.holding_id ?? p?.symbol ?? "p")}-${idx}`,
           symbol: String(p?.symbol ?? "—"),
           mv,
+          qty,
           plPct,
           allocPct: pctMv,
+          source,
+          holdingId: p?.holding_id ?? null,
           accent: HOLDING_ACCENTS[idx % HOLDING_ACCENTS.length],
         };
       })
       .sort((a, b) => (b.mv ?? 0) - (a.mv ?? 0));
   }, [data]);
+
+  const onAlpacaSync = async () => {
+    setAlpacaBusy(true);
+    try {
+      await gatewayJson("/api/v1/alpaca/sync", { method: "POST" });
+      const st = await gatewayJsonOptional<AlpacaStatus>("/api/v1/alpaca/status", { method: "GET" });
+      if (st.ok && st.data) setAlpacaStatus(st.data);
+      bumpRefresh();
+    } catch (e: unknown) {
+      Alert.alert("Sync failed", e instanceof Error ? e.message : "Alpaca sync failed.");
+    } finally {
+      setAlpacaBusy(false);
+    }
+  };
+
+  const placeAlpacaOrder = async (symbol: string, qty: number, side: "buy" | "sell") => {
+    await gatewayJson("/api/v1/alpaca/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbol: symbol.toUpperCase(),
+        qty,
+        side,
+        type: "market",
+      }),
+    });
+    await gatewayJson("/api/v1/alpaca/sync", { method: "POST" });
+    bumpRefresh();
+  };
+
+  const onSellAlpaca = (symbol: string, qty: number) => {
+    if (!alpacaStatus?.connected) {
+      Alert.alert("Alpaca", "Connect Alpaca in Settings → Integrations first.");
+      return;
+    }
+    if (!(qty > 0)) {
+      Alert.alert("Sell", "Invalid quantity.");
+      return;
+    }
+    Alert.alert(
+      "Sell on Alpaca",
+      `Place a market sell for ${qty} share(s) of ${symbol}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sell",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await placeAlpacaOrder(symbol, qty, "sell");
+            } catch (e: unknown) {
+              Alert.alert("Order failed", e instanceof Error ? e.message : "Sell failed.");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const submitAddHolding = async () => {
+    const sym = addSymbol.trim().toUpperCase();
+    const qty = Number(String(addQty).replace(/,/g, ""));
+    const cost = Number(String(addCost).replace(/,/g, ""));
+    if (!sym || !Number.isFinite(qty) || qty <= 0) {
+      Alert.alert("Add position", "Enter a valid symbol and positive quantity.");
+      return;
+    }
+    if (!Number.isFinite(cost) || cost < 0) {
+      Alert.alert("Add position", "Average cost must be zero or greater.");
+      return;
+    }
+    setAddBusy(true);
+    try {
+      await gatewayJson("/api/v1/holdings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: sym,
+          quantity: qty,
+          avg_cost: cost,
+          currency: "USD",
+          account_type: "taxable",
+        }),
+      });
+      setAddOpen(false);
+      setAddSymbol("");
+      setAddQty("");
+      setAddCost("");
+      bumpRefresh();
+      if (alpacaStatus?.connected) {
+        Alert.alert(
+          "Alpaca market buy?",
+          `Also place a market buy on Alpaca for ${qty} share(s) of ${sym}? (Matches web flow after adding a holding.)`,
+          [
+            { text: "Skip", style: "cancel" },
+            {
+              text: "Place buy",
+              onPress: async () => {
+                try {
+                  await placeAlpacaOrder(sym, qty, "buy");
+                } catch (e: unknown) {
+                  Alert.alert("Order failed", e instanceof Error ? e.message : "Buy failed.");
+                }
+              },
+            },
+          ],
+        );
+      }
+    } catch (e: unknown) {
+      Alert.alert("Add failed", e instanceof Error ? e.message : "Could not add holding.");
+    } finally {
+      setAddBusy(false);
+    }
+  };
 
   const insightTitle =
     health?.headline && String(health.headline).trim()
@@ -258,36 +460,13 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {!stackMode ? (
-        <View
-          style={[
-            styles.topBar,
-            {
-              paddingTop: insets.top + 8,
-              paddingBottom: 10,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.outlineVariant,
-            },
-          ]}
-        >
-          <View style={styles.topBarLeft}>
-            <View style={styles.avatarSm}>
-              <Text style={styles.avatarSmText}>{meInitial}</Text>
-            </View>
-            <Text style={styles.brandTitle}>PocketII</Text>
-          </View>
-          <Pressable hitSlop={12} onPress={() => router.push("/notifications")}>
-            <MaterialCommunityIcons name="bell-outline" size={24} color={theme.colors.primary} />
-          </Pressable>
-        </View>
-      ) : (
-        <View style={{ height: 8 }} />
-      )}
-
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + (stackMode ? 24 : 100) },
+          {
+            paddingTop: stackMode ? 8 : insets.top + 8,
+            paddingBottom: insets.bottom + (stackMode ? 24 : 100),
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -305,15 +484,10 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
               size={16}
               color={theme.colors.primaryFixedDim}
             />
-            <Text style={styles.ytdText}>{range} view</Text>
-          </View>
-
-          <View style={styles.sparkRow}>
-            {bars.map((b, i) => (
-              <View key={i} style={styles.sparkCol}>
-                <View style={[styles.sparkBar, { height: `${Math.round(b.h * 100)}%` }]} />
-              </View>
-            ))}
+            <Text style={styles.ytdText}>
+              {range} · gain/loss ({gainsSeries})
+              {gainsLoading ? " · …" : ""}
+            </Text>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rangeRow}>
@@ -323,6 +497,42 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
               </Pressable>
             ))}
           </ScrollView>
+
+          <Text style={[styles.panelKicker, { marginTop: 12 }]}>P/L history (holdings × prices)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rangeRow}>
+            {(
+              [
+                { k: "total" as const, label: "Total" },
+                { k: "manual" as const, label: "Manual" },
+                { k: "alpaca" as const, label: "Alpaca" },
+              ] as const
+            ).map(({ k, label }) => (
+              <Pressable
+                key={k}
+                style={[styles.rangeChip, gainsSeries === k && styles.rangeChipOn]}
+                onPress={() => setGainsSeries(k)}
+              >
+                <Text style={[styles.rangeTxt, gainsSeries === k && styles.rangeTxtOn]}>{label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <View style={styles.sparkRow}>
+            {gainsLoading ? (
+              <ActivityIndicator color={theme.colors.onPrimary} style={{ alignSelf: "center", flex: 1 }} />
+            ) : (
+              sparkHeights.map((b, i) => (
+                <View key={i} style={styles.sparkCol}>
+                  <View style={[styles.sparkBar, { height: `${Math.round(b.h * 100)}%` }]} />
+                </View>
+              ))
+            )}
+          </View>
+          {gainsHistory?.note ? (
+            <Text style={styles.gainsNote} numberOfLines={2}>
+              {gainsHistory.note}
+            </Text>
+          ) : null}
 
           <Text style={[styles.panelKicker, { marginTop: 20 }]}>Asset allocation breakdown</Text>
           <View style={styles.donutWrap}>
@@ -338,8 +548,8 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
             {allocation.segments.length === 0 ? (
               <Text style={styles.legendMuted}>No allocation data yet.</Text>
             ) : (
-              allocation.segments.map((s) => (
-                <View key={s.label} style={styles.legendRow}>
+              allocation.segments.map((s, segIdx) => (
+                <View key={`alloc-legend-${segIdx}`} style={styles.legendRow}>
                   <View style={styles.legendLeft}>
                     <View style={[styles.legendDot, { backgroundColor: s.color }]} />
                     <Text style={styles.legendLabel}>{s.label}</Text>
@@ -359,6 +569,54 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
         </View>
 
         <View style={styles.lower}>
+          <Text style={styles.alpacaSectionK}>Alpaca brokerage</Text>
+          <View style={styles.alpacaCard}>
+            {alpacaStatus?.connected ? (
+              <>
+                <View style={styles.alpacaRow}>
+                  <MaterialCommunityIcons name="link-variant" size={22} color={theme.colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.alpacaTitle}>
+                      Connected{alpacaStatus.is_paper === false ? " (live)" : " (paper)"}
+                    </Text>
+                    <Text style={styles.alpacaMeta}>
+                      {alpacaStatus.alpaca_account_id ? `Account ${alpacaStatus.alpaca_account_id}` : "Account linked"}
+                      {alpacaStatus.last_sync_at
+                        ? ` · Last sync ${String(alpacaStatus.last_sync_at).slice(0, 19).replace("T", " ")}`
+                        : ""}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.alpacaActions}>
+                  <Pressable
+                    style={[styles.alpacaBtn, alpacaBusy && { opacity: 0.6 }]}
+                    onPress={onAlpacaSync}
+                    disabled={alpacaBusy}
+                  >
+                    <Text style={styles.alpacaBtnTxt}>{alpacaBusy ? "Syncing…" : "Sync positions"}</Text>
+                  </Pressable>
+                  <Pressable style={styles.alpacaBtnSecondary} onPress={() => router.push("/settings/integrations")}>
+                    <Text style={styles.alpacaBtnSecondaryTxt}>Keys & disconnect</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.alpacaHint}>
+                  Alpaca-linked rows show a badge below. Use Sell for market sells; Add position can optionally place a
+                  market buy after you save the lot.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.alpacaTitle}>Not connected</Text>
+                <Text style={styles.alpacaMeta}>
+                  Link API keys in Settings to sync broker positions and place orders from this screen.
+                </Text>
+                <Pressable style={styles.alpacaBtn} onPress={() => router.push("/settings/integrations")}>
+                  <Text style={styles.alpacaBtnTxt}>Open integrations</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+
           <Text style={styles.allocTitle}>Asset allocation</Text>
           <View style={styles.allocGrid}>
             {bucketAlloc.map((b) => (
@@ -377,16 +635,12 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
           <View style={styles.holdingsHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.holdingsTitle}>Top Holdings</Text>
-              <Text style={styles.holdingsSub}>Institutional grade analysis & tracking</Text>
+              <Text style={styles.holdingsSub}>Quotes, Alpaca orders, manual lots</Text>
             </View>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={styles.iconBtn}>
-                <MaterialCommunityIcons name="filter-variant" size={22} color={theme.colors.onSurface} />
-              </View>
-              <View style={styles.iconBtn}>
-                <MaterialCommunityIcons name="magnify" size={22} color={theme.colors.onSurface} />
-              </View>
-            </View>
+            <Pressable style={styles.addHoldingBtn} onPress={() => setAddOpen(true)}>
+              <MaterialCommunityIcons name="plus" size={22} color={theme.colors.onPrimary} />
+              <Text style={styles.addHoldingBtnTxt}>Add</Text>
+            </Pressable>
           </View>
 
           {positionsSorted.length === 0 ? (
@@ -395,6 +649,8 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
             positionsSorted.map((p) => {
               const pl = p.plPct;
               const up = pl === null || pl >= 0;
+              const isAlpaca = p.source === "alpaca";
+              const qtyDisp = p.qty != null && Number.isFinite(p.qty) ? p.qty : null;
               return (
                 <View key={p.key} style={styles.holdingCard}>
                   <View style={styles.holdingTop}>
@@ -403,10 +659,20 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
                         <MaterialCommunityIcons name="domain" size={22} color={p.accent.ink} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.holdingName} numberOfLines={1}>
-                          {p.symbol}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <Text style={styles.holdingName} numberOfLines={1}>
+                            {p.symbol}
+                          </Text>
+                          {isAlpaca ? (
+                            <View style={styles.alpacaBadge}>
+                              <Text style={styles.alpacaBadgeTxt}>Alpaca</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.holdingMeta}>
+                          {qtyDisp != null ? `${qtyDisp} sh · ` : ""}
+                          Equity • USD
                         </Text>
-                        <Text style={styles.holdingMeta}>Equity • USD</Text>
                       </View>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>
@@ -425,9 +691,18 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
                       ) : null}
                     </View>
                   </View>
-                  <Text style={styles.allocFooter}>
-                    {p.allocPct.toFixed(1)}% allocation
-                  </Text>
+                  <View style={styles.holdingFooterRow}>
+                    <Text style={styles.allocFooter}>{p.allocPct.toFixed(1)}% allocation</Text>
+                    {isAlpaca && alpacaStatus?.connected && qtyDisp != null && qtyDisp > 0 ? (
+                      <Pressable
+                        style={styles.sellBtn}
+                        onPress={() => onSellAlpaca(p.symbol, qtyDisp)}
+                        hitSlop={8}
+                      >
+                        <Text style={styles.sellBtnTxt}>Market sell</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 </View>
               );
             })
@@ -448,34 +723,39 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={addOpen} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Add position</Text>
+            <Text style={styles.modalHint}>Creates a manual holding. If Alpaca is connected, you can place a market buy next.</Text>
+            <Text style={styles.inputLabel}>Symbol</Text>
+            <Input
+              value={addSymbol}
+              onChangeText={setAddSymbol}
+              placeholder="AAPL"
+              autoCapitalize="characters"
+            />
+            <Text style={styles.inputLabel}>Quantity</Text>
+            <Input value={addQty} onChangeText={setAddQty} keyboardType="decimal-pad" placeholder="10" />
+            <Text style={styles.inputLabel}>Average cost (USD)</Text>
+            <Input value={addCost} onChangeText={setAddCost} keyboardType="decimal-pad" placeholder="150.00" />
+            <View style={styles.modalActions}>
+              <View style={{ flex: 1 }}>
+                <Button title="Cancel" tone="secondary" onPress={() => setAddOpen(false)} disabled={addBusy} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button title="Save" onPress={submitAddHolding} loading={addBusy} disabled={addBusy} />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.xl,
-    backgroundColor: theme.colors.surface,
-  },
-  topBarLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  avatarSm: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: theme.colors.secondaryFixed,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarSmText: { fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
-  brandTitle: {
-    fontSize: 22,
-    fontFamily: "Inter_800ExtraBold",
-    color: theme.colors.onSurface,
-    letterSpacing: -0.5,
-  },
   scrollContent: { flexGrow: 1 },
   bluePanel: {
     backgroundColor: theme.colors.primary,
@@ -718,13 +998,110 @@ const styles = StyleSheet.create({
   plRow: { flexDirection: "row", alignItems: "center", gap: 2, marginTop: 4 },
   plText: { fontSize: 12, fontFamily: "Inter_800ExtraBold" },
   allocFooter: {
-    marginTop: 14,
     fontSize: 10,
     fontFamily: "Inter_800ExtraBold",
     color: theme.colors.secondary,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
+  holdingFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 14,
+    gap: 12,
+  },
+  sellBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.radii.md,
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
+  sellBtnTxt: { fontSize: 12, fontFamily: "Inter_800ExtraBold", color: "#991b1b" },
+  alpacaBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primaryContainer,
+  },
+  alpacaBadgeTxt: { fontSize: 10, fontFamily: "Inter_800ExtraBold", color: theme.colors.primary },
+  addHoldingBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: theme.radii.lg,
+  },
+  addHoldingBtnTxt: { fontSize: 14, fontFamily: "Inter_800ExtraBold", color: theme.colors.onPrimary },
+  gainsNote: {
+    marginTop: 8,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.7)",
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
+  },
+  alpacaSectionK: {
+    fontSize: 11,
+    fontFamily: "Inter_800ExtraBold",
+    color: theme.colors.onSurfaceVariant,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+  alpacaCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    padding: theme.spacing.lg,
+    marginBottom: 20,
+    gap: 12,
+  },
+  alpacaRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  alpacaTitle: { fontSize: 16, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
+  alpacaMeta: { marginTop: 4, fontSize: 13, color: theme.colors.secondary, lineHeight: 18 },
+  alpacaActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  alpacaBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: theme.radii.md,
+  },
+  alpacaBtnTxt: { fontSize: 14, fontFamily: "Inter_800ExtraBold", color: theme.colors.onPrimary },
+  alpacaBtnSecondary: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+  },
+  alpacaBtnSecondaryTxt: { fontSize: 14, fontFamily: "Inter_700Bold", color: theme.colors.primary },
+  alpacaHint: { fontSize: 12, color: theme.colors.secondary, lineHeight: 18 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radii.lg,
+    padding: 20,
+  },
+  modalTitle: { fontSize: 18, fontFamily: "Inter_800ExtraBold", marginBottom: 8, color: theme.colors.onSurface },
+  modalHint: { fontSize: 12, color: theme.colors.secondary, marginBottom: 14, lineHeight: 18 },
+  inputLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: theme.colors.onSurfaceVariant,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 20 },
   insightHeadRow: {
     flexDirection: "row",
     alignItems: "center",

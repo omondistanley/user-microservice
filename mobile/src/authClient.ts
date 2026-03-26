@@ -1,4 +1,5 @@
 import { GATEWAY_BASE_URL } from "./config";
+import { formatApiDetail } from "./formatApiDetail";
 import {
   clearTokens,
   getAccessToken,
@@ -21,9 +22,7 @@ async function parseJsonSafe(res: Response): Promise<any | null> {
 }
 
 function getErrorDetail(res: Response, data: any | null): string {
-  if (data && typeof data.detail === "string") return data.detail;
-  if (res.statusText) return res.statusText;
-  return `Request failed with status ${res.status}`;
+  return formatApiDetail(data?.detail, res.statusText || `Request failed with status ${res.status}`);
 }
 
 async function refreshAccessTokenOnce(): Promise<TokenResponse> {

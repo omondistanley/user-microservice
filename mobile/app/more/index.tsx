@@ -30,6 +30,7 @@ export default function MoreScreen() {
         <Item title="Income" href="/income" />
         <Item title="Recurring" href="/recurring" />
         <Item title="Net Worth" href="/net-worth" />
+        <Item title="Import expenses (CSV)" href="/expenses/import" />
       </Card>
 
       <Card variant="container">
@@ -47,6 +48,8 @@ export default function MoreScreen() {
         </Text>
         <Item title="Investments" href="/investments" />
         <Item title="Recommendations" href="/recommendations" />
+        <Item title="Watchlist" href="/watchlist" />
+        <Item title="Teller (EU banks)" href="/teller" />
       </Card>
 
       <Card variant="container">

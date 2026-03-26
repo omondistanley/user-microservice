@@ -48,4 +48,6 @@ export const colors = {
   tertiaryFixed: "#fef3c7",
 } as const;
 
-export type IndigoColorKey = keyof typeof colors;
+export type ThemeColorKey = keyof typeof colors;
+/** @deprecated Use ThemeColorKey */
+export type IndigoColorKey = ThemeColorKey;

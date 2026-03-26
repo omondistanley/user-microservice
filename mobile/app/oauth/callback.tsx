@@ -3,6 +3,7 @@ import { ActivityIndicator, SafeAreaView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { setTokens } from "../../src/authTokens";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type OAuthCallbackParams = {
   provider?: string;
@@ -43,7 +44,7 @@ export default function OAuthCallbackScreen() {
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           console.warn(`[mobile][oauth callback] exchange failed ok=false status=${res.status}`);
-          throw new Error(data?.detail ? String(data.detail) : "Token exchange failed.");
+          throw new Error(formatApiDetail(data?.detail, "Token exchange failed."));
         }
 
         const accessToken = data?.access_token ? String(data.access_token) : "";

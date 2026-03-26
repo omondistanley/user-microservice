@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { formatApiDetail } from "../../src/formatApiDetail";
 import { theme } from "../../src/theme";
 
 type RecurrenceRule = "weekly" | "monthly" | "yearly";
@@ -75,7 +76,7 @@ export default function AddRecurringScreen() {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.detail ? String(data.detail) : "Failed to create recurring.");
+      if (!res.ok) throw new Error(formatApiDetail(data?.detail, "Failed to create recurring."));
       router.back();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Save failed.");

@@ -6,7 +6,12 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "typecheck": "tsc --noEmit",
+    "e2e:maestro": "maestro test .maestro/flows/smoke_cold.yaml",
+    "e2e:maestro:home": "maestro test .maestro/flows/smoke_home.yaml",
+    "e2e:maestro:login": "maestro test .maestro/flows/login_email_password.yaml",
+    "e2e:maestro:all": "maestro test .maestro/flows"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -14,9 +19,12 @@
     "expo": "~54.0.0",
     "expo-asset": "~12.0.12",
     "expo-auth-session": "~7.0.10",
+    "expo-calendar": "~15.0.8",
     "expo-constants": "~18.0.13",
+    "expo-document-picker": "~14.0.8",
     "expo-font": "^55.0.4",
     "expo-linking": "~8.0.11",
+    "expo-location": "~19.0.8",
     "expo-router": "~6.0.23",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",

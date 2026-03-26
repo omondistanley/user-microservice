@@ -1,9 +1,13 @@
-from datetime import date, datetime
+from datetime import date as DateScalar
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# Use DateScalar alias so field name `date` does not shadow type `date` in Optional[date]
+# (Pydantic v2 otherwise raises "Input should be None" for PATCH bodies). See pydantic#7945.
 
 
 class TagCreate(BaseModel):
@@ -23,7 +27,7 @@ class TagResponse(BaseModel):
 
 class ExpenseCreate(BaseModel):
     amount: Decimal = Field(..., ge=0)
-    date: date
+    date: DateScalar
     category: Optional[str] = None
     category_code: Optional[int] = None
     currency: str = "USD"
@@ -36,7 +40,7 @@ class ExpenseCreate(BaseModel):
 
 class ExpenseUpdate(BaseModel):
     amount: Optional[Decimal] = Field(None, ge=0)
-    date: Optional[date] = None
+    date: Optional[DateScalar] = None
     category: Optional[str] = None
     category_code: Optional[int] = None
     currency: Optional[str] = None
@@ -52,7 +56,7 @@ class ExpenseResponse(BaseModel):
     category_code: int
     category_name: str
     amount: Decimal
-    date: date
+    date: DateScalar
     currency: str
     budget_category_id: Optional[str] = None
     description: Optional[str] = None
@@ -68,8 +72,8 @@ class ExpenseResponse(BaseModel):
 
 
 class ExpenseListParams(BaseModel):
-    date_from: Optional[date] = None
-    date_to: Optional[date] = None
+    date_from: Optional[DateScalar] = None
+    date_to: Optional[DateScalar] = None
     category_code: Optional[int] = None
     category: Optional[str] = None
     min_amount: Optional[Decimal] = None

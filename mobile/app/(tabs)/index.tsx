@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { ExpandableCard } from "../../src/components/ui/ExpandableCard";
+import { Input } from "../../src/components/ui/Input";
+import { Button } from "../../src/components/ui/Button";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 const R3 = 24;
 const CHART_H = 200;
@@ -42,6 +47,7 @@ type ExpenseItem = {
   description?: string;
   name?: string;
   category_name?: string;
+  category_code?: number | string | null;
   amount?: number | string;
   value?: number | string;
   created_at?: string;
@@ -49,14 +55,6 @@ type ExpenseItem = {
   teller_transaction_id?: string | null;
   source?: string | null;
 };
-
-type MeResponse =
-  | {
-      email?: string;
-      first_name?: string | null;
-      last_name?: string | null;
-    }
-  | null;
 
 function toISODate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -130,7 +128,7 @@ async function fetchAllExpensesInRange(dateFrom: string, dateTo: string): Promis
     const res = await authClient.requestWithRefresh(url, { method: "GET" });
     const data = (await res.json().catch(() => null)) as { items?: ExpenseItem[]; total?: number } | null;
     if (!res.ok) {
-      throw new Error(data && (data as any).detail ? String((data as any).detail) : `Expenses failed (${res.status})`);
+      throw new Error(formatApiDetail((data as any)?.detail, `Expenses failed (${res.status})`));
     }
     const items = Array.isArray(data?.items) ? data.items : [];
     out.push(...items);
@@ -148,8 +146,6 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [me, setMe] = useState<MeResponse>(null);
-
   const [totalBalance, setTotalBalance] = useState<number | null>(null);
   const [momPct, setMomPct] = useState<number | null>(null);
 
@@ -160,6 +156,13 @@ export default function DashboardScreen() {
   const [chartRangeLabel, setChartRangeLabel] = useState("");
 
   const [recent, setRecent] = useState<ExpenseItem[]>([]);
+
+  const [expandedRecentId, setExpandedRecentId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editAmt, setEditAmt] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [recentBusy, setRecentBusy] = useState(false);
 
   const now = useMemo(() => new Date(), []);
   const firstDay = useMemo(() => toISODate(new Date(now.getFullYear(), now.getMonth(), 1)), [now]);
@@ -188,9 +191,8 @@ export default function DashboardScreen() {
       const budgetsUrl = `${GATEWAY_BASE_URL}/api/v1/budgets?page=1&page_size=10`;
       const expensesSummaryUrl = `${GATEWAY_BASE_URL}/api/v1/expenses/summary?group_by=category&date_from=${firstDay}&date_to=${today}&convert_to=USD`;
       const recentUrl = `${GATEWAY_BASE_URL}/api/v1/expenses?page=1&page_size=8`;
-      const meUrl = `${GATEWAY_BASE_URL}/user/me`;
 
-      const [cThisRes, cLastRes, nwRes, pfRes, bRes, sumRes, recRes, meRes] = await Promise.all([
+      const [cThisRes, cLastRes, nwRes, pfRes, bRes, sumRes, recRes] = await Promise.all([
         authClient.requestWithRefresh(cashThisUrl, { method: "GET" }),
         authClient.requestWithRefresh(cashLastUrl, { method: "GET" }),
         authClient.requestWithRefresh(nwUrl, { method: "GET" }),
@@ -198,7 +200,6 @@ export default function DashboardScreen() {
         authClient.requestWithRefresh(budgetsUrl, { method: "GET" }),
         authClient.requestWithRefresh(expensesSummaryUrl, { method: "GET" }),
         authClient.requestWithRefresh(recentUrl, { method: "GET" }),
-        authClient.requestWithRefresh(meUrl, { method: "GET" }),
       ]);
 
       const cThis = (await cThisRes.json().catch(() => null)) as CashflowSummary | null;
@@ -208,8 +209,6 @@ export default function DashboardScreen() {
       const bJson = (await bRes.json().catch(() => null)) as any;
       const sumJson = (await sumRes.json().catch(() => null)) as any;
       const recentJson = (await recRes.json().catch(() => null)) as any;
-      const meJson = (await meRes.json().catch(() => null)) as MeResponse;
-
       const failures: [Response, any][] = [
         [cThisRes, cThis],
         [bRes, bJson],
@@ -219,7 +218,7 @@ export default function DashboardScreen() {
       for (const [res, payload] of failures) {
         if (!res.ok) {
           throw new Error(
-            payload?.detail ? String(payload.detail) : `Dashboard request failed (${res.status})`,
+            formatApiDetail(payload?.detail, `Dashboard request failed (${res.status})`),
           );
         }
       }
@@ -260,7 +259,6 @@ export default function DashboardScreen() {
         setMomPct(null);
       }
 
-      setMe(meRes.ok ? (meJson ?? null) : null);
       setBudgets(Array.isArray(bJson?.items) ? bJson.items : []);
       setExpenseSummaryByCategory(Array.isArray(sumJson?.items) ? sumJson.items : []);
       setRecent(Array.isArray(recentJson?.items) ? recentJson.items : []);
@@ -339,34 +337,97 @@ export default function DashboardScreen() {
     return ix;
   }, [chartDays, today]);
 
-  const initials = useMemo(() => {
-    const fn = me?.first_name?.trim();
-    const em = me?.email?.trim();
-    if (fn) return fn.charAt(0).toUpperCase();
-    if (em) return em.charAt(0).toUpperCase();
-    return "•";
-  }, [me]);
+  const toggleRecent = (it: ExpenseItem) => {
+    const id = it.expense_id ? String(it.expense_id) : "";
+    if (!id) return;
+    if (expandedRecentId === id) {
+      setExpandedRecentId(null);
+      return;
+    }
+    setExpandedRecentId(id);
+    const raw = String(it.description ?? it.name ?? "").trim();
+    setEditDesc(raw || String(it.category_name ?? ""));
+    const amtRaw = toNumber(it.amount ?? it.value);
+    setEditAmt(amtRaw !== null ? String(Math.abs(amtRaw)) : "");
+    setEditDate(it.date ? String(it.date).slice(0, 10) : "");
+    setEditCategory(String(it.category_name ?? ""));
+  };
+
+  const saveRecentExpense = async (expenseId: string) => {
+    setRecentBusy(true);
+    setError(null);
+    try {
+      const amt = Number(String(editAmt).replace(/,/g, ""));
+      if (!Number.isFinite(amt) || amt < 0) {
+        throw new Error("Enter a valid amount.");
+      }
+      const payload: Record<string, unknown> = {
+        description: editDesc.trim(),
+        amount: amt,
+        date: editDate.trim(),
+      };
+      if (editCategory.trim()) {
+        payload.category = editCategory.trim();
+      }
+      const res = await authClient.requestWithRefresh(
+        `${GATEWAY_BASE_URL}/api/v1/expenses/${encodeURIComponent(expenseId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(formatApiDetail((data as any)?.detail, "Could not save expense."));
+      }
+      setExpandedRecentId(null);
+      await load();
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Save failed.");
+    } finally {
+      setRecentBusy(false);
+    }
+  };
+
+  const deleteRecentExpense = (expenseId: string) => {
+    Alert.alert("Delete expense", "This marks the expense as deleted.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setRecentBusy(true);
+          setError(null);
+          try {
+            const res = await authClient.requestWithRefresh(
+              `${GATEWAY_BASE_URL}/api/v1/expenses/${encodeURIComponent(expenseId)}`,
+              { method: "DELETE" },
+            );
+            if (!res.ok) {
+              const data = await res.json().catch(() => null);
+              throw new Error(formatApiDetail((data as any)?.detail, "Delete failed."));
+            }
+            setExpandedRecentId(null);
+            await load();
+          } catch (e: any) {
+            setError(e?.message ? String(e.message) : "Delete failed.");
+          } finally {
+            setRecentBusy(false);
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={styles.root}>
-      <View style={[styles.stickyHeader, { paddingTop: insets.top + 8 }]}>
-        <Pressable
-          hitSlop={12}
-          onPress={() => router.push("/more")}
-          style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.75 }]}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={22} color={theme.colors.primary} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.brandTitle}>Indigo Vault</Text>
-        </View>
-        <Pressable onPress={() => router.push("/(tabs)/profile")} style={styles.avatarSm}>
-          <Text style={styles.avatarSmText}>{initials}</Text>
-        </Pressable>
-      </View>
-
       <ScrollView
-        contentContainerStyle={[styles.scrollBody, { paddingBottom: insets.bottom + 120 }]}
+        contentContainerStyle={[
+          styles.scrollBody,
+          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 120 },
+        ]}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
@@ -375,7 +436,7 @@ export default function DashboardScreen() {
           <Text style={styles.errorText}>{error}</Text>
         ) : (
           <>
-            <View style={styles.hero}>
+            <View style={styles.hero} testID="e2e-dashboard-hero">
               <View style={styles.heroBlob} />
               <View style={{ zIndex: 1 }}>
                 <Text style={styles.heroKicker}>TOTAL BALANCE</Text>
@@ -491,36 +552,86 @@ export default function DashboardScreen() {
                       : isIncomeLike
                         ? `+$${Math.abs(amtRaw).toFixed(2)}`
                         : `-$${Math.abs(amtRaw).toFixed(2)}`;
+                  const eid = it.expense_id ? String(it.expense_id) : "";
+                  const open = Boolean(eid && expandedRecentId === eid);
                   return (
-                    <Pressable
+                    <ExpandableCard
                       key={String(it.expense_id ?? idx)}
-                      style={({ pressed }) => [styles.txRow, pressed && { opacity: 0.92 }]}
-                      onPress={() => router.push(`/expenses/${encodeURIComponent(String(it.expense_id ?? ""))}`)}
+                      expanded={open}
+                      onToggle={() => toggleRecent(it)}
+                      style={styles.txExpandCard}
+                      summary={
+                        <View style={styles.txRow}>
+                          <View style={styles.txLeft}>
+                            <View style={[styles.txIconTile, { backgroundColor: cv.tile }]}>
+                              <MaterialCommunityIcons name={cv.icon} size={22} color={cv.ink} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.txName} numberOfLines={1}>
+                                {readableExpenseLabel(it)}
+                              </Text>
+                              <Text style={styles.txSub} numberOfLines={2}>
+                                {sub}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.txRight}>
+                            <Text
+                              style={[
+                                styles.txAmt,
+                                isIncomeLike ? { color: "#059669" } : { color: theme.colors.error },
+                              ]}
+                            >
+                              {amountLine}
+                            </Text>
+                          </View>
+                        </View>
+                      }
                     >
-                      <View style={styles.txLeft}>
-                        <View style={[styles.txIconTile, { backgroundColor: cv.tile }]}>
-                          <MaterialCommunityIcons name={cv.icon} size={22} color={cv.ink} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.txName} numberOfLines={1}>
-                            {readableExpenseLabel(it)}
-                          </Text>
-                          <Text style={styles.txSub} numberOfLines={2}>
-                            {sub}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.txRight}>
-                        <Text
-                          style={[
-                            styles.txAmt,
-                            isIncomeLike ? { color: "#059669" } : { color: theme.colors.error },
-                          ]}
-                        >
-                          {amountLine}
-                        </Text>
-                      </View>
-                    </Pressable>
+                      {eid ? (
+                        <>
+                          <Pressable
+                            onPress={() =>
+                              router.push(`/expenses/${encodeURIComponent(eid)}`)
+                            }
+                            style={styles.openDetailLink}
+                          >
+                            <Text style={styles.openDetailLinkText}>Open full detail</Text>
+                          </Pressable>
+                          <Text style={styles.fieldLabel}>Description</Text>
+                          <Input value={editDesc} onChangeText={setEditDesc} placeholder="Description" />
+                          <Text style={styles.fieldLabel}>Amount</Text>
+                          <Input
+                            value={editAmt}
+                            onChangeText={setEditAmt}
+                            keyboardType="decimal-pad"
+                            placeholder="0.00"
+                          />
+                          <Text style={styles.fieldLabel}>Date (YYYY-MM-DD)</Text>
+                          <Input value={editDate} onChangeText={setEditDate} placeholder="2025-01-15" />
+                          <Text style={styles.fieldLabel}>Category</Text>
+                          <Input value={editCategory} onChangeText={setEditCategory} placeholder="Category name" />
+                          <View style={styles.rowActions}>
+                            <View style={{ flex: 1 }}>
+                              <Button
+                                title="Save"
+                                onPress={() => saveRecentExpense(eid)}
+                                loading={recentBusy}
+                                disabled={recentBusy}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Button
+                                title="Delete"
+                                tone="danger"
+                                onPress={() => deleteRecentExpense(eid)}
+                                disabled={recentBusy}
+                              />
+                            </View>
+                          </View>
+                        </>
+                      ) : null}
+                    </ExpandableCard>
                   );
                 })
               ) : (
@@ -543,22 +654,20 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
-  stickyHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.xl,
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.outlineVariant,
+  fieldLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: theme.colors.onSurfaceVariant,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
-  iconBtn: { padding: 4 },
-  brandTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_800ExtraBold",
-    color: theme.colors.onSurface,
-    letterSpacing: -0.3,
+  rowActions: { flexDirection: "row", gap: 10 },
+  txExpandCard: { marginBottom: 10 },
+  openDetailLink: { marginBottom: 4 },
+  openDetailLinkText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: theme.colors.primary,
   },
   syncRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   syncDot: { width: 8, height: 8, borderRadius: 4 },
@@ -570,17 +679,6 @@ const styles = StyleSheet.create({
     color: theme.colors.onSurfaceVariant,
     letterSpacing: 1.2,
   },
-  avatarSm: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primaryContainer,
-    borderWidth: 2,
-    borderColor: theme.colors.surfaceContainerHighest,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarSmText: { fontFamily: "Inter_800ExtraBold", color: theme.colors.primary, fontSize: 16 },
   scrollBody: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xl, gap: theme.spacing.xxl },
   errorText: { color: theme.colors.error, fontFamily: "Inter_600SemiBold", marginTop: 12 },
 

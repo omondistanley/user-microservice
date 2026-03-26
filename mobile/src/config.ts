@@ -69,6 +69,11 @@ function resolveGatewayBaseUrl(): string {
     return `http://${detectedHost}:8080`;
   }
 
+  // Release / standalone builds without Metro: same API host as the public web app.
+  if (!__DEV__) {
+    return "https://pocketii.fly.dev";
+  }
+
   if (Platform.OS === "android") {
     return "http://10.0.2.2:8080";
   }

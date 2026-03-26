@@ -213,9 +213,11 @@ Cold open → dashboard summary first; investments/recommendations charts load o
 ## Prerequisites
 
 - **Docker** and **Docker Compose** (v2+)
-- **Root environment file:** `cp .env.example .env` at the project root. Docker Compose loads `.env` automatically for `${VAR}` substitution. Minimum: **`SECRET_KEY`** (shared by all JWT services), **`INTERNAL_API_KEY`** (shared for internal routes; `.env.example` provides a dev default), **`GATEWAY_PUBLIC_URL=http://localhost:8080`**, **`REQUIRE_EMAIL_VERIFICATION=false`** for local dev (register → login without completing email).
+- **Root environment file:** `cp .env.example .env` at the project root. Docker Compose loads `.env` automatically for `${VAR}` substitution. Minimum: **`SECRET_KEY`** (shared by all JWT services), **`INTERNAL_API_KEY`** (shared for internal routes; `.env.example` provides a dev default), **`GATEWAY_PUBLIC_URL=http://localhost:8080`**, **`APP_BASE_URL=http://localhost:8080`**, **`REQUIRE_EMAIL_VERIFICATION=false`** for local dev (register → login without completing email).
 - **Frontend assets:** The user service image **copies** `frontend/` at build time. After changing TypeScript/CSS sources run **`./scripts/bootstrap-frontend.sh`**, then **`docker compose build user`** (or rebuild the whole stack).
 - **Expo Go:** Mobile now auto-detects the Metro host in dev and resolves gateway as `http://<detected-host>:8080`. For reliability, still set **`EXPO_PUBLIC_GATEWAY_URL`** in `mobile/.env` (copy from `.env.example`) to `http://<your-LAN-IP>:8080` (not `localhost`) so a phone can always reach the gateway.
+- **Example gateway (LAN dev):** `http://10.206.27.212:8080` — substitute your host’s IP; use that same base for **`GATEWAY_PUBLIC_URL`**, **`APP_BASE_URL`**, and **`EXPO_PUBLIC_GATEWAY_URL`** when testing mobile or OAuth from another device on the network.
+- **OAuth on device:** For Google/Apple OAuth from Expo on a physical phone, set both **`APP_BASE_URL`** and **`GATEWAY_PUBLIC_URL`** in root `.env` to the same reachable host as **`EXPO_PUBLIC_GATEWAY_URL`** (for example `http://10.206.27.212:8080` or `http://192.168.1.10:8080`) so authorize/callback/exchange all stay on one public origin.
 - Optional: API keys for third-party services (see below)
 
 ---

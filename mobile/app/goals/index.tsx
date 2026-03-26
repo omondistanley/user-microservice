@@ -1,11 +1,23 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ExpandableCard } from "../../src/components/ui/ExpandableCard";
+import { Input } from "../../src/components/ui/Input";
+import { Button } from "../../src/components/ui/Button";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type Goal = {
   goal_id: string;
@@ -81,6 +93,13 @@ export default function GoalsListScreen() {
   const [error, setError] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [progressById, setProgressById] = useState<Map<string, GoalProgress>>(new Map());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editTarget, setEditTarget] = useState("");
+  const [editTargetDate, setEditTargetDate] = useState("");
+  const [rowBusy, setRowBusy] = useState(false);
+  const [contribAmt, setContribAmt] = useState("");
+  const [contribBusy, setContribBusy] = useState(false);
 
   const totals = useMemo(() => {
     let totalSaved = 0;
@@ -95,61 +114,168 @@ export default function GoalsListScreen() {
     return { totalSaved, totalTarget, pct, count: goals.length };
   }, [goals, progressById]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const listRes = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/goals?page=1&page_size=50`, {
-          method: "GET",
-        });
-        const listData = await listRes.json().catch(() => null);
-        const items = Array.isArray(listData?.items) ? (listData.items as Goal[]) : [];
+  const loadGoals = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const listRes = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/goals?page=1&page_size=50`, {
+        method: "GET",
+      });
+      const listData = await listRes.json().catch(() => null);
+      const items = Array.isArray(listData?.items) ? (listData.items as Goal[]) : [];
 
-        const progEntries = await Promise.all(
-          items.map(async (g) => {
-            try {
-              const res = await authClient.requestWithRefresh(
-                `${GATEWAY_BASE_URL}/api/v1/goals/${encodeURIComponent(g.goal_id)}/progress`,
-                { method: "GET" },
-              );
-              const data = await res.json().catch(() => null);
-              return [g.goal_id, data as GoalProgress] as const;
-            } catch {
-              return [g.goal_id, { goal_id: g.goal_id, current_amount: g.start_amount ?? 0, target_amount: g.target_amount } as GoalProgress] as const;
-            }
-          }),
-        );
+      const progEntries = await Promise.all(
+        items.map(async (g) => {
+          try {
+            const res = await authClient.requestWithRefresh(
+              `${GATEWAY_BASE_URL}/api/v1/goals/${encodeURIComponent(g.goal_id)}/progress`,
+              { method: "GET" },
+            );
+            const data = await res.json().catch(() => null);
+            return [g.goal_id, data as GoalProgress] as const;
+          } catch {
+            return [
+              g.goal_id,
+              {
+                goal_id: g.goal_id,
+                current_amount: g.start_amount ?? 0,
+                target_amount: g.target_amount,
+              } as GoalProgress,
+            ] as const;
+          }
+        }),
+      );
 
-        if (cancelled) return;
-        setGoals(items);
-        setProgressById(new Map(progEntries));
-      } catch (e: any) {
-        if (cancelled) return;
-        setError(e?.message ? String(e.message) : "Failed to load goals.");
-      } finally {
-        if (cancelled) return;
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      setGoals(items);
+      setProgressById(new Map(progEntries));
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Failed to load goals.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return (
-    <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <MaterialCommunityIcons name="bank" size={26} color={theme.colors.primary} />
-          <Text style={styles.title}>Indigo Vault</Text>
-        </View>
-        <Pressable onPress={() => router.push("/notifications")} style={styles.headerRightBtn}>
-          <MaterialCommunityIcons name="bell-outline" size={24} color={theme.colors.primary} />
-        </Pressable>
-      </View>
+  useEffect(() => {
+    loadGoals();
+  }, [loadGoals]);
 
+  const toggleGoal = (g: Goal) => {
+    if (expandedId === g.goal_id) {
+      setExpandedId(null);
+      setContribAmt("");
+      return;
+    }
+    setExpandedId(g.goal_id);
+    setContribAmt("");
+    setEditName(g.name);
+    setEditTarget(String(g.target_amount ?? ""));
+    setEditTargetDate(g.target_date ? String(g.target_date).slice(0, 10) : "");
+  };
+
+  const addContribution = async (goalId: string) => {
+    const amt = Number(String(contribAmt).replace(/,/g, ""));
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setError("Enter a positive amount to add.");
+      return;
+    }
+    setContribBusy(true);
+    setError(null);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await authClient.requestWithRefresh(
+        `${GATEWAY_BASE_URL}/api/v1/goals/${encodeURIComponent(goalId)}/contributions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: amt,
+            contribution_date: today,
+            source: "manual",
+          }),
+        },
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(formatApiDetail((data as any)?.detail, "Could not add contribution."));
+      }
+      setContribAmt("");
+      await loadGoals();
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Contribution failed.");
+    } finally {
+      setContribBusy(false);
+    }
+  };
+
+  const saveGoal = async (goalId: string) => {
+    setRowBusy(true);
+    setError(null);
+    try {
+      const tgt = Number(String(editTarget).replace(/,/g, ""));
+      if (!editName.trim()) throw new Error("Name is required.");
+      if (!Number.isFinite(tgt) || tgt < 0) throw new Error("Enter a valid target amount.");
+      const payload: Record<string, unknown> = {
+        name: editName.trim(),
+        target_amount: tgt,
+      };
+      if (editTargetDate.trim()) payload.target_date = editTargetDate.trim();
+      const res = await authClient.requestWithRefresh(
+        `${GATEWAY_BASE_URL}/api/v1/goals/${encodeURIComponent(goalId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(formatApiDetail((data as any)?.detail, "Could not save goal."));
+      }
+      setExpandedId(null);
+      await loadGoals();
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Save failed.");
+    } finally {
+      setRowBusy(false);
+    }
+  };
+
+  const deleteGoal = (goalId: string) => {
+    Alert.alert("Delete goal", "Remove this savings goal?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setRowBusy(true);
+          setError(null);
+          try {
+            const res = await authClient.requestWithRefresh(
+              `${GATEWAY_BASE_URL}/api/v1/goals/${encodeURIComponent(goalId)}`,
+              { method: "DELETE" },
+            );
+            if (!res.ok) {
+              const data = await res.json().catch(() => null);
+              throw new Error(formatApiDetail((data as any)?.detail, "Delete failed."));
+            }
+            setExpandedId(null);
+            await loadGoals();
+          } catch (e: any) {
+            setError(e?.message ? String(e.message) : "Delete failed.");
+          } finally {
+            setRowBusy(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: insets.top + 8 }]}
+        keyboardShouldPersistTaps="handled"
+      >
       {loading ? (
         <ActivityIndicator />
       ) : error ? (
@@ -176,6 +302,9 @@ export default function GoalsListScreen() {
           </View>
 
           <Text style={styles.activeTitle}>Active Savings Goals</Text>
+          <Text style={styles.hintMuted}>
+            Tap a goal to add money or view progress. Use the chevron to edit or delete.
+          </Text>
 
           <View style={{ gap: 10 }}>
             {goals.length ? (
@@ -189,38 +318,93 @@ export default function GoalsListScreen() {
                 const status = goalStatusFromPct(pct);
                 const iconMeta = goalIconFromName(g.name);
 
+                const isOpen = expandedId === g.goal_id;
                 return (
-                  <Pressable
+                  <ExpandableCard
                     key={g.goal_id}
+                    expanded={isOpen}
+                    onToggle={() => toggleGoal(g)}
+                    onSummaryPress={() => router.push(`/goals/${encodeURIComponent(g.goal_id)}`)}
                     style={styles.goalCard}
-                    onPress={() => router.push(`/goals/${encodeURIComponent(g.goal_id)}`)}
+                    summary={
+                      <>
+                        <View style={styles.goalTop}>
+                          <View style={[styles.goalIconTile, { backgroundColor: iconMeta.tileBg }]}>
+                            <MaterialCommunityIcons name={iconMeta.icon as any} size={22} color={iconMeta.iconColor} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.goalName} numberOfLines={1}>
+                              {g.name}
+                            </Text>
+                            <Text style={styles.goalTargetDate}>
+                              Target Date: {fmtDateShort(g.target_date ?? null)}
+                            </Text>
+                          </View>
+                          <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
+                            <Text style={[styles.statusPillTxt, { color: status.fg }]}>{status.label}</Text>
+                            <Text style={[styles.statusPillPct, { color: status.fg }]}>{pct}%</Text>
+                          </View>
+                        </View>
+                        <View style={styles.goalAmounts}>
+                          <Text style={styles.goalCurrent}>{fmtMoney(current)}</Text>
+                          <Text style={styles.goalTarget}>of {fmtMoney(target)}</Text>
+                        </View>
+                        <View style={styles.progressOuter}>
+                          <View style={[styles.progressInner, { width: `${pct}%`, backgroundColor: status.bar }]} />
+                        </View>
+                        <Text style={styles.goalLeft}>{leftText}</Text>
+                      </>
+                    }
                   >
-                    <View style={styles.goalTop}>
-                      <View style={[styles.goalIconTile, { backgroundColor: iconMeta.tileBg }]}>
-                        <MaterialCommunityIcons name={iconMeta.icon as any} size={22} color={iconMeta.iconColor} />
+                    <Pressable
+                      onPress={() => router.push(`/goals/${encodeURIComponent(g.goal_id)}`)}
+                      style={styles.openDetailLink}
+                    >
+                      <Text style={styles.openDetailLinkText}>Open full detail & contributions</Text>
+                    </Pressable>
+                    <Text style={styles.fieldLabel}>Add money</Text>
+                    <Input
+                      value={contribAmt}
+                      onChangeText={setContribAmt}
+                      placeholder="Amount"
+                      keyboardType="decimal-pad"
+                    />
+                    <Button
+                      title="Add to goal"
+                      onPress={() => addContribution(g.goal_id)}
+                      loading={contribBusy}
+                      disabled={contribBusy}
+                    />
+                    <Text style={styles.fieldLabel}>Name</Text>
+                    <Input value={editName} onChangeText={setEditName} placeholder="Goal name" />
+                    <Text style={styles.fieldLabel}>Target amount</Text>
+                    <Input
+                      value={editTarget}
+                      onChangeText={setEditTarget}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                    />
+                    <Text style={styles.fieldLabel}>Target date (YYYY-MM-DD)</Text>
+                    <Input value={editTargetDate} onChangeText={setEditTargetDate} placeholder="Optional" />
+                    <View style={styles.rowActions}>
+                      <View style={{ flex: 1 }}>
+                        <Button
+                          title="Save"
+                          onPress={() => saveGoal(g.goal_id)}
+                          loading={rowBusy}
+                          disabled={rowBusy}
+                        />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.goalName} numberOfLines={1}>
-                          {g.name}
-                        </Text>
-                        <Text style={styles.goalTargetDate}>
-                          Target Date: {fmtDateShort(g.target_date ?? null)}
-                        </Text>
-                      </View>
-                      <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
-                        <Text style={[styles.statusPillTxt, { color: status.fg }]}>{status.label}</Text>
-                        <Text style={[styles.statusPillPct, { color: status.fg }]}>{pct}%</Text>
+                        <Button
+                          title="Delete"
+                          tone="danger"
+                          onPress={() => deleteGoal(g.goal_id)}
+                          disabled={rowBusy}
+                        />
                       </View>
                     </View>
-                    <View style={styles.goalAmounts}>
-                      <Text style={styles.goalCurrent}>{fmtMoney(current)}</Text>
-                      <Text style={styles.goalTarget}>of {fmtMoney(target)}</Text>
-                    </View>
-                    <View style={styles.progressOuter}>
-                      <View style={[styles.progressInner, { width: `${pct}%`, backgroundColor: status.bar }]} />
-                    </View>
-                    <Text style={styles.goalLeft}>{leftText}</Text>
-                  </Pressable>
+                  </ExpandableCard>
                 );
               })
             ) : (
@@ -229,27 +413,26 @@ export default function GoalsListScreen() {
           </View>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 20, gap: 12, backgroundColor: theme.colors.background },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 6,
+  fieldLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: theme.colors.onSurfaceVariant,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  title: { fontSize: 20, fontWeight: "900", color: theme.colors.primary },
-  headerRightBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surfaceContainer,
+  rowActions: { flexDirection: "row", gap: 10 },
+  openDetailLink: { marginBottom: 4 },
+  openDetailLinkText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: theme.colors.primary,
   },
   errorText: { color: "#dc2626" },
   mutedText: { color: "#64748b" },
@@ -294,15 +477,18 @@ const styles = StyleSheet.create({
   },
   heroBtnFillTxt: { fontFamily: "Inter_800ExtraBold", color: "#fff", textTransform: "uppercase", fontSize: 12 },
   activeTitle: { marginTop: 2, fontSize: 24, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
+  hintMuted: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: theme.colors.onSurfaceVariant,
+    marginTop: 6,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
   progressOuter: { height: 10, borderRadius: 999, backgroundColor: theme.colors.outlineVariant, overflow: "hidden" },
   progressInner: { height: "100%", borderRadius: 999, backgroundColor: theme.colors.primary },
   goalCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.outlineVariant,
+    marginBottom: 4,
   },
   goalTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
   goalIconTile: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },

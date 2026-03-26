@@ -83,7 +83,7 @@ export default function SettingsScreen() {
   const VersionFooter = useMemo(
     () => (
       <Text style={styles.version}>
-        PocketII v3.4.2 (production){"\n"}© 2024 Indigo Vault Architecture
+        pocketii v3.4.2 (production){"\n"}© 2025 pocketii
       </Text>
     ),
     [],
@@ -115,16 +115,22 @@ export default function SettingsScreen() {
   );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
-      <View style={styles.topBar}>
-        <MaterialCommunityIcons name="bank" size={26} color={theme.colors.primary} />
-        <Text style={styles.brand}>PocketII</Text>
-        <View style={styles.av}>
-          <Text style={styles.avTxt}>{(me?.email ?? "?").charAt(0).toUpperCase()}</Text>
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}>
+    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backRow, pressed && { opacity: 0.85 }]}
+          hitSlop={8}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={22} color={theme.colors.primary} />
+          <Text style={styles.backRowText}>Back</Text>
+        </Pressable>
         <Text style={styles.pageTitle}>Settings</Text>
         <Text style={styles.pageSub}>Manage your account preferences and security</Text>
 
@@ -253,26 +259,14 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  topBar: {
+  backRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: 12,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outlineVariant,
+    gap: 6,
+    alignSelf: "flex-start",
+    marginBottom: 12,
   },
-  brand: { flex: 1, fontSize: 20, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
-  av: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    backgroundColor: theme.colors.primaryContainer,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avTxt: { fontFamily: "Inter_800ExtraBold", color: theme.colors.primary },
+  backRowText: { fontSize: 15, fontFamily: "Inter_700Bold", color: theme.colors.primary },
   scroll: { paddingHorizontal: theme.spacing.xl, paddingTop: 20 },
   pageTitle: { fontSize: 28, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface, textAlign: "center" },
   pageSub: {

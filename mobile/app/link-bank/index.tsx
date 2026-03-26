@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 const PLAID_LINK_TOKEN_KEY = "pocketii_plaid_link_token";
 
@@ -50,7 +51,7 @@ export default function LinkBankStartScreen() {
         body: JSON.stringify({ completion_redirect_uri: completionUri }),
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to start link.");
+      if (!res.ok) throw new Error(formatApiDetail((json as any)?.detail, "Failed to start link."));
 
       const linkToken = json?.link_token ? String(json.link_token) : "";
       const hostedUrl = json?.hosted_link_url ? String(json.hosted_link_url) : "";
@@ -83,7 +84,7 @@ export default function LinkBankStartScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerTitle}>Secure connection</Text>
             <Text style={styles.bannerBody}>
-              PocketII uses bank-grade encryption. We never store your bank login on the device.
+              pocketii uses bank-grade encryption. We never store your bank login on the device.
             </Text>
           </View>
         </View>

@@ -222,36 +222,42 @@ def run(as_of: date, dry_run: bool):
             elif entity == "refresh_token":
                 results[entity] = _purge_refresh_tokens(conn, cutoff, dry_run)
             elif cross and entity == "inv_recommendation_run":
-                inv_conn = inv_conn or _open_named_db(inv_name)
-                inv_conn.autocommit = False
+                if inv_conn is None:
+                    inv_conn = _open_named_db(inv_name)
+                    inv_conn.autocommit = False
                 results[entity] = _safe_cross_purge(
                     entity, _purge_inv_recommendation_run, inv_conn, cutoff, dry_run
                 )
             elif cross and entity == "inv_recommendation_digest":
-                inv_conn = inv_conn or _open_named_db(inv_name)
-                inv_conn.autocommit = False
+                if inv_conn is None:
+                    inv_conn = _open_named_db(inv_name)
+                    inv_conn.autocommit = False
                 results[entity] = _safe_cross_purge(
                     entity, _purge_inv_recommendation_digest, inv_conn, cutoff, dry_run
                 )
             elif cross and entity == "inv_portfolio_health_snapshot":
-                inv_conn = inv_conn or _open_named_db(inv_name)
-                inv_conn.autocommit = False
+                if inv_conn is None:
+                    inv_conn = _open_named_db(inv_name)
+                    inv_conn.autocommit = False
                 results[entity] = _safe_cross_purge(
                     entity, _purge_inv_portfolio_health_snapshot, inv_conn, cutoff, dry_run
                 )
             elif cross and entity == "inv_nudge_log":
-                inv_conn = inv_conn or _open_named_db(inv_name)
-                inv_conn.autocommit = False
+                if inv_conn is None:
+                    inv_conn = _open_named_db(inv_name)
+                    inv_conn.autocommit = False
                 results[entity] = _safe_cross_purge(entity, _purge_inv_nudge_log, inv_conn, cutoff, dry_run)
             elif cross and entity == "exp_anomaly_feedback":
-                exp_conn = exp_conn or _open_named_db(exp_name)
-                exp_conn.autocommit = False
+                if exp_conn is None:
+                    exp_conn = _open_named_db(exp_name)
+                    exp_conn.autocommit = False
                 results[entity] = _safe_cross_purge(
                     entity, _purge_exp_anomaly_feedback, exp_conn, cutoff, dry_run
                 )
             elif cross and entity == "exp_classifier_correction":
-                exp_conn = exp_conn or _open_named_db(exp_name)
-                exp_conn.autocommit = False
+                if exp_conn is None:
+                    exp_conn = _open_named_db(exp_name)
+                    exp_conn.autocommit = False
                 results[entity] = _safe_cross_purge(
                     entity, _purge_exp_classifier_correction, exp_conn, cutoff, dry_run
                 )

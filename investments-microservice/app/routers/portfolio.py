@@ -78,6 +78,7 @@ async def portfolio_value(
         avg_cost = Decimal(str(row.get("avg_cost") or "0"))
         position_cost = quantity * avg_cost
         mv = value_by_symbol.get(symbol, position_cost)
+        hid = row.get("holding_id")
         positions.append(
             {
                 "symbol": row.get("symbol"),
@@ -86,6 +87,8 @@ async def portfolio_value(
                 "currency": row.get("currency", "USD"),
                 "cost_basis": position_cost,
                 "market_value": mv,
+                "source": str(row.get("source") or "manual").lower(),
+                "holding_id": str(hid) if hid is not None else None,
             }
         )
 

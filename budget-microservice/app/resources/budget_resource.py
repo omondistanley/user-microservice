@@ -1,4 +1,5 @@
-from datetime import date, datetime, timezone
+from datetime import date as date_type
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 from uuid import UUID
 
@@ -115,7 +116,7 @@ class BudgetResource(BaseResource):
         return [_row_to_response(r) for r in rows], total
 
     def get_effective(
-        self, user_id: int, category_code: int, effective_date: date
+        self, user_id: int, category_code: int, effective_date: date_type
     ) -> BudgetResponse:
         if category_code not in VALID_CATEGORY_CODES:
             raise HTTPException(
@@ -147,6 +148,63 @@ class BudgetResource(BaseResource):
             getattr(payload, f) is not None
             for f in ("amount", "start_date", "end_date")
         )
+
+        def _coerce_date(val: Any) -> date_type | None:
+            if val is None:
+                return None
+            if isinstance(val, date_type):
+                return val
+            s = str(val)[:10]
+            try:
+                return date_type.fromisoformat(s)
+            except ValueError:
+                return None
+
+        es = _coerce_date(existing["start_date"])
+        ee = _coerce_date(existing["end_date"])
+        ns = _coerce_date(payload.start_date) if payload.start_date is not None else es
+        ne = _coerce_date(payload.end_date) if payload.end_date is not None else ee
+        same_period = (
+            es is not None
+            and ee is not None
+            and ns is not None
+            and ne is not None
+            and ns == es
+            and ne == ee
+        )
+
+        # Same effective period: update amount/name/alerts in place (avoid period_end = start-1 bug).
+        if amount_or_dates and same_period:
+            updated_row = existing
+            patch: Dict[str, Any] = {}
+            if payload.name is not None:
+                patch["name"] = payload.name
+            if payload.amount is not None:
+                patch["amount"] = payload.amount
+            if patch:
+                maybe_updated = self.data_service.update_budget(budget_id, user_id, patch)
+                if maybe_updated:
+                    updated_row = maybe_updated
+            if payload.alert_thresholds is not None or payload.alert_channel is not None:
+                thresholds = (
+                    payload.alert_thresholds
+                    if payload.alert_thresholds is not None
+                    else [cfg["threshold_percent"] for cfg in existing_alert_configs]
+                )
+                channel = (
+                    payload.alert_channel
+                    or (existing_alert_configs[0]["channel"] if existing_alert_configs else "in_app")
+                )
+                updated_row["alert_configs"] = self.data_service.replace_budget_alert_configs(
+                    user_id=user_id,
+                    budget_id=budget_id,
+                    thresholds=thresholds,
+                    channel=channel,
+                )
+            else:
+                updated_row["alert_configs"] = existing_alert_configs
+            return _row_to_response(updated_row)
+
         if not amount_or_dates:
             updated_row = existing
             if payload.name is not None:
@@ -176,8 +234,6 @@ class BudgetResource(BaseResource):
             return _row_to_response(updated_row)
 
         # History: end current period and insert new row
-        from datetime import timedelta
-
         new_start = payload.start_date if payload.start_date is not None else existing["start_date"]
         new_end = payload.end_date if payload.end_date is not None else existing["end_date"]
         new_amount = payload.amount if payload.amount is not None else existing["amount"]

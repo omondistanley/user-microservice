@@ -7,6 +7,7 @@ import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { getAccessToken } from "../../src/authTokens";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type AnalyticsOverviewResponse = {
   period?: { date_from?: string; date_to?: string; days?: number };
@@ -72,7 +73,7 @@ export default function AnalyticsScreen() {
       });
       const json = (await res.json().catch(() => null)) as AnalyticsOverviewResponse | null;
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to load analytics.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Failed to load analytics."));
       }
       setData(json);
     } catch (e: any) {
@@ -91,7 +92,7 @@ export default function AnalyticsScreen() {
       });
       const json = (await res.json().catch(() => null)) as NetWorthSummary | null;
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to load net worth.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Failed to load net worth."));
       }
       setNwData(json);
     } catch (e: any) {
@@ -187,7 +188,7 @@ export default function AnalyticsScreen() {
           <View style={styles.av}>
             <Text style={styles.avTxt}>{initial}</Text>
           </View>
-          <Text style={styles.brand}>PocketII</Text>
+          <Text style={styles.brand}>pocketii</Text>
         </View>
         <Pressable hitSlop={12} onPress={() => router.push("/notifications")}>
           <MaterialCommunityIcons name="bell-outline" size={24} color={theme.colors.primary} />

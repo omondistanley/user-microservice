@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../src/config";
 import { authClient } from "../src/authClient";
 import { theme } from "../src/theme";
+import { formatApiDetail } from "../src/formatApiDetail";
 
 type Mode = "login" | "register";
 
@@ -109,7 +110,7 @@ export default function LoginScreen() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data?.detail ? String(data.detail) : "Registration failed.");
+        throw new Error(formatApiDetail(data?.detail, "Registration failed."));
       }
       await authClient.login(email.trim(), password);
       router.replace("/(tabs)/");
@@ -137,7 +138,7 @@ export default function LoginScreen() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data?.detail ? String(data.detail) : "Request failed.");
+        throw new Error(formatApiDetail(data?.detail, "Request failed."));
       }
       setInfo(
         typeof data?.message === "string"
@@ -185,6 +186,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        testID="e2e-auth-screen"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.scroll,
@@ -195,7 +197,7 @@ export default function LoginScreen() {
           <View style={styles.brandIcon}>
             <MaterialCommunityIcons name="shield-check" size={22} color={theme.colors.onPrimary} />
           </View>
-          <Text style={styles.brandText}>Indigo Vault</Text>
+          <Text style={styles.brandText}>pocketii</Text>
         </View>
 
         <Text style={styles.welcome}>{mode === "login" ? "Welcome Back" : "Create your account"}</Text>
@@ -260,6 +262,7 @@ export default function LoginScreen() {
             style={styles.inputIcon}
           />
           <TextInput
+            testID="e2e-email"
             value={email}
             onChangeText={setEmail}
             placeholder="name@company.com"
@@ -288,6 +291,7 @@ export default function LoginScreen() {
             style={styles.inputIcon}
           />
           <TextInput
+            testID="e2e-password"
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
@@ -308,6 +312,7 @@ export default function LoginScreen() {
         {info ? <Text style={styles.info}>{info}</Text> : null}
 
         <Pressable
+          testID="e2e-login-submit"
           style={[styles.primary, primaryDisabled && { opacity: 0.55 }]}
           disabled={primaryDisabled}
           onPress={mode === "login" ? onLogin : onRegister}
@@ -316,7 +321,7 @@ export default function LoginScreen() {
             <ActivityIndicator color={theme.colors.onPrimary} />
           ) : (
             <Text style={styles.primaryText}>
-              {mode === "login" ? "Login to Vault" : "Create account"}
+              {mode === "login" ? "Sign in to pocketii" : "Create account"}
             </Text>
           )}
         </Pressable>
@@ -347,7 +352,7 @@ export default function LoginScreen() {
         </View>
 
         <Text style={styles.footer}>
-          Security guaranteed by Indigo Vault{"\n"}
+          Security guaranteed by pocketii{"\n"}
           <Text style={styles.footerDim}>AES-256 bit encryption standard</Text>
         </Text>
       </ScrollView>

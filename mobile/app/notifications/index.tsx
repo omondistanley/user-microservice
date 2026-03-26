@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type NotificationItem = {
   notification_id?: string | number;
@@ -34,7 +35,7 @@ export default function NotificationsScreen() {
       const res = await authClient.requestWithRefresh(url, { method: "GET" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data?.detail ? String(data.detail) : "Failed to load notifications.");
+        throw new Error(formatApiDetail(data?.detail, "Failed to load notifications."));
       }
       setUnread(Number(data?.unread ?? 0));
       setItems(Array.isArray(data?.items) ? data.items : []);

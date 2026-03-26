@@ -1,4 +1,5 @@
-from datetime import date, datetime
+from datetime import date as DateScalar
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal, Optional
 from uuid import UUID
@@ -10,7 +11,7 @@ IncomeType = Literal["salary", "freelance", "dividend", "interest", "other"]
 
 class IncomeCreate(BaseModel):
     amount: Decimal = Field(..., ge=0)
-    date: date
+    date: DateScalar
     currency: str = "USD"
     income_type: IncomeType = "other"
     source_label: Optional[str] = Field(None, max_length=255)
@@ -19,7 +20,7 @@ class IncomeCreate(BaseModel):
 
 class IncomeUpdate(BaseModel):
     amount: Optional[Decimal] = Field(None, ge=0)
-    date: Optional[date] = None
+    date: Optional[DateScalar] = None
     currency: Optional[str] = None
     income_type: Optional[IncomeType] = None
     source_label: Optional[str] = Field(None, max_length=255)
@@ -30,7 +31,7 @@ class IncomeResponse(BaseModel):
     income_id: UUID
     user_id: int
     amount: Decimal
-    date: date
+    date: DateScalar
     currency: str
     income_type: IncomeType
     source_label: Optional[str] = None

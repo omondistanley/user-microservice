@@ -1,5 +1,6 @@
 """
-Forward request to upstream. Sets X-User-Id; does not forward Authorization.
+Forward request to upstream. Sets X-User-Id and forwards selected client headers
+including Authorization so upstreams can validate JWT when needed.
 """
 import logging
 
@@ -14,7 +15,16 @@ logger = logging.getLogger(__name__)
 
 # Forward from client (except Authorization - we use X-User-Id instead)
 # x-webhook-secret: for Apple Wallet webhook; expense service validates it
-FORWARD_HEADERS = {"content-type", "idempotency-key", "x-request-id", "x-webhook-secret", "cookie"}
+# Forward Authorization so upstreams (e.g. user-microservice) can decode JWT when X-User-Id
+# is set but the local user row is missing or lookup fails — gateway already validated the token.
+FORWARD_HEADERS = {
+    "content-type",
+    "authorization",
+    "idempotency-key",
+    "x-request-id",
+    "x-webhook-secret",
+    "cookie",
+}
 
 DROP_RESPONSE_HEADERS = {
     "transfer-encoding", "connection", "keep-alive",

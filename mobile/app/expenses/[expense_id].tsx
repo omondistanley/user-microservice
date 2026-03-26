@@ -8,14 +8,25 @@ import {
   Text,
   View,
 } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { gatewayJson, gatewayUrl } from "../../src/gatewayRequest";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type Tag = { name?: string; slug?: string };
+
+type ReceiptRow = {
+  receipt_id: string;
+  file_name: string;
+  content_type: string;
+  file_size_bytes: number;
+  uploaded_at?: string;
+};
 
 type ExpenseDetail = {
   expense_id: string;
@@ -82,16 +93,32 @@ export default function ExpenseDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expense, setExpense] = useState<ExpenseDetail | null>(null);
+  const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptUploading, setReceiptUploading] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!expenseId) throw new Error("Missing expense id.");
-    const res = await authClient.requestWithRefresh(
-      `${GATEWAY_BASE_URL}/api/v1/expenses/${encodeURIComponent(expenseId)}`,
-      { method: "GET" },
-    );
-    const data = (await res.json().catch(() => null)) as ExpenseDetail | null;
-    if (!res.ok) throw new Error((data as any)?.detail ? String((data as any).detail) : "Failed to load expense.");
-    return data;
+    return gatewayJson<ExpenseDetail>(`/api/v1/expenses/${encodeURIComponent(expenseId)}`, { method: "GET" });
+  }, [expenseId]);
+
+  const loadReceipts = useCallback(async () => {
+    if (!expenseId) return;
+    setReceiptLoading(true);
+    setReceiptError(null);
+    try {
+      const list = await gatewayJson<ReceiptRow[]>(
+        `/api/v1/expenses/${encodeURIComponent(expenseId)}/receipts`,
+        { method: "GET" },
+      );
+      setReceipts(Array.isArray(list) ? list : []);
+    } catch (e: unknown) {
+      setReceipts([]);
+      setReceiptError(e instanceof Error ? e.message : "Could not load receipts.");
+    } finally {
+      setReceiptLoading(false);
+    }
   }, [expenseId]);
 
   useEffect(() => {
@@ -116,6 +143,46 @@ export default function ExpenseDetailScreen() {
     };
   }, [load]);
 
+  useEffect(() => {
+    if (expenseId) loadReceipts();
+  }, [expenseId, loadReceipts]);
+
+  const attachReceipt = async () => {
+    if (!expenseId) return;
+    const r = await DocumentPicker.getDocumentAsync({
+      type: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+      copyToCacheDirectory: true,
+    });
+    if (r.canceled || !r.assets?.[0]?.uri) return;
+    const a = r.assets[0];
+    const mime = (a.mimeType || "").split(";")[0].trim().toLowerCase();
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+    const type = allowed.has(mime) ? mime : "image/jpeg";
+    setReceiptUploading(true);
+    setReceiptError(null);
+    try {
+      const form = new FormData();
+      form.append("file", {
+        uri: a.uri,
+        name: a.name ?? "receipt.jpg",
+        type,
+      } as unknown as Blob);
+      const res = await authClient.requestWithRefresh(
+        gatewayUrl(`/api/v1/expenses/${encodeURIComponent(expenseId)}/receipts`),
+        { method: "POST", body: form },
+      );
+      const j = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(formatApiDetail((j as { detail?: unknown })?.detail, "Upload failed."));
+      }
+      await loadReceipts();
+    } catch (e: unknown) {
+      setReceiptError(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setReceiptUploading(false);
+    }
+  };
+
   const merchant = useMemo(
     () => String(expense?.description ?? expense?.name ?? expense?.category_name ?? "Transaction").trim() || "—",
     [expense],
@@ -132,6 +199,12 @@ export default function ExpenseDetailScreen() {
         ? String(expense.source)
         : "Manual entry";
 
+  const locationFromDescription = useMemo(() => {
+    const d = String(expense?.description ?? "");
+    const m = d.match(/\[loc\s+([^\]]+)\]/);
+    return m ? m[1].trim() : null;
+  }, [expense?.description]);
+
   const onDelete = () => {
     Alert.alert("Delete transaction", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
@@ -147,7 +220,7 @@ export default function ExpenseDetailScreen() {
             );
             if (!res.ok) {
               const j = await res.json().catch(() => null);
-              throw new Error(j?.detail ? String(j.detail) : "Delete failed.");
+              throw new Error(formatApiDetail(j?.detail, "Delete failed."));
             }
             router.back();
           } catch (e: any) {
@@ -265,9 +338,47 @@ export default function ExpenseDetailScreen() {
               ) : null}
             </View>
 
+            <Text style={[styles.sectionK, { marginTop: 20 }]}>Receipts</Text>
+            <Text style={styles.mapTxt}>
+              PDF or image (JPEG, PNG, WebP), same API as web. No manual Content-Type on multipart.
+            </Text>
+            {receiptError ? <Text style={styles.error}>{receiptError}</Text> : null}
+            {receiptLoading ? (
+              <ActivityIndicator style={{ marginVertical: 8 }} color={theme.colors.primary} />
+            ) : receipts.length ? (
+              receipts.map((rc) => (
+                <View key={String(rc.receipt_id)} style={styles.receiptRow}>
+                  <MaterialCommunityIcons name="paperclip" size={20} color={theme.colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowV}>{rc.file_name}</Text>
+                    <Text style={styles.timeSub}>
+                      {(rc.content_type || "").split(";")[0]} ·{" "}
+                      {rc.file_size_bytes != null ? `${Math.round(rc.file_size_bytes / 1024)} KB` : ""}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.muted}>No receipts attached.</Text>
+            )}
+            <Pressable style={styles.btnReceipt} onPress={attachReceipt} disabled={receiptUploading || busy}>
+              {receiptUploading ? (
+                <ActivityIndicator color={theme.colors.primary} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="upload" size={22} color={theme.colors.primary} />
+                  <Text style={styles.btnReceiptTxt}>Attach receipt</Text>
+                </>
+              )}
+            </Pressable>
+
             <View style={styles.mapPlaceholder}>
               <MaterialCommunityIcons name="map-marker" size={32} color={theme.colors.primary} />
-              <Text style={styles.mapTxt}>Location unavailable for this entry</Text>
+              <Text style={styles.mapTxt}>
+                {locationFromDescription
+                  ? `Recorded location: ${locationFromDescription}`
+                  : "Location unavailable for this entry"}
+              </Text>
             </View>
 
             <Pressable style={styles.btnPrimary} onPress={onRepeat} disabled={busy}>
@@ -391,6 +502,27 @@ const styles = StyleSheet.create({
     ...theme.shadows.sm,
   },
   btnPrimaryTxt: { color: theme.colors.onPrimary, fontSize: 16, fontFamily: "Inter_800ExtraBold" },
+  btnReceipt: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: theme.radii.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
+  },
+  btnReceiptTxt: { fontSize: 15, fontFamily: "Inter_800ExtraBold", color: theme.colors.primary },
+  receiptRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.outlineVariant,
+  },
   btnDanger: {
     marginTop: 12,
     backgroundColor: "#fef2f2",

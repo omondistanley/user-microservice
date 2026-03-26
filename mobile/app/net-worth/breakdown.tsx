@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 function toNumber(v: unknown): number | null {
   if (v === null || v === undefined) return null;
@@ -40,10 +41,10 @@ export default function NetWorthBreakdownScreen() {
         const aJson = await aRes.json().catch(() => null);
         const lJson = await lRes.json().catch(() => null);
         if (!aRes.ok) {
-          throw new Error((aJson as any)?.detail ? String((aJson as any).detail) : "Failed to load assets.");
+          throw new Error(formatApiDetail((aJson as any)?.detail, "Failed to load assets."));
         }
         if (!lRes.ok) {
-          throw new Error((lJson as any)?.detail ? String((lJson as any).detail) : "Failed to load liabilities.");
+          throw new Error(formatApiDetail((lJson as any)?.detail, "Failed to load liabilities."));
         }
         if (cancelled) return;
         setAssets(Array.isArray(aJson) ? aJson : []);

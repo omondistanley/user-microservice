@@ -11,9 +11,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type TxKind = "expense" | "income";
 
@@ -92,7 +94,20 @@ export default function AddExpenseScreen() {
           currency: "USD",
           category_code: c.code,
         };
-        if (note.trim()) payload.description = note.trim().slice(0, 2000);
+        let locNote = "";
+        try {
+          const perm = await Location.requestForegroundPermissionsAsync();
+          if (perm.status === "granted") {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            locNote = ` [loc ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}]`;
+          }
+        } catch {
+          /* optional */
+        }
+        const descCombined = `${note.trim()}${locNote}`.trim();
+        if (descCombined) payload.description = descCombined.slice(0, 2000);
 
         const res = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/expenses`, {
           method: "POST",
@@ -100,7 +115,7 @@ export default function AddExpenseScreen() {
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.detail ? String(data.detail) : "Failed to save expense.");
+        if (!res.ok) throw new Error(formatApiDetail(data?.detail, "Failed to save expense."));
       } else {
         const payload: Record<string, unknown> = {
           amount: amountNumber,
@@ -116,7 +131,7 @@ export default function AddExpenseScreen() {
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.detail ? String(data.detail) : "Failed to save income.");
+        if (!res.ok) throw new Error(formatApiDetail(data?.detail, "Failed to save income."));
       }
 
       router.back();

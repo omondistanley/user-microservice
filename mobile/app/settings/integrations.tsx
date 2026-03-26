@@ -11,8 +11,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import * as DeviceCalendar from "expo-calendar";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type PlaidItem = {
   item_id?: string;
@@ -65,6 +67,8 @@ export default function IntegrationsScreen() {
 
   const [calendar, setCalendar] = useState<CalendarStatus | null>(null);
   const [calendarBusy, setCalendarBusy] = useState(false);
+  const [deviceCalGranted, setDeviceCalGranted] = useState<boolean | null>(null);
+  const [deviceCalBusy, setDeviceCalBusy] = useState(false);
 
   const [alpaca, setAlpaca] = useState<AlpacaStatus | null>(null);
   const [alpacaBusy, setAlpacaBusy] = useState(false);
@@ -90,20 +94,16 @@ export default function IntegrationsScreen() {
       const alpacaJson = (await alpacaRes.json().catch(() => null)) as AlpacaStatus | null;
 
       if (!itemsRes.ok) {
-        throw new Error((itemsJson as any)?.detail ? String((itemsJson as any).detail) : "Failed to load Plaid items.");
+        throw new Error(formatApiDetail((itemsJson as any)?.detail, "Failed to load Plaid items."));
       }
       if (!accountsRes.ok) {
-        throw new Error(
-          (accountsJson as any)?.detail ? String((accountsJson as any).detail) : "Failed to load Plaid accounts.",
-        );
+        throw new Error(formatApiDetail((accountsJson as any)?.detail, "Failed to load Plaid accounts."));
       }
       if (!calendarRes.ok) {
-        throw new Error(
-          (calendarJson as any)?.detail ? String((calendarJson as any).detail) : "Failed to load calendar status.",
-        );
+        throw new Error(formatApiDetail((calendarJson as any)?.detail, "Failed to load calendar status."));
       }
       if (!alpacaRes.ok) {
-        throw new Error((alpacaJson as any)?.detail ? String((alpacaJson as any).detail) : "Failed to load Alpaca status.");
+        throw new Error(formatApiDetail((alpacaJson as any)?.detail, "Failed to load Alpaca status."));
       }
 
       setItems(Array.isArray(itemsJson?.items) ? (itemsJson.items as PlaidItem[]) : []);
@@ -122,6 +122,40 @@ export default function IntegrationsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await DeviceCalendar.getCalendarPermissionsAsync();
+        if (!cancelled) setDeviceCalGranted(status === "granted");
+      } catch {
+        if (!cancelled) setDeviceCalGranted(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const requestDeviceCalendarAccess = async () => {
+    setDeviceCalBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const { status } = await DeviceCalendar.requestCalendarPermissionsAsync();
+      setDeviceCalGranted(status === "granted");
+      setMessage(
+        status === "granted"
+          ? "Device calendar access granted. Local calendars are available on this device."
+          : "Calendar permission was not granted.",
+      );
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Could not request calendar access.");
+    } finally {
+      setDeviceCalBusy(false);
+    }
+  };
+
   const connectCalendar = async () => {
     setCalendarBusy(true);
     setError(null);
@@ -133,7 +167,7 @@ export default function IntegrationsScreen() {
       );
       const json = (await res.json().catch(() => null)) as CalendarAuthorizeResponse | null;
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Calendar connect failed.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Calendar connect failed."));
       }
       const authUrl = json?.authorization_url ? String(json.authorization_url) : "";
       if (!authUrl) {
@@ -158,7 +192,7 @@ export default function IntegrationsScreen() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Calendar disconnect failed.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Calendar disconnect failed."));
       }
       setMessage("Calendar disconnected.");
       await load();
@@ -185,7 +219,7 @@ export default function IntegrationsScreen() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Alpaca link failed.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Alpaca link failed."));
       }
       setMessage("Alpaca linked.");
       setAlpacaApiKeyId("");
@@ -206,7 +240,7 @@ export default function IntegrationsScreen() {
       const res = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/alpaca/sync`, { method: "POST" });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Alpaca sync failed.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Alpaca sync failed."));
       }
       setMessage(`Alpaca sync complete${typeof json?.synced === "number" ? ` (${json.synced} positions)` : ""}.`);
       await load();
@@ -227,7 +261,7 @@ export default function IntegrationsScreen() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Alpaca unlink failed.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Alpaca unlink failed."));
       }
       setMessage("Alpaca disconnected.");
       await load();
@@ -246,7 +280,7 @@ export default function IntegrationsScreen() {
       const res = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/plaid/sync`, { method: "POST" });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Plaid sync failed.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Plaid sync failed."));
       }
       setMessage(`Plaid sync complete${typeof json?.created === "number" ? ` (${json.created} transactions)` : ""}.`);
     } catch (e: any) {
@@ -266,7 +300,7 @@ export default function IntegrationsScreen() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to unlink bank item.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Failed to unlink bank item."));
       }
       setMessage("Bank item removed.");
       await load();
@@ -382,6 +416,32 @@ export default function IntegrationsScreen() {
             </Pressable>
           ) : null}
         </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Device calendar</Text>
+          {deviceCalGranted ? (
+            <View style={styles.pillOk}>
+              <Text style={styles.pillOkText}>Allowed</Text>
+            </View>
+          ) : (
+            <View style={styles.pillMuted}>
+              <Text style={styles.pillMutedText}>Not allowed</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.mutedText}>
+          Grant access to calendars on this phone or tablet (e.g. Apple Calendar on iOS). This is separate from Google
+          Calendar linking above.
+        </Text>
+        <Pressable
+          style={[styles.secondaryBtn, deviceCalBusy && { opacity: 0.7 }]}
+          onPress={requestDeviceCalendarAccess}
+          disabled={deviceCalBusy}
+        >
+          <Text style={styles.secondaryBtnText}>{deviceCalBusy ? "Requesting…" : "Request calendar access"}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.card}>

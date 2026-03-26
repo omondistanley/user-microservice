@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 const CATEGORY_NAMES: Record<number, string> = {
   1: "Food",
@@ -159,7 +160,7 @@ export default function ReportsScreen() {
       { method: "GET" },
     );
     const json = (await res.json().catch(() => null)) as SummaryResponse | null;
-    if (!res.ok) throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to load report summary.");
+    if (!res.ok) throw new Error(formatApiDetail((json as any)?.detail, "Failed to load report summary."));
     return Array.isArray(json?.items) ? (json!.items as SummaryItem[]) : [];
   };
 
@@ -171,7 +172,7 @@ export default function ReportsScreen() {
       { method: "GET" },
     );
     const json = (await res.json().catch(() => null)) as SummaryResponse | null;
-    if (!res.ok) throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to load monthly trend.");
+    if (!res.ok) throw new Error(formatApiDetail((json as any)?.detail, "Failed to load monthly trend."));
     return Array.isArray(json?.items) ? (json!.items as SummaryItem[]) : [];
   };
 
@@ -224,7 +225,7 @@ export default function ReportsScreen() {
         body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to save view.");
+      if (!res.ok) throw new Error(formatApiDetail((json as any)?.detail, "Failed to save view."));
 
       router.replace("/saved-views");
     } catch (e: any) {

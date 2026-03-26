@@ -16,6 +16,8 @@ import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { clearTokens } from "../../src/authTokens";
 import { theme } from "../../src/theme";
+import { agentLog } from "../../src/debug/agentLog";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type MeResponse = {
   email?: string;
@@ -92,10 +94,23 @@ export default function ProfileScreen() {
       ]);
 
       const meJson = await meRes.json().catch(() => null);
+      agentLog({
+        hypothesisId: "H5-H8",
+        location: "profile.tsx:load",
+        message: "profile parallel GET statuses",
+        data: {
+          meStatus: meRes.status,
+          meOk: meRes.ok,
+          portStatus: portRes.status,
+          healthStatus: healthRes.status,
+          syncStatus: syncRes.status,
+          meDetailJson: meJson
+            ? JSON.stringify((meJson as { detail?: unknown }).detail ?? meJson).slice(0, 600)
+            : null,
+        },
+      });
       if (!meRes.ok) {
-        throw new Error(
-          (meJson as any)?.detail ? String((meJson as any).detail) : "Failed to load profile.",
-        );
+        throw new Error(formatApiDetail((meJson as any)?.detail, "Failed to load profile."));
       }
       setMe(meJson as MeResponse);
       setFirstName((meJson as MeResponse)?.first_name ?? "");
@@ -128,16 +143,6 @@ export default function ProfileScreen() {
     return n || m.name?.trim() || m.email || "User";
   }, [me]);
 
-  const initials = useMemo(() => {
-    const m = me;
-    if (!m) return "•";
-    const fn = m.first_name?.trim();
-    const em = m.email?.trim();
-    if (fn) return fn.charAt(0).toUpperCase();
-    if (em) return em.charAt(0).toUpperCase();
-    return "•";
-  }, [me]);
-
   const linkedCount =
     (syncSummary?.plaid_items ?? 0) + (syncSummary?.teller_enrollments ?? 0);
   const linkedLabel =
@@ -168,7 +173,7 @@ export default function ProfileScreen() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data?.detail ? String(data.detail) : "Failed to save.");
+        throw new Error(formatApiDetail(data?.detail, "Failed to save."));
       }
       setMe(data as MeResponse);
       setPersonalOpen(false);
@@ -211,38 +216,24 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 10,
-            paddingBottom: 12,
-            ...theme.shadows.sm,
-          },
-        ]}
-      >
-        <View style={styles.headerLeft}>
-          <MaterialCommunityIcons name="bank" size={26} color={theme.colors.primary} />
-          <Text style={styles.brand}>PocketII</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <Pressable
-            hitSlop={10}
-            onPress={() => router.push("/more")}
-            style={styles.menuBtn}
-          >
-            <MaterialCommunityIcons name="menu" size={24} color={theme.colors.onSurface} />
-          </Pressable>
-          <View style={styles.avatarTop}>
-            <Text style={styles.avatarTopText}>{initials}</Text>
-          </View>
-        </View>
-      </View>
-
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 100 },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.profileMenuOnly}>
+          <Pressable
+            onPress={() => router.push("/more")}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Open menu"
+          >
+            <MaterialCommunityIcons name="menu" size={26} color={theme.colors.primary} />
+          </Pressable>
+        </View>
         {loading ? (
           <ActivityIndicator style={{ marginTop: 32 }} color={theme.colors.primary} />
         ) : error ? (
@@ -388,39 +379,11 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.xl,
-    backgroundColor: theme.colors.surface,
+  profileMenuOnly: {
+    alignSelf: "flex-start",
+    marginBottom: 8,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  brand: {
-    fontSize: 20,
-    fontFamily: "Inter_800ExtraBold",
-    color: theme.colors.onSurface,
-    letterSpacing: -0.4,
-  },
-  avatarTop: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: theme.colors.surfaceContainer,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: theme.colors.surfaceContainer,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarTopText: { fontFamily: "Inter_800ExtraBold", color: theme.colors.primary, fontSize: 16 },
-  scroll: { paddingHorizontal: theme.spacing.xl, paddingTop: 20 },
+  scroll: { paddingHorizontal: theme.spacing.xl },
   heroCard: {
     backgroundColor: theme.colors.inverseSurface,
     borderRadius: theme.radii.xl + 4,

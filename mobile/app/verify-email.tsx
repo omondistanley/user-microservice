@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../src/config";
 import { authClient } from "../src/authClient";
 import { theme } from "../src/theme";
+import { formatApiDetail } from "../src/formatApiDetail";
 
 const OTP_LEN = 6;
 
@@ -49,7 +50,7 @@ export default function VerifyEmailScreen() {
     try {
       const res = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/user/me`, { method: "GET" });
       const json = (await res.json().catch(() => null)) as Me | null;
-      if (!res.ok) throw new Error((json as any)?.detail ? String((json as any).detail) : "Could not load profile.");
+      if (!res.ok) throw new Error(formatApiDetail((json as any)?.detail, "Could not load profile."));
       setMe(json);
       if (json?.email_verified_at) {
         router.replace("/(tabs)/profile");
@@ -100,7 +101,7 @@ export default function VerifyEmailScreen() {
     try {
       const res = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/user/me`, { method: "GET" });
       const json = (await res.json().catch(() => null)) as Me | null;
-      if (!res.ok) throw new Error((json as any)?.detail ? String((json as any).detail) : "Verification check failed.");
+      if (!res.ok) throw new Error(formatApiDetail((json as any)?.detail, "Verification check failed."));
       if (json?.email_verified_at) {
         router.replace("/(tabs)/");
         return;
@@ -125,7 +126,7 @@ export default function VerifyEmailScreen() {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Could not resend email.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Could not resend email."));
       }
       setMessage("If your account needs verification, a new email is on the way.");
     } catch (e: unknown) {

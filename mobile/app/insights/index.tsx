@@ -7,6 +7,7 @@ import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { getAccessToken } from "../../src/authTokens";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type Anomaly = {
   expense_id?: string;
@@ -68,7 +69,7 @@ export default function InsightsScreen() {
       });
       const anomaliesJson = await anomaliesRes.json().catch(() => null);
       if (!anomaliesRes.ok) {
-        throw new Error(anomaliesJson?.detail ? String(anomaliesJson.detail) : "Failed to load anomalies.");
+        throw new Error(formatApiDetail(anomaliesJson?.detail, "Failed to load anomalies."));
       }
       const pts = Array.isArray(anomaliesJson?.anomalies) ? (anomaliesJson.anomalies as Anomaly[]) : [];
 
@@ -77,7 +78,7 @@ export default function InsightsScreen() {
       });
       const forecastJson = (await forecastRes.json().catch(() => null)) as ForecastSpendResponse | null;
       if (!forecastRes.ok) {
-        throw new Error((forecastJson as any)?.detail ? String((forecastJson as any).detail) : "Failed to load forecast.");
+        throw new Error(formatApiDetail((forecastJson as any)?.detail, "Failed to load forecast."));
       }
 
       setAnomalies(pts);
@@ -121,7 +122,7 @@ export default function InsightsScreen() {
       const res = await authClient.requestWithRefresh(url, { method: "POST" });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error((json as any)?.detail ? String((json as any).detail) : "Feedback failed.");
+        throw new Error(formatApiDetail((json as any)?.detail, "Feedback failed."));
       }
       // Refresh list to reflect any changes (or at least to keep UI in sync).
       await load();
@@ -137,7 +138,7 @@ export default function InsightsScreen() {
           <View style={styles.hubAv}>
             <Text style={styles.hubAvTxt}>{initial}</Text>
           </View>
-          <Text style={styles.hubBrand}>PocketII</Text>
+          <Text style={styles.hubBrand}>pocketii</Text>
         </View>
         <Pressable onPress={() => router.push("/notifications")}>
           <MaterialCommunityIcons name="bell-outline" size={24} color={theme.colors.primary} />

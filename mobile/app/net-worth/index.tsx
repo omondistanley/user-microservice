@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type Summary = {
   net_worth?: number | string;
@@ -56,7 +57,7 @@ export default function NetWorthScreen() {
         });
         const json = (await res.json().catch(() => null)) as Summary | null;
         if (!res.ok) {
-          throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to load net worth.");
+          throw new Error(formatApiDetail((json as any)?.detail, "Failed to load net worth."));
         }
         if (cancelled) return;
         setData(json);

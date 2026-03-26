@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 import { getAccessToken } from "../../src/authTokens";
 
 type IncomeKind = "salary" | "gift" | "freelance" | "other";
@@ -111,7 +112,7 @@ export default function AddIncomeScreen() {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.detail ? String(data.detail) : "Failed to create income.");
+      if (!res.ok) throw new Error(formatApiDetail(data?.detail, "Failed to create income."));
       router.back();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Save failed.");

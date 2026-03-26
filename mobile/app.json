@@ -9,7 +9,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pocketii.app"
+      "bundleIdentifier": "com.pocketii.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "pocketii can attach your current location to expenses you add manually when you allow it.",
+        "NSCalendarsUsageDescription": "pocketii can read your device calendars to align reminders with your schedule when you allow it.",
+        "NSRemindersUsageDescription": "pocketii may access reminders alongside calendars if you enable integrations."
+      }
     },
     "android": {
       "package": "com.pocketii.app"

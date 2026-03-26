@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 const PLAID_LINK_TOKEN_KEY = "pocketii_plaid_link_token";
 
@@ -46,7 +47,7 @@ export default function LinkBankSuccessScreen() {
           });
           const json = await res.json().catch(() => null);
           if (!res.ok) {
-            throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to query Plaid link status.");
+            throw new Error(formatApiDetail((json as any)?.detail, "Failed to query Plaid link status."));
           }
           const pts: unknown = (json as any)?.public_tokens;
           publicTokens = Array.isArray(pts) ? (pts as string[]) : [];
@@ -70,7 +71,7 @@ export default function LinkBankSuccessScreen() {
           });
           const json = await res.json().catch(() => null);
           if (!res.ok) {
-            throw new Error((json as any)?.detail ? String((json as any).detail) : "Failed to exchange Plaid public token.");
+            throw new Error(formatApiDetail((json as any)?.detail, "Failed to exchange Plaid public token."));
           }
         }
 
@@ -81,7 +82,7 @@ export default function LinkBankSuccessScreen() {
         });
         const syncJson = await syncRes.json().catch(() => null);
         if (!syncRes.ok) {
-          throw new Error((syncJson as any)?.detail ? String((syncJson as any).detail) : "Failed to sync plaid transactions.");
+          throw new Error(formatApiDetail((syncJson as any)?.detail, "Failed to sync plaid transactions."));
         }
 
         // Clear link_token now that we're done.
@@ -118,7 +119,7 @@ export default function LinkBankSuccessScreen() {
               </View>
             </View>
             <Text style={styles.successTitle}>Success!</Text>
-            <Text style={styles.successSub}>Your bank account has been linked to PocketII.</Text>
+            <Text style={styles.successSub}>Your bank account has been linked to pocketii.</Text>
 
             <View style={styles.bankCard}>
               <View style={styles.bankIcon}>

@@ -11,6 +11,7 @@ import { Text } from "../../src/components/ui/Text";
 import { Input } from "../../src/components/ui/Input";
 import { Button } from "../../src/components/ui/Button";
 import { theme } from "../../src/theme";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 export default function SecurityScreen() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function SecurityScreen() {
 
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        throw new Error(json?.detail ? String(json.detail) : "Failed to change password.");
+        throw new Error(formatApiDetail(json?.detail, "Failed to change password."));
       }
 
       setSuccess("Password changed. You have been signed out on other devices.");

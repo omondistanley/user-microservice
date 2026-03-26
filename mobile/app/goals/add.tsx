@@ -3,6 +3,7 @@ import { ActivityIndicator, Button, SafeAreaView, StyleSheet, Text, TextInput, V
 import { useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 function toISODate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -39,7 +40,7 @@ export default function AddGoalScreen() {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.detail ? String(data.detail) : "Failed to create goal.");
+      if (!res.ok) throw new Error(formatApiDetail(data?.detail, "Failed to create goal."));
 
       router.replace(`/goals/${encodeURIComponent(String(data.goal_id))}`);
     } catch (e: any) {

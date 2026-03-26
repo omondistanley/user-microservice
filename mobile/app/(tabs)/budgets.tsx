@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { theme } from "../../src/theme";
+import { ExpandableCard } from "../../src/components/ui/ExpandableCard";
+import { Input } from "../../src/components/ui/Input";
+import { Button } from "../../src/components/ui/Button";
+import { agentLog } from "../../src/debug/agentLog";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type BudgetItem = {
   budget_id?: string;
@@ -27,12 +33,6 @@ type BudgetItem = {
 type ExpenseSummaryItem = {
   group_key?: string | number | null;
   total_amount?: number | string | null;
-};
-
-type MeResponse = {
-  email?: string;
-  first_name?: string | null;
-  last_name?: string | null;
 };
 
 function toISODate(d: Date): string {
@@ -87,7 +87,12 @@ export default function BudgetsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
   const [spentByCode, setSpentByCode] = useState<Map<string, number>>(new Map());
-  const [me, setMe] = useState<MeResponse | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [rowBusy, setRowBusy] = useState(false);
 
   const now = useMemo(() => new Date(), []);
   const firstDay = useMemo(() => toISODate(new Date(now.getFullYear(), now.getMonth(), 1)), [now]);
@@ -98,78 +103,150 @@ export default function BudgetsScreen() {
     [now],
   );
 
-  const initials = useMemo(() => {
-    const fn = me?.first_name?.trim();
-    const em = me?.email?.trim();
-    if (fn) return fn.charAt(0).toUpperCase();
-    if (em) return em.charAt(0).toUpperCase();
-    return "•";
-  }, [me]);
+  const loadBudgets = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const budgetsUrl = `${GATEWAY_BASE_URL}/api/v1/budgets?page=1&page_size=100`;
+      const expensesSummaryUrl = `${GATEWAY_BASE_URL}/api/v1/expenses/summary?group_by=category&date_from=${firstDay}&date_to=${today}&convert_to=USD`;
+
+      const [budRes, expRes] = await Promise.all([
+        authClient.requestWithRefresh(budgetsUrl, { method: "GET" }),
+        authClient.requestWithRefresh(expensesSummaryUrl, { method: "GET" }),
+      ]);
+
+      const budgetsPayload = await budRes.json().catch(() => null);
+      const expPayload = await expRes.json().catch(() => null);
+
+      if (!budRes.ok) {
+        throw new Error(formatApiDetail((budgetsPayload as any)?.detail, "Failed to load budgets."));
+      }
+      if (!expRes.ok) {
+        throw new Error(
+          formatApiDetail((expPayload as any)?.detail, "Failed to load spend summary."),
+        );
+      }
+
+      const list =
+        budgetsPayload?.items && Array.isArray(budgetsPayload.items)
+          ? budgetsPayload.items
+          : [];
+      const expItems =
+        expPayload?.items && Array.isArray(expPayload.items) ? expPayload.items : [];
+
+      const map = new Map<string, number>();
+      for (const r of expItems as ExpenseSummaryItem[]) {
+        const key = r.group_key !== null && r.group_key !== undefined ? String(r.group_key) : "";
+        if (!key) continue;
+        map.set(key, toNumber(r.total_amount) ?? 0);
+      }
+
+      setBudgets(list);
+      setSpentByCode(map);
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Failed to load budgets.");
+    } finally {
+      setLoading(false);
+    }
+  }, [firstDay, today]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const budgetsUrl = `${GATEWAY_BASE_URL}/api/v1/budgets?page=1&page_size=100`;
-        const expensesSummaryUrl = `${GATEWAY_BASE_URL}/api/v1/expenses/summary?group_by=category&date_from=${firstDay}&date_to=${today}&convert_to=USD`;
-        const meUrl = `${GATEWAY_BASE_URL}/user/me`;
+    loadBudgets();
+  }, [loadBudgets]);
 
-        const [budRes, expRes, meRes] = await Promise.all([
-          authClient.requestWithRefresh(budgetsUrl, { method: "GET" }),
-          authClient.requestWithRefresh(expensesSummaryUrl, { method: "GET" }),
-          authClient.requestWithRefresh(meUrl, { method: "GET" }),
-        ]);
+  const toggleBudget = (b: BudgetItem) => {
+    const id = b.budget_id ? String(b.budget_id) : "";
+    if (!id) return;
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    setEditName(String(b.name ?? b.category_name ?? ""));
+    setEditAmount(
+      b.amount !== null && b.amount !== undefined ? String(b.amount) : "",
+    );
+    setEditStart(b.start_date ? String(b.start_date).slice(0, 10) : "");
+    setEditEnd(b.end_date ? String(b.end_date).slice(0, 10) : "");
+  };
 
-        const budgetsPayload = await budRes.json().catch(() => null);
-        const expPayload = await expRes.json().catch(() => null);
-        const mePayload = await meRes.json().catch(() => null);
-
-        if (cancelled) return;
-
-        if (!budRes.ok) {
-          throw new Error(
-            (budgetsPayload as any)?.detail
-              ? String((budgetsPayload as any).detail)
-              : "Failed to load budgets.",
-          );
-        }
-        if (!expRes.ok) {
-          throw new Error(
-            (expPayload as any)?.detail ? String((expPayload as any).detail) : "Failed to load spend summary.",
-          );
-        }
-
-        const list =
-          budgetsPayload?.items && Array.isArray(budgetsPayload.items)
-            ? budgetsPayload.items
-            : [];
-        const expItems =
-          expPayload?.items && Array.isArray(expPayload.items) ? expPayload.items : [];
-
-        const map = new Map<string, number>();
-        for (const r of expItems as ExpenseSummaryItem[]) {
-          const key = r.group_key !== null && r.group_key !== undefined ? String(r.group_key) : "";
-          if (!key) continue;
-          map.set(key, toNumber(r.total_amount) ?? 0);
-        }
-
-        setBudgets(list);
-        setSpentByCode(map);
-        if (meRes.ok && mePayload) setMe(mePayload as MeResponse);
-      } catch (e: any) {
-        if (cancelled) return;
-        setError(e?.message ? String(e.message) : "Failed to load budgets.");
-      } finally {
-        if (cancelled) return;
-        setLoading(false);
+  const saveBudget = async (budgetId: string) => {
+    setRowBusy(true);
+    setError(null);
+    try {
+      const amt = Number(String(editAmount).replace(/,/g, ""));
+      if (!Number.isFinite(amt) || amt < 0) {
+        throw new Error("Enter a valid amount.");
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [firstDay, today]);
+      const payload: Record<string, unknown> = {
+        name: editName.trim() || undefined,
+        amount: amt,
+      };
+      if (editStart.trim()) payload.start_date = editStart.trim();
+      if (editEnd.trim()) payload.end_date = editEnd.trim();
+
+      const res = await authClient.requestWithRefresh(
+        `${GATEWAY_BASE_URL}/api/v1/budgets/${encodeURIComponent(budgetId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await res.json().catch(() => null);
+      agentLog({
+        hypothesisId: "H1-H3",
+        location: "budgets.tsx:saveBudget",
+        message: "PATCH /budgets/{id} response",
+        data: {
+          httpStatus: res.status,
+          ok: res.ok,
+          payloadKeys: Object.keys(payload),
+          detailType: data && typeof (data as { detail?: unknown }).detail,
+          detailJson: JSON.stringify((data as { detail?: unknown })?.detail ?? data).slice(0, 800),
+        },
+      });
+      if (!res.ok) {
+        throw new Error(formatApiDetail((data as any)?.detail, "Could not save budget."));
+      }
+      await loadBudgets();
+      setExpandedId(null);
+    } catch (e: any) {
+      setError(e?.message ? String(e.message) : "Save failed.");
+    } finally {
+      setRowBusy(false);
+    }
+  };
+
+  const deleteBudget = (budgetId: string) => {
+    Alert.alert("Delete budget", "This removes the budget permanently.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setRowBusy(true);
+          setError(null);
+          try {
+            const res = await authClient.requestWithRefresh(
+              `${GATEWAY_BASE_URL}/api/v1/budgets/${encodeURIComponent(budgetId)}`,
+              { method: "DELETE" },
+            );
+            if (!res.ok) {
+              const data = await res.json().catch(() => null);
+              throw new Error(formatApiDetail((data as any)?.detail, "Delete failed."));
+            }
+            setExpandedId(null);
+            await loadBudgets();
+          } catch (e: any) {
+            setError(e?.message ? String(e.message) : "Delete failed.");
+          } finally {
+            setRowBusy(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const { totalBudgeted, totalSpent, pctOverall, remaining } = useMemo(() => {
     let tb = 0;
@@ -193,34 +270,10 @@ export default function BudgetsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.surfaceDim }]}>
-      <View
-        style={[
-          styles.topBar,
-          {
-            paddingTop: insets.top + 8,
-            paddingBottom: 12,
-            ...theme.shadows.sm,
-          },
-        ]}
-      >
-        <View style={styles.topBarLeft}>
-          <View style={styles.avatarSm}>
-            <Text style={styles.avatarSmText}>{initials}</Text>
-          </View>
-          <Text style={styles.brandTitle}>Indigo Vault</Text>
-        </View>
-        <Pressable
-          hitSlop={12}
-          onPress={() => router.push("/notifications")}
-          style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-        >
-          <MaterialCommunityIcons name="bell-outline" size={24} color={theme.colors.secondary} />
-        </Pressable>
-      </View>
-
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
+          { paddingTop: insets.top + 8 },
           { paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
@@ -328,51 +381,101 @@ export default function BudgetsScreen() {
                       ? "Status: on track"
                       : "Status: healthy";
 
+                const bid = b.budget_id ? String(b.budget_id) : "";
+                const isOpen = bid && expandedId === bid;
+
                 return (
-                  <View key={String(b.budget_id ?? idx)} style={styles.catCard}>
-                    <View style={styles.catTop}>
-                      <View style={styles.catLeft}>
-                        <View style={[styles.iconTile, { backgroundColor: vis.tile }]}>
-                          <MaterialCommunityIcons name={vis.icon} size={22} color={vis.ink} />
+                  <ExpandableCard
+                    key={String(b.budget_id ?? idx)}
+                    expanded={Boolean(isOpen)}
+                    onToggle={() => toggleBudget(b)}
+                    style={styles.catCard}
+                    summary={
+                      <>
+                        <View style={styles.catTop}>
+                          <View style={styles.catLeft}>
+                            <View style={[styles.iconTile, { backgroundColor: vis.tile }]}>
+                              <MaterialCommunityIcons name={vis.icon} size={22} color={vis.ink} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.catTitle} numberOfLines={1}>
+                                {title}
+                              </Text>
+                              <Text style={styles.catSub} numberOfLines={1}>
+                                {sub}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={{ alignItems: "flex-end" }}>
+                            <Text style={styles.catAmounts}>
+                              {fmtMoney(spent)} / {fmtMoney(limit)}
+                            </Text>
+                            <Text style={[styles.catPct, { color: statusColor }]}>
+                              {statusLabel.toUpperCase()}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.catTitle} numberOfLines={1}>
-                            {title}
-                          </Text>
-                          <Text style={styles.catSub} numberOfLines={1}>
-                            {sub}
+                        <View style={styles.barTrackThick}>
+                          <View
+                            style={[
+                              styles.barFillThick,
+                              {
+                                width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%`,
+                                backgroundColor: barColor,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <View style={styles.catFooter}>
+                          <Text style={styles.catFooterLeft}>{footerStatus}</Text>
+                          <Text
+                            style={[
+                              styles.catFooterRight,
+                              over && { color: theme.colors.error },
+                            ]}
+                          >
+                            {leftLabel}
                           </Text>
                         </View>
-                      </View>
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={styles.catAmounts}>
-                          {fmtMoney(spent)} / {fmtMoney(limit)}
-                        </Text>
-                        <Text style={[styles.catPct, { color: statusColor }]}>
-                          {statusLabel.toUpperCase()}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.barTrackThick}>
-                      <View
-                        style={[
-                          styles.barFillThick,
-                          { width: `${Math.min(100, limit > 0 ? (spent / limit) * 100 : 0)}%`, backgroundColor: barColor },
-                        ]}
-                      />
-                    </View>
-                    <View style={styles.catFooter}>
-                      <Text style={styles.catFooterLeft}>{footerStatus}</Text>
-                      <Text
-                        style={[
-                          styles.catFooterRight,
-                          over && { color: theme.colors.error },
-                        ]}
-                      >
-                        {leftLabel}
-                      </Text>
-                    </View>
-                  </View>
+                      </>
+                    }
+                  >
+                    {bid ? (
+                      <>
+                        <Text style={styles.fieldLabel}>Name</Text>
+                        <Input value={editName} onChangeText={setEditName} placeholder="Budget name" />
+                        <Text style={styles.fieldLabel}>Amount limit</Text>
+                        <Input
+                          value={editAmount}
+                          onChangeText={setEditAmount}
+                          placeholder="0.00"
+                          keyboardType="decimal-pad"
+                        />
+                        <Text style={styles.fieldLabel}>Start date (YYYY-MM-DD)</Text>
+                        <Input value={editStart} onChangeText={setEditStart} placeholder="2025-01-01" />
+                        <Text style={styles.fieldLabel}>End date (YYYY-MM-DD)</Text>
+                        <Input value={editEnd} onChangeText={setEditEnd} placeholder="2025-12-31" />
+                        <View style={styles.rowActions}>
+                          <View style={{ flex: 1 }}>
+                            <Button
+                              title="Save"
+                              onPress={() => saveBudget(bid)}
+                              loading={rowBusy}
+                              disabled={rowBusy}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Button
+                              title="Delete"
+                              tone="danger"
+                              onPress={() => deleteBudget(bid)}
+                              disabled={rowBusy}
+                            />
+                          </View>
+                        </View>
+                      </>
+                    ) : null}
+                  </ExpandableCard>
                 );
               })
             )}
@@ -385,30 +488,15 @@ export default function BudgetsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.xl,
-    backgroundColor: theme.colors.surface,
-  },
-  topBarLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  avatarSm: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
-    backgroundColor: theme.colors.primaryContainer,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarSmText: { color: theme.colors.primary, fontFamily: "Inter_800ExtraBold", fontSize: 14 },
-  brandTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_800ExtraBold",
-    color: theme.colors.primary,
-    letterSpacing: -0.3,
-  },
   scroll: { paddingHorizontal: theme.spacing.xl, paddingTop: 16 },
+  fieldLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: theme.colors.onSurfaceVariant,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  rowActions: { flexDirection: "row", gap: 10 },
   heroTitles: { marginBottom: 24 },
   pageTitle: {
     fontSize: 28,
@@ -534,11 +622,6 @@ const styles = StyleSheet.create({
     color: theme.colors.onSurface,
   },
   catCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.lg,
-    padding: theme.spacing.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.outlineVariant,
     marginBottom: 16,
   },
   catTop: {

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useRouter } from "expo-router";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
+import { formatApiDetail } from "../../src/formatApiDetail";
 
 type SavedViewItem = {
   view_id?: string;
@@ -29,7 +30,9 @@ export default function SavedViewsScreen() {
     try {
       const res = await authClient.requestWithRefresh(`${GATEWAY_BASE_URL}/api/v1/reports/saved-views`, { method: "GET" });
       const json = (await res.json().catch(() => null)) as SavedViewsResponse | null;
-      if (!res.ok) throw new Error(json ? (json as any)?.detail ? String((json as any).detail) : "Failed to load saved views." : "Failed to load saved views.");
+      if (!res.ok) {
+        throw new Error(formatApiDetail(json ? (json as any)?.detail : undefined, "Failed to load saved views."));
+      }
       setItems(Array.isArray(json?.items) ? (json!.items as SavedViewItem[]) : []);
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Failed to load saved views.");
@@ -51,7 +54,7 @@ export default function SavedViewsScreen() {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        throw new Error(json?.detail ? String(json.detail) : "Delete failed.");
+        throw new Error(formatApiDetail(json?.detail, "Delete failed."));
       }
       await load();
     } catch (e: any) {
