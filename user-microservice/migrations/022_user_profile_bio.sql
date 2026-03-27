@@ -1,0 +1,2 @@
+ALTER TABLE users_db."user"
+ADD COLUMN IF NOT EXISTS bio TEXT NULL;

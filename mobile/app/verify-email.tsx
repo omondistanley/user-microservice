@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -17,8 +16,6 @@ import { GATEWAY_BASE_URL } from "../src/config";
 import { authClient } from "../src/authClient";
 import { theme } from "../src/theme";
 import { formatApiDetail } from "../src/formatApiDetail";
-
-const OTP_LEN = 6;
 
 function maskEmail(raw: string): string {
   const s = raw.trim();
@@ -37,8 +34,6 @@ export default function VerifyEmailScreen() {
   const insets = useSafeAreaInsets();
   const [me, setMe] = useState<Me | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
-  const [digits, setDigits] = useState<string[]>(() => Array(OTP_LEN).fill(""));
-  const refs = useRef<Array<TextInput | null>>([]);
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -67,32 +62,6 @@ export default function VerifyEmailScreen() {
   }, [loadMe]);
 
   const masked = useMemo(() => maskEmail(me?.email ?? ""), [me?.email]);
-
-  const setDigitAt = (index: number, char: string) => {
-    const c = char.replace(/\D/g, "").slice(-1);
-    setDigits((prev) => {
-      const next = [...prev];
-      next[index] = c;
-      return next;
-    });
-    if (c && index < OTP_LEN - 1) {
-      refs.current[index + 1]?.focus();
-    }
-  };
-
-  const onKeyPress = (index: number, key: string) => {
-    if (key === "Backspace") {
-      setDigits((prev) => {
-        const next = [...prev];
-        if (next[index]) next[index] = "";
-        else if (index > 0) {
-          next[index - 1] = "";
-          refs.current[index - 1]?.focus();
-        }
-        return next;
-      });
-    }
-  };
 
   const onVerify = async () => {
     setBusy(true);
@@ -152,26 +121,23 @@ export default function VerifyEmailScreen() {
           <Text style={styles.title}>Check your inbox</Text>
           <Text style={styles.body}>
             We&apos;ve sent a verification link to <Text style={styles.emph}>{masked}</Text>. Open it on your
-            device, then return here and tap Verify and Continue. Need another message? Tap Resend Email.
+            device, then return here and tap Verify and Continue. Verification is link-based, so no code entry
+            is required. Need another message? Tap Resend Email.
           </Text>
 
-          <View style={styles.otpRow}>
-            {digits.map((d, i) => (
-              <TextInput
-                key={i}
-                ref={(r) => {
-                  refs.current[i] = r;
-                }}
-                value={d}
-                onChangeText={(t) => setDigitAt(i, t)}
-                onKeyPress={({ nativeEvent }) => onKeyPress(i, nativeEvent.key)}
-                keyboardType="number-pad"
-                maxLength={1}
-                style={[styles.otpCell, i === digits.findIndex((x) => !x) && styles.otpCellFocus]}
-                placeholder="•"
-                placeholderTextColor={theme.colors.outline}
-              />
-            ))}
+          <View style={styles.stepsCard}>
+            <View style={styles.stepRow}>
+              <MaterialCommunityIcons name="email-fast-outline" size={18} color={theme.colors.primary} />
+              <Text style={styles.stepText}>Open the verification email on this device.</Text>
+            </View>
+            <View style={styles.stepRow}>
+              <MaterialCommunityIcons name="gesture-tap-button" size={18} color={theme.colors.primary} />
+              <Text style={styles.stepText}>Tap the link in the message to confirm your email.</Text>
+            </View>
+            <View style={styles.stepRow}>
+              <MaterialCommunityIcons name="check-decagram-outline" size={18} color={theme.colors.primary} />
+              <Text style={styles.stepText}>Return here and use Verify and Continue to refresh your status.</Text>
+            </View>
           </View>
 
           {message ? <Text style={styles.info}>{message}</Text> : null}
@@ -251,21 +217,23 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   emph: { fontFamily: "Inter_700Bold", color: theme.colors.onSurface },
-  otpRow: { flexDirection: "row", justifyContent: "space-between", gap: 6, marginBottom: 22 },
-  otpCell: {
-    flex: 1,
-    maxWidth: 48,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: theme.colors.surfaceContainer,
-    textAlign: "center",
-    fontSize: 22,
-    fontFamily: "Inter_800ExtraBold",
-    color: theme.colors.onSurface,
-    borderWidth: 2,
-    borderColor: "transparent",
+  stepsCard: {
+    gap: 10,
+    marginBottom: 22,
+    padding: 14,
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
   },
-  otpCellFocus: { borderColor: theme.colors.primary, backgroundColor: theme.colors.surfaceContainerLow },
+  stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  stepText: {
+    flex: 1,
+    color: theme.colors.onSurface,
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    lineHeight: 18,
+  },
   info: { color: theme.colors.primary, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: "center", marginBottom: 8 },
   err: { color: theme.colors.error, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: "center", marginBottom: 8 },
   primary: {

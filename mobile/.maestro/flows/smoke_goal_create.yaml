@@ -1,0 +1,24 @@
+# Requires an existing authenticated session.
+appId: com.pocketii.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "e2e-dashboard-hero"
+    timeout: 90000
+- openLink: pocketii://goals/add
+- extendedWaitUntil:
+    visible:
+      id: "e2e-goal-add-screen"
+    timeout: 90000
+- tapOn:
+    id: "e2e-goal-name"
+- inputText: "Rainy Day"
+- tapOn:
+    id: "e2e-goal-target"
+- inputText: "750"
+- tapOn:
+    id: "e2e-goal-submit"
+- extendedWaitUntil:
+    visible: "Rainy Day"
+    timeout: 120000

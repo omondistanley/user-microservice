@@ -1,0 +1,17 @@
+# Requires an existing authenticated session.
+appId: com.pocketii.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "e2e-dashboard-hero"
+    timeout: 90000
+- openLink: pocketii://expenses/add
+- extendedWaitUntil:
+    visible: "Add Transaction"
+    timeout: 90000
+- tapOn: "1"
+- tapOn: "2"
+- tapOn: "3"
+- tapOn: "4"
+- tapOn: "Save Transaction"

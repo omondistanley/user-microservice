@@ -60,7 +60,8 @@ services:
              python run_migration.py migrations/019_net_worth_manual.sql &&
              python run_migration.py migrations/020_calendar_oauth_connection.sql &&
              python run_migration.py migrations/020_lifecycle_events.sql &&
-             python run_migration.py migrations/021_retention_policy_investments_expense.sql"
+             python run_migration.py migrations/021_retention_policy_investments_expense.sql &&
+             python run_migration.py migrations/022_user_profile_bio.sql"
     restart: "no"
 
   expense-migrations:

@@ -30,7 +30,8 @@ for f in /opt/expense_tracker/user-microservice/migrations/create_user_table.sql
          /opt/expense_tracker/user-microservice/migrations/019_net_worth_manual.sql \
          /opt/expense_tracker/user-microservice/migrations/020_calendar_oauth_connection.sql \
          /opt/expense_tracker/user-microservice/migrations/020_lifecycle_events.sql \
-         /opt/expense_tracker/user-microservice/migrations/021_retention_policy_investments_expense.sql; do
+         /opt/expense_tracker/user-microservice/migrations/021_retention_policy_investments_expense.sql \
+         /opt/expense_tracker/user-microservice/migrations/022_user_profile_bio.sql; do
   [ -f "$f" ] && python3 "$TRACKED" "$f" || echo "warning: migration failed: $f"
 done
 

@@ -1,83 +1,94 @@
 from __future__ import annotations
-from typing import Dict, List, Any
+
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-class Hatoas(BaseModel): # return the links with self, budgets, and expenses
+
+class Hatoas(BaseModel):
     links: Dict[str, Any]
 
-class NewUser(BaseModel): # create a new user with password, email, last_name, and first_name
+
+class NewUser(BaseModel):
     email: EmailStr
     last_name: str
     first_name: str
     password: str = Field(..., min_length=8)
 
-class TokenResponse(BaseModel):  # access token and optional refresh token
+
+class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: Optional[str] = None
 
 
-class RefreshRequest(BaseModel):  # body for POST /token/refresh
+class RefreshRequest(BaseModel):
     refresh_token: str
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8)
 
-class UserInfo(BaseModel): # return the user information with id, email, first_name, and last_name
+
+class UserInfo(BaseModel):
     id: int
     email: EmailStr
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    links: Optional[Dict[str, Any]] = None
 
 
 class UserMeResponse(BaseModel):
-    """Current user profile for GET /user/me."""
     id: int
-    email: str
+    email: EmailStr
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    bio: Optional[str] = None
+    created_at: Optional[datetime] = None
     email_verified_at: Optional[datetime] = None
+    auth_provider: Optional[str] = None
 
 
 class UserMeUpdate(BaseModel):
-    """Body for PATCH /user/me."""
     first_name: Optional[str] = Field(None, max_length=255)
     last_name: Optional[str] = Field(None, max_length=255)
+    bio: Optional[str] = Field(None, max_length=1000)
 
 
 class ChangePasswordRequest(BaseModel):
-    """Body for POST /user/me/change-password."""
     current_password: str
     new_password: str = Field(..., min_length=8)
 
-class User(BaseModel): # return the user information with id, email, last_name, first_name, created_at, and modified_at
+
+class User(BaseModel):
     id: Optional[int] = None
     email: Optional[str] = None
     last_name: Optional[str] = None
     first_name: Optional[str] = None
+    bio: Optional[str] = None
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
-    class Config:
-        json_schema_extra = {
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "email": "jamesdoe@gmail.com",
                 "last_name": "Doe",
                 "first_name": "Jam",
+                "bio": "Budgeting for travel and long-term investing.",
                 "created_at": "2024-10-01 18:53:10",
                 "modified_at": "2024-10-01 18:54:10",
             }
         }
+    )
 
 
 class NotificationResponse(BaseModel):
@@ -119,10 +130,9 @@ class UserSettingsUpdate(BaseModel):
 
 class ActiveHouseholdUpdate(BaseModel):
     """Body for PATCH /api/v1/settings/active-household. null = personal scope."""
+
     household_id: Optional[UUID] = None
 
-
-# --- Households (Phase 3) ---
 
 class HouseholdCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -150,6 +160,7 @@ class HouseholdMemberResponse(BaseModel):
 
 class HouseholdMemberInvite(BaseModel):
     """Invite by email (user must exist)."""
+
     email: EmailStr
     role: str = Field("member", min_length=1, max_length=32)
 
@@ -161,28 +172,9 @@ class HouseholdMemberUpdate(BaseModel):
 
 class UserScopeResponse(BaseModel):
     """Response for GET /internal/v1/users/me/scope (for expense/budget to resolve scope)."""
+
     user_id: int
     active_household_id: Optional[UUID] = None
-
-
-class UserMeResponse(BaseModel):
-    id: int
-    email: EmailStr
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    created_at: Optional[datetime] = None
-    auth_provider: Optional[str] = None
-
-
-class UserMeUpdate(BaseModel):
-    first_name: Optional[str] = Field(None, max_length=255)
-    last_name: Optional[str] = Field(None, max_length=255)
-    email: Optional[EmailStr] = None
-
-
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str = Field(..., min_length=8)
 
 
 class EmailValidateRequest(BaseModel):

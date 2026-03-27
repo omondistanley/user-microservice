@@ -1,0 +1,22 @@
+# Requires an existing authenticated session.
+appId: com.pocketii.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "e2e-dashboard-hero"
+    timeout: 90000
+- openLink: pocketii://budgets/add
+- extendedWaitUntil:
+    visible:
+      id: "e2e-budget-add-screen"
+    timeout: 90000
+- tapOn:
+    id: "e2e-budget-amount"
+- inputText: "250"
+- tapOn: "Food"
+- tapOn:
+    id: "e2e-budget-add-submit"
+- extendedWaitUntil:
+    visible: "Budgets"
+    timeout: 120000

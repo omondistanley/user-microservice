@@ -321,6 +321,7 @@ export default function DashboardScreen() {
   }, [expenseSummaryByCategory]);
 
   const topBudgets = budgets.slice(0, 3);
+  const showGettingStarted = recent.length === 0 && budgets.length === 0;
 
   const maxDay = useMemo(() => Math.max(1, ...chartDays.map((d) => d.total)), [chartDays]);
   const hiIdx = useMemo(() => {
@@ -451,6 +452,30 @@ export default function DashboardScreen() {
                 </View>
               </View>
             </View>
+
+            {showGettingStarted ? (
+              <View style={styles.getStartedCard}>
+                <Text style={styles.getStartedKicker}>GET STARTED</Text>
+                <Text style={styles.getStartedTitle}>Set up your first money workflow.</Text>
+                <Text style={styles.getStartedSub}>
+                  Add one transaction, create one budget, add one savings goal, or link a bank to unlock the rest of the dashboard.
+                </Text>
+                <View style={styles.getStartedGrid}>
+                  <Pressable style={styles.getStartedBtnPrimary} onPress={() => router.push("/expenses/add")}>
+                    <Text style={styles.getStartedBtnPrimaryText}>Add Expense</Text>
+                  </Pressable>
+                  <Pressable style={styles.getStartedBtnSecondary} onPress={() => router.push("/budgets/add")}>
+                    <Text style={styles.getStartedBtnSecondaryText}>Create Budget</Text>
+                  </Pressable>
+                  <Pressable style={styles.getStartedBtnSecondary} onPress={() => router.push("/goals/add")}>
+                    <Text style={styles.getStartedBtnSecondaryText}>Add Goal</Text>
+                  </Pressable>
+                  <Pressable style={styles.getStartedBtnSecondary} onPress={() => router.push("/link-bank")}>
+                    <Text style={styles.getStartedBtnSecondaryText}>Link Bank</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.surfaceCard}>
               <Text style={styles.sectionKickerMuted}>TOP CATEGORIES</Text>
@@ -724,6 +749,73 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
   },
   heroBadgeText: { color: "#4ade80", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  getStartedCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: R3,
+    padding: theme.spacing.xxl,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary}22`,
+    gap: 10,
+  },
+  getStartedKicker: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2,
+  },
+  getStartedTitle: {
+    color: theme.colors.onSurface,
+    fontSize: 22,
+    fontFamily: "Inter_800ExtraBold",
+  },
+  getStartedSub: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "Inter_400Regular",
+  },
+  getStartedGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 4,
+  },
+  getStartedBtnPrimary: {
+    minWidth: "47%",
+    flexGrow: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  getStartedBtnPrimaryText: {
+    color: theme.colors.onPrimary,
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  getStartedBtnSecondary: {
+    minWidth: "47%",
+    flexGrow: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  getStartedBtnSecondaryText: {
+    color: theme.colors.onSurface,
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
 
   investCard: {
     backgroundColor: "rgba(238,242,255,0.65)",

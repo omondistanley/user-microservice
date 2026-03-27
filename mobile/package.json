@@ -11,6 +11,11 @@
     "e2e:maestro": "maestro test .maestro/flows/smoke_cold.yaml",
     "e2e:maestro:home": "maestro test .maestro/flows/smoke_home.yaml",
     "e2e:maestro:login": "maestro test .maestro/flows/login_email_password.yaml",
+    "e2e:maestro:expense": "maestro test .maestro/flows/smoke_add_expense.yaml",
+    "e2e:maestro:budget": "maestro test .maestro/flows/smoke_budget_create.yaml",
+    "e2e:maestro:goal": "maestro test .maestro/flows/smoke_goal_create.yaml",
+    "e2e:maestro:integrations": "maestro test .maestro/flows/smoke_integrations.yaml",
+    "e2e:maestro:investments": "maestro test .maestro/flows/smoke_investments.yaml",
     "e2e:maestro:all": "maestro test .maestro/flows"
   },
   "dependencies": {

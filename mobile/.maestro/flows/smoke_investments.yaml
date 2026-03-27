@@ -1,0 +1,13 @@
+# Requires an existing authenticated session.
+appId: com.pocketii.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "e2e-dashboard-hero"
+    timeout: 90000
+- tapOn: "Investments"
+- extendedWaitUntil:
+    visible: "Top Holdings"
+    timeout: 90000
+- assertVisible: "Alpaca brokerage"

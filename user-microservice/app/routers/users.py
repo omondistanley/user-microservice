@@ -232,33 +232,17 @@ async def login(
     return TokenResponse(access_token=token, token_type="bearer", refresh_token=refresh)
 
 
-@router.get("/user/{email}", tags=["users"])
-async def get_user(email: str, current_user: dict = Depends(get_current_user)) -> UserInfo:
-    res = ServiceFactory.get_service("UserResource")
-    if res is None:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    result = res.get_by_key(email)
-    if result is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if current_user["email"] != email:
-        raise HTTPException(status_code=403, detail="Not allowed to view this user")
-    return result
-
-@router.get("/users", tags=["users"], response_model=List[UserInfo])
-async def get_users(page: int = 1, pagesize: int = 10, current_user: dict = Depends(get_current_user)) -> List[UserInfo]:
-    res = ServiceFactory.get_service("UserResource")
-    if res is None:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    users = res.get_all(page = page, pagesize = pagesize)
-    if not users:
-        raise HTTPException(status_code=404, detail="No users found")
-    return users
-
 @router.post("/forgot-password", tags=["auth"])
 async def forgot_password(body: ForgotPasswordRequest):
     """Send reset link to email if user exists. Always returns same message (no enumeration)."""
     create_reset_token(body.email)
     return {"message": "If an account exists with this email, you will receive a password reset link."}
+
+
+@router.post("/api/v1/users/forgot-password", tags=["auth"])
+async def forgot_password_legacy(body: ForgotPasswordRequest):
+    """Backward-compatible alias used by older web templates."""
+    return await forgot_password(body)
 
 
 @router.post("/reset-password", tags=["auth"])
@@ -276,6 +260,12 @@ async def reset_password(body: ResetPasswordRequest, request: Request):
         request_id=_request_id(request),
     )
     return {"message": "Password has been reset. You can log in now."}
+
+
+@router.post("/api/v1/users/reset-password", tags=["auth"])
+async def reset_password_legacy(body: ResetPasswordRequest, request: Request):
+    """Backward-compatible alias used by older web templates."""
+    return await reset_password(body, request)
 
 
 @router.post("/user", tags=["users"], response_model=UserInfo)
@@ -302,7 +292,7 @@ async def newuser(
 
 @router.get("/user/me", tags=["users"], response_model=UserMeResponse)
 async def get_me(current_user: dict = Depends(get_current_user)):
-    """Return current user profile (id, email, first_name, last_name, email_verified_at)."""
+    """Return the current user profile used by both web and mobile."""
     data_service = ServiceFactory.get_service("UserResourceDataService")
     if data_service is None:
         raise HTTPException(status_code=503, detail="Service unavailable")
@@ -316,7 +306,10 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         email=row["email"],
         first_name=row.get("first_name"),
         last_name=row.get("last_name"),
+        bio=row.get("bio"),
+        created_at=row.get("created_at"),
         email_verified_at=row.get("email_verified_at"),
+        auth_provider=row.get("auth_provider"),
     )
 
 
@@ -338,6 +331,8 @@ async def patch_me(
         updates["first_name"] = payload.first_name.strip()
     if payload.last_name is not None:
         updates["last_name"] = payload.last_name.strip()
+    if payload.bio is not None:
+        updates["bio"] = payload.bio.strip()
     if updates:
         from datetime import datetime, timezone
         updates["modified_at"] = datetime.now(timezone.utc)
@@ -348,8 +343,35 @@ async def patch_me(
         email=row["email"],
         first_name=row.get("first_name"),
         last_name=row.get("last_name"),
+        bio=row.get("bio"),
+        created_at=row.get("created_at"),
         email_verified_at=row.get("email_verified_at"),
+        auth_provider=row.get("auth_provider"),
     )
+
+
+@router.get("/user/{email}", tags=["users"])
+async def get_user(email: str, current_user: dict = Depends(get_current_user)) -> UserInfo:
+    res = ServiceFactory.get_service("UserResource")
+    if res is None:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    result = res.get_by_key(email)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if current_user["email"] != email:
+        raise HTTPException(status_code=403, detail="Not allowed to view this user")
+    return result
+
+
+@router.get("/users", tags=["users"], response_model=List[UserInfo])
+async def get_users(page: int = 1, pagesize: int = 10, current_user: dict = Depends(get_current_user)) -> List[UserInfo]:
+    res = ServiceFactory.get_service("UserResource")
+    if res is None:
+        raise HTTPException(status_code=500, detail="Internal server error")
+    users = res.get_all(page=page, pagesize=pagesize)
+    if not users:
+        raise HTTPException(status_code=404, detail="No users found")
+    return users
 
 
 @router.post("/user/me/change-password", tags=["users"], status_code=204)

@@ -328,15 +328,21 @@ export default function BudgetsScreen() {
               <Text style={styles.sectionTitle}>Categories</Text>
               <Pressable
                 style={styles.addCatBtn}
-                onPress={() => router.push("/(tabs)/transactions")}
+                onPress={() => router.push("/budgets/add")}
               >
                 <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onSurface} />
-                <Text style={styles.addCatText}>Add Category</Text>
+                <Text style={styles.addCatText}>Add Budget</Text>
               </Pressable>
             </View>
 
             {budgets.length === 0 ? (
-              <Text style={styles.empty}>No budgets yet.</Text>
+              <View style={styles.emptyCard}>
+                <Text style={styles.empty}>No budgets yet.</Text>
+                <Text style={styles.emptySub}>
+                  Create your first category limit so the mobile dashboard and alerts have something to track.
+                </Text>
+                <Button title="Create Budget" onPress={() => router.push("/budgets/add")} />
+              </View>
             ) : (
               budgets.map((b, idx) => {
                 const catCode =
@@ -668,6 +674,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
+  emptyCard: {
+    gap: 10,
+    padding: 16,
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+  },
   empty: { color: theme.colors.onSurfaceVariant, fontFamily: "Inter_400Regular", marginTop: 8 },
+  emptySub: {
+    color: theme.colors.onSurfaceVariant,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
   errorText: { color: theme.colors.error, fontFamily: "Inter_600SemiBold", marginTop: 8 },
 });

@@ -52,14 +52,21 @@ export default function AddGoalScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-      <View style={styles.container}>
+      <View style={styles.container} testID="e2e-goal-add-screen">
         <Text style={styles.title}>New Goal</Text>
 
         <Text style={styles.label}>Goal name</Text>
-        <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="e.g. Emergency fund" />
+        <TextInput
+          testID="e2e-goal-name"
+          value={name}
+          onChangeText={setName}
+          style={styles.input}
+          placeholder="e.g. Emergency fund"
+        />
 
         <Text style={styles.label}>Target amount</Text>
         <TextInput
+          testID="e2e-goal-target"
           value={targetAmount}
           onChangeText={setTargetAmount}
           style={styles.input}
@@ -90,7 +97,7 @@ export default function AddGoalScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <View style={{ marginTop: 12 }}>
-          {saving ? <ActivityIndicator /> : <Button title="Create goal" onPress={onSave} />}
+          {saving ? <ActivityIndicator /> : <Button testID="e2e-goal-submit" title="Create goal" onPress={onSave} />}
         </View>
       </View>
     </SafeAreaView>
@@ -111,4 +118,3 @@ const styles = StyleSheet.create({
   },
   errorText: { color: "#dc2626" },
 });
-

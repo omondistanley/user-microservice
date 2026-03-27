@@ -11,9 +11,10 @@ type Props = {
   loading?: boolean;
   disabled?: boolean;
   tone?: Tone;
+  testID?: string;
 };
 
-export function Button({ title, onPress, loading, disabled, tone = "primary" }: Props) {
+export function Button({ title, onPress, loading, disabled, tone = "primary", testID }: Props) {
   const style =
     tone === "secondary"
       ? styles.secondary
@@ -22,7 +23,12 @@ export function Button({ title, onPress, loading, disabled, tone = "primary" }: 
         : styles.primary;
 
   return (
-    <Pressable style={[styles.base, style, disabled ? styles.disabled : null]} onPress={onPress} disabled={disabled || loading}>
+    <Pressable
+      testID={testID}
+      style={[styles.base, style, disabled ? styles.disabled : null]}
+      onPress={onPress}
+      disabled={disabled || loading}
+    >
       {loading ? (
         <ActivityIndicator color={tone === "primary" ? theme.colors.onPrimary : theme.colors.onSurface} />
       ) : (

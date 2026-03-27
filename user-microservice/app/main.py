@@ -672,6 +672,11 @@ async def savings_goals_page(request: Request):
     return _render("savings_goals.html", request)
 
 
+@app.get("/savings-goals", include_in_schema=False)
+async def savings_goals_alias_page():
+    return RedirectResponse(url="/goals", status_code=302)
+
+
 @app.get("/goals/add", include_in_schema=False)
 async def goal_add_page(request: Request):
     return _render("goal_add.html", request)

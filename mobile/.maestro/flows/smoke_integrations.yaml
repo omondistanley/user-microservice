@@ -1,0 +1,15 @@
+# Requires an existing authenticated session.
+appId: com.pocketii.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "e2e-dashboard-hero"
+    timeout: 90000
+- openLink: pocketii://settings/integrations
+- extendedWaitUntil:
+    visible: "Integrations"
+    timeout: 90000
+- assertVisible: "Plaid bank link"
+- assertVisible: "Google Calendar"
+- assertVisible: "Alpaca brokerage"
