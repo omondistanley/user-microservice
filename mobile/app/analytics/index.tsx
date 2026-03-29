@@ -203,7 +203,7 @@ export default function AnalyticsScreen() {
         </Pressable>
         <Pressable style={styles.fillBtn} onPress={() => router.push("/net-worth/breakdown")}>
           <MaterialCommunityIcons name="plus" size={18} color={theme.colors.onPrimary} />
-          <Text style={styles.fillBtnTxt}>New asset</Text>
+          <Text style={styles.fillBtnTxt}>View breakdown</Text>
         </Pressable>
       </View>
 

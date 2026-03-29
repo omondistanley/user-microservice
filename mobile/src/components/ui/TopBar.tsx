@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./Text";
-import { theme } from "../../theme";
+import { AppTheme, useAppTheme } from "../../theme";
 
 type Props = {
   title: string;
@@ -10,6 +10,8 @@ type Props = {
 };
 
 export function TopBar({ title, onBack, right }: Props) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
   return (
     <View style={styles.row}>
       <View style={styles.side}>
@@ -31,7 +33,7 @@ export function TopBar({ title, onBack, right }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",

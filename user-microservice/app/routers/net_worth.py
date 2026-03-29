@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -194,6 +195,18 @@ def _to_decimal(value: Any) -> Decimal:
         return Decimal("0")
 
 
+def _source_status_from_warning(warning_code: Optional[str]) -> str:
+    if not warning_code:
+        return "ok"
+    if warning_code.endswith("_not_configured"):
+        return "not_configured"
+    if warning_code.endswith("_unauthorized"):
+        return "unauthorized"
+    if warning_code.endswith("_unavailable"):
+        return "unavailable"
+    return "degraded"
+
+
 def _get_manual_totals(user_id: int) -> tuple[Decimal, Decimal]:
     """Return (manual_assets_total, manual_liabilities_total)."""
     manual_assets = Decimal("0")
@@ -276,9 +289,20 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
         metadata["budget_metadata"] = {"active_budget_total": str(budget_total)}
 
     warnings: list[str] = []
+    refresh_metadata: dict[str, Any] = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "sources": {
+            "expense": {"status": "ok"},
+            "investments": {"status": "ok"},
+            "budgets": {"status": "ok"},
+            "manual": {"status": "ok"},
+        },
+    }
     if isinstance(exp_meta, dict):
         w = exp_meta.get("warning")
         if w:
+            refresh_metadata["sources"]["expense"]["status"] = _source_status_from_warning(str(w))
+            refresh_metadata["sources"]["expense"]["warning_code"] = str(w)
             messages = {
                 "expense_service_not_configured": "Expense service URL is not configured; cash and income totals may stay at zero.",
                 "expense_components_unauthorized": "Expense data could not be loaded (authorization). Sign in again or check the API gateway.",
@@ -287,6 +311,9 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
             }
             warnings.append(messages.get(str(w), f"Expense data notice: {w}"))
     if investments_portfolio is None:
+        refresh_metadata["sources"]["investments"]["status"] = (
+            "not_configured" if not INVESTMENT_SERVICE_URL else "unavailable"
+        )
         if INVESTMENT_SERVICE_URL:
             warnings.append(
                 "Investment portfolio could not be loaded. From the user microservice, check "
@@ -297,9 +324,12 @@ async def net_worth_summary(request: Request, current_user: dict = Depends(get_c
                 "INVESTMENT_SERVICE_URL is not set; investment holdings are not included in net worth."
             )
     if budget_totals is None and BUDGET_SERVICE_URL:
+        refresh_metadata["sources"]["budgets"]["status"] = "unavailable"
         warnings.append("Budget totals could not be loaded; the budgets line may be zero.")
     elif budget_totals is None and not BUDGET_SERVICE_URL:
-        pass  # optional service
+        refresh_metadata["sources"]["budgets"]["status"] = "not_configured"
+
+    metadata["refresh"] = refresh_metadata
 
     return {
         "net_worth": net_worth,

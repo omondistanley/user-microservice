@@ -10,11 +10,12 @@ import { Card } from "../../src/components/ui/Card";
 import { Text } from "../../src/components/ui/Text";
 import { Input } from "../../src/components/ui/Input";
 import { Button } from "../../src/components/ui/Button";
-import { theme } from "../../src/theme";
+import { useAppTheme } from "../../src/theme";
 import { formatApiDetail } from "../../src/formatApiDetail";
 
 export default function SecurityScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -61,6 +62,16 @@ export default function SecurityScreen() {
   return (
     <Screen>
       <TopBar title="Security" onBack={() => router.back()} />
+
+        <Card variant="container">
+          <Text variant="label" uppercase color={theme.colors.onSurfaceVariant}>
+            Two-factor authentication
+          </Text>
+          <Text color={theme.colors.onSurfaceVariant}>
+            TOTP enrollment is planned but not active in this mobile build yet. Password changes and session management
+            are available now.
+          </Text>
+        </Card>
 
         <Card>
           <Text variant="label" uppercase color={theme.colors.onSurfaceVariant}>

@@ -1,6 +1,6 @@
 import React from "react";
 import { SafeAreaView, ScrollView, StyleSheet, View, ViewProps } from "react-native";
-import { theme } from "../../theme";
+import { AppTheme, useAppTheme } from "../../theme";
 
 type Props = ViewProps & {
   scroll?: boolean;
@@ -8,6 +8,8 @@ type Props = ViewProps & {
 };
 
 export function Screen({ scroll = true, padded = true, style, children, ...rest }: Props) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
   const content = (
     <View style={[styles.content, padded ? styles.padded : null, style]} {...rest}>
       {children}
@@ -21,7 +23,7 @@ export function Screen({ scroll = true, padded = true, style, children, ...rest 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.background,

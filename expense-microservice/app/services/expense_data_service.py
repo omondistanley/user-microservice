@@ -313,7 +313,7 @@ class ExpenseDataService:
             )
             cur.execute(list_sql, params + [limit, offset])
             rows = cur.fetchall()
-            return [dict(r) for r in rows], total
+            return [_dict_row(r) for r in rows if r], total
         finally:
             conn.close()
 

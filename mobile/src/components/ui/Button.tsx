@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StyleSheet } from "react-native";
-import { theme } from "../../theme";
+import { AppTheme, useAppTheme } from "../../theme";
 import { Text } from "./Text";
 
 type Tone = "primary" | "secondary" | "danger";
@@ -15,6 +15,8 @@ type Props = {
 };
 
 export function Button({ title, onPress, loading, disabled, tone = "primary", testID }: Props) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
   const style =
     tone === "secondary"
       ? styles.secondary
@@ -45,7 +47,7 @@ export function Button({ title, onPress, loading, disabled, tone = "primary", te
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   base: {
     borderRadius: theme.radii.md,
     paddingVertical: 12,

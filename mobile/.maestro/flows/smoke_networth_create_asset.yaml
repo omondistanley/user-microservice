@@ -1,0 +1,29 @@
+# Requires an existing authenticated session.
+appId: com.pocketii.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "e2e-dashboard-hero"
+    timeout: 90000
+- openLink: pocketii://net-worth/breakdown
+- extendedWaitUntil:
+    visible:
+      id: "e2e-networth-breakdown-screen"
+    timeout: 90000
+- tapOn:
+    id: "e2e-networth-type-asset"
+- tapOn:
+    id: "e2e-networth-name"
+- inputText: "Smoke Networth Asset"
+- tapOn:
+    id: "e2e-networth-type"
+- inputText: "Cash"
+- tapOn:
+    id: "e2e-networth-value"
+- inputText: "1234"
+- tapOn:
+    id: "e2e-networth-save"
+- extendedWaitUntil:
+    visible: "Smoke Networth Asset"
+    timeout: 120000

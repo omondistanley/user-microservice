@@ -120,12 +120,18 @@ class NotificationInternalCreate(BaseModel):
 class UserSettingsResponse(BaseModel):
     user_id: int
     default_currency: str
+    theme_preference: str
+    push_notifications_enabled: bool
+    email_notifications_enabled: bool
     updated_at: datetime
     active_household_id: Optional[UUID] = None
 
 
 class UserSettingsUpdate(BaseModel):
-    default_currency: str = Field(..., min_length=3, max_length=3)
+    default_currency: Optional[str] = Field(None, min_length=3, max_length=3)
+    theme_preference: Optional[str] = Field(None, pattern="^(light|dark|system)$")
+    push_notifications_enabled: Optional[bool] = None
+    email_notifications_enabled: Optional[bool] = None
 
 
 class ActiveHouseholdUpdate(BaseModel):

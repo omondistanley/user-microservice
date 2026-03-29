@@ -13,32 +13,40 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
-import { theme } from "../../src/theme";
+import { AppTheme, ThemePreference, useAppTheme, useThemePreference } from "../../src/theme";
 
 type SettingsResponse = {
   default_currency?: string;
+  theme_preference?: ThemePreference;
+  push_notifications_enabled?: boolean;
+  email_notifications_enabled?: boolean;
   active_household_id?: string | null;
 };
 
 type Me = { email?: string };
 
 const CURRENCIES = ["USD", "EUR", "GBP"] as const;
+const APPEARANCE_OPTIONS: ThemePreference[] = ["light", "system", "dark"];
 type Currency = (typeof CURRENCIES)[number];
 
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
+  const { preference, resolvedMode, setPreference } = useThemePreference();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [currency, setCurrency] = useState<Currency>("USD");
-  const [saving, setSaving] = useState(false);
-
+  const [savingCurrency, setSavingCurrency] = useState(false);
+  const [savingAppearance, setSavingAppearance] = useState(false);
+  const [savingPush, setSavingPush] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
   const [pushOn, setPushOn] = useState(true);
   const [emailOn, setEmailOn] = useState(false);
-  const [darkOn, setDarkOn] = useState(false);
-  const [twoFaOn, setTwoFaOn] = useState(true);
 
   const load = async () => {
     setLoading(true);
@@ -50,8 +58,13 @@ export default function SettingsScreen() {
       ]);
       setSettings(s);
       setMe(m);
-      const c = String(s?.default_currency ?? "USD").toUpperCase();
-      if ((CURRENCIES as readonly string[]).includes(c)) setCurrency(c as Currency);
+      const nextCurrency = String(s?.default_currency ?? "USD").toUpperCase();
+      if ((CURRENCIES as readonly string[]).includes(nextCurrency)) setCurrency(nextCurrency as Currency);
+      setPushOn(Boolean(s?.push_notifications_enabled ?? true));
+      setEmailOn(Boolean(s?.email_notifications_enabled ?? false));
+      if (s?.theme_preference && APPEARANCE_OPTIONS.includes(s.theme_preference)) {
+        await setPreference(s.theme_preference);
+      }
     } catch (e: any) {
       setError(e?.message ? String(e.message) : "Failed to load settings.");
     } finally {
@@ -63,20 +76,71 @@ export default function SettingsScreen() {
     load();
   }, []);
 
+  const patchSettings = async (patch: Partial<SettingsResponse>) => {
+    const json = await authClient.requestJsonWithRefresh<SettingsResponse>(`${GATEWAY_BASE_URL}/api/v1/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setSettings(json);
+    return json;
+  };
+
   const saveCurrency = async () => {
-    setSaving(true);
+    setSavingCurrency(true);
     setError(null);
     try {
-      const json = await authClient.requestJsonWithRefresh<SettingsResponse>(`${GATEWAY_BASE_URL}/api/v1/settings`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ default_currency: currency }),
-      });
-      setSettings(json);
+      await patchSettings({ default_currency: currency });
     } catch (e: any) {
-      setError(e?.message ? String(e.message) : "Failed to save.");
+      setError(e?.message ? String(e.message) : "Failed to save currency.");
     } finally {
-      setSaving(false);
+      setSavingCurrency(false);
+    }
+  };
+
+  const changeAppearance = async (nextPreference: ThemePreference) => {
+    if (nextPreference === preference) return;
+    const previous = preference;
+    setSavingAppearance(true);
+    setError(null);
+    await setPreference(nextPreference);
+    try {
+      await patchSettings({ theme_preference: nextPreference });
+    } catch (e: any) {
+      await setPreference(previous);
+      setError(e?.message ? String(e.message) : "Failed to save theme preference.");
+    } finally {
+      setSavingAppearance(false);
+    }
+  };
+
+  const changePushPreference = async (nextValue: boolean) => {
+    const previous = pushOn;
+    setPushOn(nextValue);
+    setSavingPush(true);
+    setError(null);
+    try {
+      await patchSettings({ push_notifications_enabled: nextValue });
+    } catch (e: any) {
+      setPushOn(previous);
+      setError(e?.message ? String(e.message) : "Failed to save push notification preference.");
+    } finally {
+      setSavingPush(false);
+    }
+  };
+
+  const changeEmailPreference = async (nextValue: boolean) => {
+    const previous = emailOn;
+    setEmailOn(nextValue);
+    setSavingEmail(true);
+    setError(null);
+    try {
+      await patchSettings({ email_notifications_enabled: nextValue });
+    } catch (e: any) {
+      setEmailOn(previous);
+      setError(e?.message ? String(e.message) : "Failed to save email notification preference.");
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -86,7 +150,7 @@ export default function SettingsScreen() {
         pocketii v3.4.2 (production){"\n"}© 2025 pocketii
       </Text>
     ),
-    [],
+    [styles.version],
   );
 
   const Row = ({
@@ -114,6 +178,9 @@ export default function SettingsScreen() {
     </Pressable>
   );
 
+  const appearanceSubtitle =
+    preference === "system" ? `Following device setting (${resolvedMode})` : `Always ${preference}`;
+
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <ScrollView
@@ -135,7 +202,7 @@ export default function SettingsScreen() {
         <Text style={styles.pageSub}>Manage your account preferences and security</Text>
 
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} />
+          <ActivityIndicator style={{ marginTop: 24 }} color={theme.colors.primary} />
         ) : error ? (
           <Text style={styles.error}>{error}</Text>
         ) : (
@@ -151,16 +218,12 @@ export default function SettingsScreen() {
                 onPress={() => router.push("/security")}
               />
               <View style={styles.hair} />
-              <View style={styles.row}>
-                <View style={styles.rowIcon}>
-                  <MaterialCommunityIcons name="shield-check-outline" size={22} color={theme.colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>Two-factor authentication</Text>
-                  <Text style={styles.rowSub}>Secure your account</Text>
-                </View>
-                <Switch value={twoFaOn} onValueChange={setTwoFaOn} trackColor={{ true: theme.colors.primary }} />
-              </View>
+              <Row
+                icon="shield-check-outline"
+                title="Two-factor authentication"
+                subtitle="TOTP enrollment is planned. Open Security for the current status."
+                onPress={() => router.push("/security")}
+              />
             </View>
 
             <Text style={styles.secK}>Preferences</Text>
@@ -173,21 +236,34 @@ export default function SettingsScreen() {
                   </Pressable>
                 ))}
               </View>
-              <Pressable style={styles.saveCurrency} onPress={saveCurrency} disabled={saving}>
-                <Text style={styles.saveCurrencyTxt}>{saving ? "Saving…" : "Save currency"}</Text>
+              <Pressable style={styles.saveButton} onPress={saveCurrency} disabled={savingCurrency}>
+                <Text style={styles.saveButtonTxt}>{savingCurrency ? "Saving…" : "Save currency"}</Text>
               </Pressable>
               <View style={styles.hair} />
               <Row icon="web" title="Language" subtitle="English (US)" />
               <View style={styles.hair} />
-              <View style={styles.row}>
-                <View style={styles.rowIcon}>
-                  <MaterialCommunityIcons name="weather-night" size={22} color={theme.colors.secondary} />
+              <View style={styles.preferenceBlock}>
+                <View style={styles.preferenceHeader}>
+                  <View style={styles.rowIcon}>
+                    <MaterialCommunityIcons name="theme-light-dark" size={22} color={theme.colors.secondary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>Appearance</Text>
+                    <Text style={styles.rowSub}>{appearanceSubtitle}</Text>
+                  </View>
+                  {savingAppearance ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>Dark mode</Text>
-                  <Text style={styles.rowSub}>Adaptive display theme</Text>
+                <View style={styles.segmentRow}>
+                  {APPEARANCE_OPTIONS.map((option) => (
+                    <Pressable
+                      key={option}
+                      style={[styles.segment, preference === option && styles.segmentOn]}
+                      onPress={() => changeAppearance(option)}
+                    >
+                      <Text style={[styles.segmentTxt, preference === option && styles.segmentTxtOn]}>{option}</Text>
+                    </Pressable>
+                  ))}
                 </View>
-                <Switch value={darkOn} onValueChange={setDarkOn} />
               </View>
             </View>
 
@@ -199,9 +275,13 @@ export default function SettingsScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>Push notifications</Text>
-                  <Text style={styles.rowSub}>Alerts on your device</Text>
+                  <Text style={styles.rowSub}>Stored as your in-app delivery preference.</Text>
                 </View>
-                <Switch value={pushOn} onValueChange={setPushOn} trackColor={{ true: theme.colors.primary }} />
+                {savingPush ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Switch value={pushOn} onValueChange={changePushPreference} trackColor={{ true: theme.colors.primary }} />
+                )}
               </View>
               <View style={styles.hair} />
               <View style={styles.row}>
@@ -210,9 +290,13 @@ export default function SettingsScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>Email notifications</Text>
-                  <Text style={styles.rowSub}>Weekly summaries</Text>
+                  <Text style={styles.rowSub}>Stored as your weekly summary preference.</Text>
                 </View>
-                <Switch value={emailOn} onValueChange={setEmailOn} />
+                {savingEmail ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Switch value={emailOn} onValueChange={changeEmailPreference} trackColor={{ true: theme.colors.primary }} />
+                )}
               </View>
             </View>
 
@@ -257,7 +341,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   root: { flex: 1 },
   backRow: {
     flexDirection: "row",
@@ -328,9 +412,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.outlineVariant,
   },
   pillOn: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryFixed },
-  pillTxt: { fontFamily: "Inter_700Bold", color: theme.colors.secondary },
+  pillTxt: { fontFamily: "Inter_700Bold", color: theme.colors.secondary, textTransform: "uppercase" },
   pillTxtOn: { color: theme.colors.primary },
-  saveCurrency: {
+  saveButton: {
     marginHorizontal: theme.spacing.lg,
     marginTop: 12,
     marginBottom: theme.spacing.lg,
@@ -339,8 +423,44 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  saveCurrencyTxt: { color: theme.colors.onPrimary, fontFamily: "Inter_800ExtraBold" },
-  error: { color: theme.colors.error, marginTop: 12 },
+  saveButtonTxt: { color: theme.colors.onPrimary, fontFamily: "Inter_800ExtraBold" },
+  preferenceBlock: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
+    gap: 12,
+  },
+  preferenceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  segmentRow: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.surfaceContainer,
+    borderRadius: 999,
+    padding: 4,
+    gap: 6,
+  },
+  segment: {
+    flex: 1,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  segmentOn: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+  },
+  segmentTxt: {
+    color: theme.colors.secondary,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+    fontSize: 12,
+  },
+  segmentTxtOn: { color: theme.colors.onSurface },
+  error: { color: theme.colors.error, marginTop: 12, fontFamily: "Inter_600SemiBold" },
   version: {
     textAlign: "center",
     fontSize: 10,

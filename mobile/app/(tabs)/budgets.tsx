@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
-import { theme } from "../../src/theme";
+import { AppTheme, theme, useAppTheme } from "../../src/theme";
 import { ExpandableCard } from "../../src/components/ui/ExpandableCard";
 import { Input } from "../../src/components/ui/Input";
 import { Button } from "../../src/components/ui/Button";
@@ -49,7 +49,7 @@ function fmtMoney(n: number): string {
   return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function categoryVisual(category?: string | null): {
+function categoryVisual(theme: AppTheme, category?: string | null): {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   tile: string;
   ink: string;
@@ -83,6 +83,8 @@ function daysLeftInMonth(from: Date): number {
 export default function BudgetsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const currentTheme = useAppTheme();
+  const styles = useMemo(() => createStyles(currentTheme), [currentTheme]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
@@ -269,7 +271,7 @@ export default function BudgetsScreen() {
   const daysLeft = useMemo(() => daysLeftInMonth(now), [now]);
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.surfaceDim }]}>
+    <View style={[styles.root, { backgroundColor: currentTheme.colors.surfaceDim }]}>
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
@@ -286,7 +288,7 @@ export default function BudgetsScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={theme.colors.primary} />
+          <ActivityIndicator style={{ marginTop: 24 }} color={currentTheme.colors.primary} />
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : (
@@ -330,7 +332,7 @@ export default function BudgetsScreen() {
                 style={styles.addCatBtn}
                 onPress={() => router.push("/budgets/add")}
               >
-                <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="plus" size={16} color={currentTheme.colors.onSurface} />
                 <Text style={styles.addCatText}>Add Budget</Text>
               </Pressable>
             </View>
@@ -360,8 +362,12 @@ export default function BudgetsScreen() {
                 const pct = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
                 const over = limit > 0 && spent > limit;
                 const warn = !over && pct >= 80;
-                const barColor = over ? theme.colors.error : warn ? theme.colors.tertiary : theme.colors.primary;
-                const vis = categoryVisual(`${title} ${sub}`);
+                const barColor = over
+                  ? currentTheme.colors.error
+                  : warn
+                    ? currentTheme.colors.tertiary
+                    : currentTheme.colors.primary;
+                const vis = categoryVisual(currentTheme, `${title} ${sub}`);
 
                 const statusLabel = over
                   ? "Over budget"
@@ -369,10 +375,10 @@ export default function BudgetsScreen() {
                     ? `${pct}% used`
                     : `${pct}% used`;
                 const statusColor = over
-                  ? theme.colors.error
+                  ? currentTheme.colors.error
                   : warn
-                    ? theme.colors.tertiary
-                    : theme.colors.primary;
+                    ? currentTheme.colors.tertiary
+                    : currentTheme.colors.primary;
 
                 const left = limit - spent;
                 const leftLabel = over
@@ -437,7 +443,7 @@ export default function BudgetsScreen() {
                           <Text
                             style={[
                               styles.catFooterRight,
-                              over && { color: theme.colors.error },
+                              over && { color: currentTheme.colors.error },
                             ]}
                           >
                             {leftLabel}
@@ -492,7 +498,7 @@ export default function BudgetsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: theme.spacing.xl, paddingTop: 16 },
   fieldLabel: {

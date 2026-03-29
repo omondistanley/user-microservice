@@ -1,12 +1,14 @@
 import React from "react";
 import { StyleSheet, TextInput, TextInputProps, View } from "react-native";
-import { theme } from "../../theme";
+import { AppTheme, useAppTheme } from "../../theme";
 
 type Props = TextInputProps & {
   left?: React.ReactNode;
 };
 
 export function Input({ left, style, ...rest }: Props) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
   return (
     <View style={styles.wrap}>
       {left ? <View style={styles.left}>{left}</View> : null}
@@ -19,7 +21,7 @@ export function Input({ left, style, ...rest }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   wrap: {
     borderWidth: 1,
     borderColor: theme.colors.outlineVariant,

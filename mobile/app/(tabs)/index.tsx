@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
-import { theme } from "../../src/theme";
+import { AppTheme, theme, useAppTheme } from "../../src/theme";
 import { ExpandableCard } from "../../src/components/ui/ExpandableCard";
 import { Input } from "../../src/components/ui/Input";
 import { Button } from "../../src/components/ui/Button";
@@ -142,6 +142,8 @@ async function fetchAllExpensesInRange(dateFrom: string, dateTo: string): Promis
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const currentTheme = useAppTheme();
+  const styles = useMemo(() => createStyles(currentTheme), [currentTheme]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -677,7 +679,7 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
   fieldLabel: {
     fontSize: 11,

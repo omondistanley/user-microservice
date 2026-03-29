@@ -1,4 +1,4 @@
-export const colors = {
+export const lightColors = {
   surfaceContainer: "#f1f3f9",
   surfaceContainerHighest: "#e1e4ef",
   onSecondaryContainer: "#1e293b",
@@ -47,6 +47,58 @@ export const colors = {
   onPrimaryFixed: "#1e3a8a",
   tertiaryFixed: "#fef3c7",
 } as const;
+
+export const darkColors = {
+  surfaceContainer: "#1c2433",
+  surfaceContainerHighest: "#2a3447",
+  onSecondaryContainer: "#dbe7ff",
+  primaryFixed: "#1f3b73",
+  onTertiaryContainer: "#fcd34d",
+  surfaceBright: "#111827",
+  surfaceContainerLow: "#151d2a",
+  tertiaryFixedDim: "#d97706",
+  onErrorContainer: "#fecaca",
+  primaryContainer: "#1e3a8a",
+  secondaryContainer: "#334155",
+  error: "#f87171",
+  inverseSurface: "#f8fafc",
+  surfaceVariant: "#334155",
+  outlineVariant: "#334155",
+  onSecondary: "#0f172a",
+  background: "#0b1220",
+  onSurface: "#e5eefc",
+  onTertiaryFixedVariant: "#fbbf24",
+  onPrimaryContainer: "#dbeafe",
+  surface: "#111827",
+  onTertiaryFixed: "#fef3c7",
+  onTertiary: "#0f172a",
+  primary: "#60a5fa",
+  secondary: "#94a3b8",
+  onSecondaryFixed: "#e2e8f0",
+  onPrimary: "#0b1220",
+  primaryFixedDim: "#3b82f6",
+  onPrimaryFixedVariant: "#bfdbfe",
+  surfaceTint: "#60a5fa",
+  secondaryFixed: "#1e293b",
+  tertiary: "#fbbf24",
+  surfaceDim: "#0b1220",
+  inversePrimary: "#1d4ed8",
+  errorContainer: "#7f1d1d",
+  onSecondaryFixedVariant: "#cbd5e1",
+  onBackground: "#e5eefc",
+  outline: "#475569",
+  surfaceContainerHigh: "#202a3a",
+  onSurfaceVariant: "#94a3b8",
+  surfaceContainerLowest: "#0f172a",
+  onError: "#fee2e2",
+  inverseOnSurface: "#0f172a",
+  tertiaryContainer: "#78350f",
+  secondaryFixedDim: "#475569",
+  onPrimaryFixed: "#dbeafe",
+  tertiaryFixed: "#92400e",
+} as const;
+
+export const colors = lightColors;
 
 export type ThemeColorKey = keyof typeof colors;
 /** @deprecated Use ThemeColorKey */

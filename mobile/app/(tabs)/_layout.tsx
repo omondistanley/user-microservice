@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { theme } from "../../src/theme";
+import { useAppTheme } from "../../src/theme";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -11,6 +11,8 @@ function tabIcon(name: IconName) {
 }
 
 export default function TabLayout() {
+  const theme = useAppTheme();
+
   return (
     <Tabs
       screenOptions={{

@@ -145,7 +145,6 @@ class ExpenseResource(BaseResource):
             raise HTTPException(status_code=500, detail=str(e))
         finally:
             conn.close()
-        data["tags"] = created_tags
         # Apply user categorization rules (may override category/tags)
         try:
             from app.services.rule_engine_service import evaluate_rules
@@ -161,7 +160,7 @@ class ExpenseResource(BaseResource):
             )
         except Exception:
             pass
-        return _row_to_response(data)
+        return self.get_by_id(data["expense_id"], user_id)
 
     def list(
         self, user_id: int, params: ExpenseListParams

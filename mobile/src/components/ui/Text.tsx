@@ -1,6 +1,6 @@
 import React from "react";
 import { Text as RNText, TextProps } from "react-native";
-import { theme } from "../../theme";
+import { useAppTheme } from "../../theme";
 
 type Variant = "display" | "headline" | "body" | "label";
 
@@ -11,6 +11,7 @@ type Props = TextProps & {
 };
 
 export function Text({ variant = "body", color, style, uppercase, children, ...rest }: Props) {
+  const theme = useAppTheme();
   const variantStyle = theme.typography[variant];
   return (
     <RNText

@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
-import { theme } from "../../src/theme";
+import { AppTheme, useAppTheme } from "../../src/theme";
 import { ExpandableCard } from "../../src/components/ui/ExpandableCard";
 import { Input } from "../../src/components/ui/Input";
 import { Button } from "../../src/components/ui/Button";
@@ -56,7 +56,7 @@ function fmtLedgerAmount(it: LedgerItem): { text: string; income: boolean } {
   return { text: `${income ? "+" : "-"}$${abs.toFixed(2)}`, income };
 }
 
-function rowVisual(cat: string, income: boolean): { icon: keyof typeof MaterialCommunityIcons.glyphMap; tile: string; ink: string } {
+function rowVisual(theme: AppTheme, cat: string, income: boolean): { icon: keyof typeof MaterialCommunityIcons.glyphMap; tile: string; ink: string } {
   if (income) {
     return { icon: "cash", tile: theme.colors.tertiaryContainer, ink: theme.colors.onTertiaryContainer };
   }
@@ -107,6 +107,8 @@ function timePart(iso?: string): string {
 export default function TransactionsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const currentTheme = useAppTheme();
+  const styles = useMemo(() => createStyles(currentTheme), [currentTheme]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<LedgerItem[]>([]);
@@ -294,19 +296,19 @@ export default function TransactionsScreen() {
   }, [filtered]);
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.surfaceDim }]}>
+    <View style={[styles.root, { backgroundColor: currentTheme.colors.surfaceDim }]}> 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 90 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.searchWrap}>
-          <MaterialCommunityIcons name="magnify" size={20} color={theme.colors.secondary} />
+          <MaterialCommunityIcons name="magnify" size={20} color={currentTheme.colors.secondary} />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search transactions..."
-            placeholderTextColor={theme.colors.secondary}
+            placeholderTextColor={currentTheme.colors.secondary}
             style={styles.searchIn}
             autoCapitalize="none"
           />
@@ -324,7 +326,7 @@ export default function TransactionsScreen() {
         </ScrollView>
 
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={theme.colors.primary} />
+          <ActivityIndicator style={{ marginTop: 24 }} color={currentTheme.colors.primary} />
         ) : error ? (
           <Text style={styles.error}>{error}</Text>
         ) : grouped.length ? (
@@ -335,7 +337,7 @@ export default function TransactionsScreen() {
                 const title = String(it.description ?? it.category_name ?? "Transaction");
                 const cat = it.category_name ?? "";
                 const { text: amt, income } = fmtLedgerAmount(it);
-                const v = rowVisual(cat, income);
+                const v = rowVisual(currentTheme, cat, income);
                 const t = timePart(it.occurred_on ?? it.date);
                 const k = ledgerKey(it, idx);
                 const open = expandedKey === k;
@@ -423,7 +425,7 @@ export default function TransactionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   root: { flex: 1 },
   fieldLabel: {
     fontSize: 11,

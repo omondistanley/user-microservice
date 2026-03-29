@@ -10,6 +10,18 @@ import {
 } from "@expo-google-fonts/inter";
 import "../global.css";
 import { ActivityIndicator, View } from "react-native";
+import { ThemeProvider, useThemePreference } from "../src/theme";
+
+function AppShell() {
+  const { resolvedMode } = useThemePreference();
+
+  return (
+    <>
+      <StatusBar style={resolvedMode === "dark" ? "light" : "dark"} />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -29,10 +41,8 @@ export default function RootLayout() {
   }
 
   return (
-    <>
-      <StatusBar style="auto" />
-      {/* Auto-register all routes in `mobile/app/**` */}
-      <Stack screenOptions={{ headerShown: false }} />
-    </>
+    <ThemeProvider>
+      <AppShell />
+    </ThemeProvider>
   );
 }

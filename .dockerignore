@@ -5,6 +5,34 @@ venv
 **/__pycache__
 **/*.pyc
 **/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.cache
+**/.idea
+**/.DS_Store
+**/node_modules
+
+# Frontend/mobile local build artifacts
+frontend/node_modules
+frontend/.next
+frontend/dist
+frontend/build
+mobile
+
+# Repo folders not used by Dockerfile.fly
+demo-app
+tests_e2e
+wireframes
+docs
+docker
+.github
+.claude
+.cursor
+
+# Local environment files/certs
+.env
+.env.*
+*.pem
 
 # (expense-microservice, budget-microservice, investments-microservice are needed for Fly single-app build; do not exclude)
 

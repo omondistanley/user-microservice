@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
-import { theme } from "../../theme";
+import { AppTheme, useAppTheme } from "../../theme";
 
 type Variant = "surface" | "container";
 
@@ -11,10 +11,12 @@ type Props = {
 };
 
 export function Card({ variant = "surface", style, children }: Props) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
   return <View style={[styles.base, variant === "container" ? styles.container : styles.surface, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   base: {
     borderRadius: theme.radii.lg,
     padding: 16,

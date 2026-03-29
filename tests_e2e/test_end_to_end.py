@@ -138,7 +138,7 @@ def test_gateway_public_first_run_pages():
         ("/dashboard", "Running Balance"),
         ("/expenses/add", "Add"),
         ("/budgets/add", "Add budget"),
-        ("/goals/add", "New goal"),
+        ("/goals/add", "New Savings Goal"),
         ("/link-bank", "Link"),
         ("/settings/integrations", "Integrations"),
         ("/investments", "Investments"),

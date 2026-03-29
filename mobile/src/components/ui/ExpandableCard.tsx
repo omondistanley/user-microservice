@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { theme } from "../../theme";
+import { AppTheme, useAppTheme } from "../../theme";
 
 type Props = {
   expanded: boolean;
@@ -22,6 +22,9 @@ type Props = {
  * With `onSummaryPress`, the main summary area triggers that callback; use the chevron to toggle.
  */
 export function ExpandableCard({ expanded, onToggle, summary, children, style, onSummaryPress }: Props) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
+
   if (onSummaryPress) {
     return (
       <View style={[styles.card, style]}>
@@ -73,7 +76,7 @@ export function ExpandableCard({ expanded, onToggle, summary, children, style, o
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.lg,

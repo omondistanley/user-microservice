@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../../src/config";
 import { authClient } from "../../src/authClient";
 import { clearTokens } from "../../src/authTokens";
-import { theme } from "../../src/theme";
+import { AppTheme, theme, useAppTheme } from "../../src/theme";
 import { agentLog } from "../../src/debug/agentLog";
 import { formatApiDetail } from "../../src/formatApiDetail";
 
@@ -68,6 +68,8 @@ function fmtMoney(v: unknown): string {
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const currentTheme = useAppTheme();
+  const styles = useMemo(() => createStyles(currentTheme), [currentTheme]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,19 +205,19 @@ export default function ProfileScreen() {
     <Pressable style={({ pressed }) => [styles.settingsRow, pressed && { opacity: 0.92 }]} onPress={onPress}>
       <View style={styles.settingsRowInner}>
         <View style={styles.settingsIcon}>
-          <MaterialCommunityIcons name={icon} size={22} color={theme.colors.secondary} />
+          <MaterialCommunityIcons name={icon} size={22} color={currentTheme.colors.secondary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.settingsTitle}>{title}</Text>
           <Text style={styles.settingsSub}>{subtitle}</Text>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.secondaryFixedDim} />
+        <MaterialCommunityIcons name="chevron-right" size={22} color={currentTheme.colors.secondaryFixedDim} />
       </View>
     </Pressable>
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.root, { backgroundColor: currentTheme.colors.background }]}> 
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
@@ -231,11 +233,11 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel="Open menu"
           >
-            <MaterialCommunityIcons name="menu" size={26} color={theme.colors.primary} />
+            <MaterialCommunityIcons name="menu" size={26} color={currentTheme.colors.primary} />
           </Pressable>
         </View>
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 32 }} color={theme.colors.primary} />
+          <ActivityIndicator style={{ marginTop: 32 }} color={currentTheme.colors.primary} />
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : me ? (
@@ -256,7 +258,7 @@ export default function ProfileScreen() {
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statLabel}>Linked banks</Text>
-                  <Text style={[styles.statValue, { color: theme.colors.inversePrimary }]}>
+                  <Text style={[styles.statValue, { color: currentTheme.colors.inversePrimary }]}> 
                     {linkedLabel}
                   </Text>
                 </View>
@@ -265,12 +267,12 @@ export default function ProfileScreen() {
 
             <View style={styles.statGrid}>
               <View style={styles.statCard}>
-                <MaterialCommunityIcons name="wallet-outline" size={36} color={theme.colors.primary} />
+                <MaterialCommunityIcons name="wallet-outline" size={36} color={currentTheme.colors.primary} />
                 <Text style={styles.statCardValue}>{fmtMoney(portfolio?.total_market_value)}</Text>
                 <Text style={styles.statCardLabel}>Total Portfolio Value</Text>
               </View>
               <View style={styles.statCard}>
-                <MaterialCommunityIcons name="flash-outline" size={36} color={theme.colors.tertiary} />
+                <MaterialCommunityIcons name="flash-outline" size={36} color={currentTheme.colors.tertiary} />
                 <Text style={styles.statCardValue}>{healthDisplay}</Text>
                 <Text style={styles.statCardLabel}>Financial Health Score</Text>
               </View>
@@ -285,7 +287,7 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
                 <View style={styles.verifyIcon}>
-                  <MaterialCommunityIcons name="check-decagram" size={36} color={theme.colors.primary} />
+                  <MaterialCommunityIcons name="check-decagram" size={36} color={currentTheme.colors.primary} />
                 </View>
               </View>
             ) : (
@@ -296,7 +298,7 @@ export default function ProfileScreen() {
                     Confirm your inbox so bank linking and sensitive actions stay protected.
                   </Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.primary} />
+                <MaterialCommunityIcons name="chevron-right" size={24} color={currentTheme.colors.primary} />
               </Pressable>
             )}
 
@@ -339,7 +341,7 @@ export default function ProfileScreen() {
             </View>
 
             <Pressable style={styles.logoutBtn} onPress={logout}>
-              <MaterialCommunityIcons name="logout" size={22} color={theme.colors.error} />
+              <MaterialCommunityIcons name="logout" size={22} color={currentTheme.colors.error} />
               <Text style={styles.logoutText}>Log Out</Text>
             </Pressable>
           </>
@@ -377,7 +379,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   root: { flex: 1 },
   profileMenuOnly: {
     alignSelf: "flex-start",
