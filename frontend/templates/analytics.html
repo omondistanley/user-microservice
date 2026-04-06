@@ -2,28 +2,27 @@
 {% block body_class %}analytics-page{% endblock %}
 {% block title %}Analytics — pocketii{% endblock %}
 {% block content %}
-<div class="max-w-5xl mx-auto px-4 py-6 pb-24 md:pb-8">
-    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">Analytics overview</h1>
-    <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Trailing period totals and spend by category</p>
-    <div id="analytics-status" class="text-sm text-slate-500 mb-4"></div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Income</p>
-            <p id="an-income" class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">—</p>
-        </div>
-        <div class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Expenses</p>
-            <p id="an-expense" class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">—</p>
-        </div>
-        <div class="rounded-2xl bg-[#0f172a] text-white p-5 shadow-lg">
-            <p class="text-xs font-bold uppercase tracking-wider opacity-70">Net</p>
-            <p id="an-net" class="text-2xl font-extrabold mt-1">—</p>
-        </div>
+<div class="page-header">
+    <h1 class="page-title">Analytics</h1>
+</div>
+<div id="analytics-status" style="font-size:13px;color:var(--s500);margin-bottom:8px;" role="status"></div>
+<div class="grid-3 mb-24">
+    <div class="stat-card">
+        <div class="stat-label">Income</div>
+        <div class="stat-value" id="an-income">—</div>
     </div>
-    <div class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
-        <h2 class="font-bold text-slate-900 dark:text-white mb-4">Spend by category</h2>
-        <ul id="an-cats" class="space-y-2 text-sm"></ul>
+    <div class="stat-card">
+        <div class="stat-label">Expenses</div>
+        <div class="stat-value" id="an-expense">—</div>
     </div>
+    <div class="stat-card">
+        <div class="stat-label">Net</div>
+        <div class="stat-value" id="an-net">—</div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header"><span class="card-title">Spend by category</span></div>
+    <ul id="an-cats" style="list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:8px;"></ul>
 </div>
 {% endblock %}
 {% block scripts %}

@@ -180,6 +180,9 @@ def fetch_transactions(
         "access_token": access_token,
         "start_date": date_from.isoformat(),
         "end_date": date_to.isoformat(),
+        "options": {
+            "include_personal_finance_category": True,
+        },
     }
     try:
         with httpx.Client(timeout=60.0) as client:

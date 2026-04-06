@@ -2,56 +2,77 @@
 {% block body_class %}insights-page{% endblock %}
 {% block title %}Insights — pocketii{% endblock %}
 {% block content %}
-<div class="content-inner">
 
-  <!-- Page Header -->
-  <div class="page-header">
-    <h1 class="page-title">Insights</h1>
+<div class="page-header">
+  <h1 class="page-title">Insights &amp; Forecasts</h1>
+  <div class="period-group" id="insights-period-group">
+    <button class="period-btn" data-months="1">30d</button>
+    <button class="period-btn active" data-months="2">60d</button>
+    <button class="period-btn" data-months="3">90d</button>
   </div>
+</div>
 
-  <!-- Two-card layout: side by side on wide, stacked on narrow -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.25rem;">
+<!-- Stat cards -->
+<div class="grid-3 mb-24" id="insights-stat-row">
+  <div class="stat-card">
+    <div class="stat-label">Projected balance</div>
+    <div class="stat-value" id="insights-proj-balance">—</div>
+    <div class="stat-change up" id="insights-proj-delta"></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Projected surplus</div>
+    <div class="stat-value" id="insights-proj-surplus">—</div>
+    <div class="stat-change" id="insights-proj-conf"></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Anomalies detected</div>
+    <div class="stat-value" id="insights-anomaly-count">—</div>
+    <div class="stat-change" id="insights-anomaly-sub"></div>
+  </div>
+</div>
 
-    <!-- Spend Forecast Card -->
-    <div class="card">
-      <h2 style="font-size:1rem;font-weight:600;margin:0 0 0.35rem;">Spend Forecast</h2>
-      <p style="font-size:0.85rem;color:var(--color-muted,#6b7280);margin:0 0 1rem;">Projected next 3 months from recent history</p>
+<!-- Forecast card -->
+<div class="card mb-24">
+  <div class="card-header">
+    <span class="card-title">Spend forecast</span>
+    <span style="font-size:11px;color:var(--s400);">Prophet model · based on recent history</span>
+  </div>
+  <div id="forecast-skeleton" aria-busy="true" aria-label="Loading forecast" style="padding:8px 0;">
+    <div class="skel-row" style="width:70%;margin-bottom:8px;"></div>
+    <div class="skel-row" style="width:55%;margin-bottom:8px;"></div>
+    <div class="skel-row" style="width:62%;"></div>
+  </div>
+  <div id="forecast-content" style="display:none;"></div>
+</div>
 
-      <!-- Skeleton loading state -->
-      <div id="forecast-skeleton" aria-busy="true" aria-label="Loading forecast">
-        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:70%;animation:skeleton-pulse 1.4s ease-in-out infinite;"></div>
-        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:55%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.2s;"></div>
-        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;width:62%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.4s;"></div>
-      </div>
-
-      <div id="forecast-content" style="display:none;"></div>
+<!-- Anomalies / AI insights grid -->
+<div class="grid-2" id="anomalies-grid">
+  <div class="ai-card" id="anomalies-card">
+    <div class="ai-card-label">Anomaly detection</div>
+    <div id="anomalies-skeleton" aria-busy="true" aria-label="Loading anomalies">
+      <div class="skel-row" style="width:80%;margin-bottom:8px;"></div>
+      <div class="skel-row" style="width:60%;margin-bottom:8px;"></div>
+      <div class="skel-row" style="width:72%;"></div>
     </div>
-
-    <!-- Anomalies Card -->
-    <div class="card">
-      <h2 style="font-size:1rem;font-weight:600;margin:0 0 0.35rem;">Anomalies</h2>
-      <p style="font-size:0.85rem;color:var(--color-muted,#6b7280);margin:0 0 1rem;">Unusual expenses by amount or pattern</p>
-
-      <!-- Skeleton loading state -->
-      <div id="anomalies-skeleton" aria-busy="true" aria-label="Loading anomalies">
-        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:80%;animation:skeleton-pulse 1.4s ease-in-out infinite;"></div>
-        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;margin-bottom:0.6rem;width:60%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.2s;"></div>
-        <div style="height:1rem;background:var(--color-border,#e5e7eb);border-radius:4px;width:72%;animation:skeleton-pulse 1.4s ease-in-out infinite 0.4s;"></div>
-      </div>
-
-      <div id="anomalies-content" style="display:none;"></div>
+    <div id="anomalies-content" style="display:none;"></div>
+  </div>
+  <div class="ai-card">
+    <div class="ai-card-label">Spending patterns</div>
+    <div id="patterns-content">
+      <p class="ai-card-text" style="color:var(--s400);">Loading patterns…</p>
     </div>
-
-  </div><!-- end grid -->
-</div><!-- end content-inner -->
+  </div>
+</div>
 
 <style>
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
 }
+.insights-page .skel-row { animation: skeleton-pulse 1.4s ease-in-out infinite; }
 .insights-page .table-wrap table td,
 .insights-page .table-wrap table th { font-size: 0.875rem; }
+#anomalies-card .table-wrap { margin-top: 8px; }
 </style>
 {% endblock %}
 {% block scripts %}
@@ -59,6 +80,20 @@
 (function() {
     var API     = window.API_BASE || '';
     var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+    var currentMonths = 2;
+
+    // Period selector
+    var periodGroup = document.getElementById('insights-period-group');
+    if (periodGroup) {
+        periodGroup.addEventListener('click', function(e) {
+            var btn = e.target && e.target.closest ? e.target.closest('.period-btn') : null;
+            if (!btn) return;
+            periodGroup.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            currentMonths = parseInt(btn.getAttribute('data-months')) || 2;
+            loadForecast();
+        });
+    }
 
     function showContent(skeletonId, contentId) {
         var sk = document.getElementById(skeletonId);
@@ -67,25 +102,38 @@
         if (ct) ct.style.display = '';
     }
 
-    /* ---- Forecast ---- */
-    fetch(API + '/api/v1/insights/forecast/spend?months_back=6', { headers: headers })
+    function loadForecast() {
+        var sk = document.getElementById('forecast-skeleton');
+        var ct = document.getElementById('forecast-content');
+        if (sk) sk.style.display = '';
+        if (ct) { ct.style.display = 'none'; ct.innerHTML = ''; }
+        var projBalEl = document.getElementById('insights-proj-balance');
+        var projDeltaEl = document.getElementById('insights-proj-delta');
+        var projSurplusEl = document.getElementById('insights-proj-surplus');
+        var projConfEl = document.getElementById('insights-proj-conf');
+        fetch(API + '/api/v1/insights/forecast/spend?months_back=' + (currentMonths * 3), { headers: headers })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             var el = document.getElementById('forecast-content');
             showContent('forecast-skeleton', 'forecast-content');
             if (data.message) {
-                el.textContent = data.message;
+                el.innerHTML = '<p class="ai-card-text" style="color:var(--s400);">' + data.message + '</p>';
                 return;
             }
             var proj = data.projections || [];
             if (!proj.length) {
-                el.textContent = 'No projection data.';
+                el.innerHTML = '<p class="ai-card-text" style="color:var(--s400);">No projection data available.</p>';
                 return;
             }
+            var totalProj = proj.reduce(function(s, p) { return s + (p.projected_amount || 0); }, 0);
+            if (projBalEl) projBalEl.textContent = '$' + totalProj.toLocaleString(undefined, { maximumFractionDigits: 0 });
+            if (projDeltaEl) projDeltaEl.textContent = (currentMonths * 30) + 'd outlook';
+            var conf = data.confidence || data.model_confidence;
+            if (conf != null && projConfEl) projConfEl.textContent = 'Confidence: ' + Math.round(conf * 100) + '%';
             var rows = proj.map(function(p) {
                 return '<tr>'
                     + '<td>' + (p.month || '') + '</td>'
-                    + '<td style="text-align:right;font-weight:600;">$' + (p.projected_amount != null ? p.projected_amount.toFixed(2) : '—') + '</td>'
+                    + '<td style="text-align:right;font-weight:600;">$' + (p.projected_amount != null ? Number(p.projected_amount).toFixed(2) : '—') + '</td>'
                     + '</tr>';
             }).join('');
             el.innerHTML = '<div class="table-wrap"><table>'
@@ -95,8 +143,10 @@
         })
         .catch(function() {
             showContent('forecast-skeleton', 'forecast-content');
-            document.getElementById('forecast-content').textContent = 'Failed to load forecast.';
+            var el = document.getElementById('forecast-content');
+            if (el) el.innerHTML = '<p style="color:var(--rose);font-size:13px;">Failed to load forecast.</p>';
         });
+    }
 
     var ANOMALY_REASON_LABELS = {
         high_amount: 'Unusually large amount',
@@ -180,13 +230,20 @@
         .then(function(data) {
             showContent('anomalies-skeleton', 'anomalies-content');
             var list = data.anomalies || [];
+            var countEl = document.getElementById('insights-anomaly-count');
+            var subEl   = document.getElementById('insights-anomaly-sub');
+            if (countEl) countEl.textContent = list.length;
+            if (subEl) subEl.textContent = list.length === 1 ? 'unusual transaction' : 'unusual transactions';
             renderAnomalies(list);
         })
         .catch(function() {
             showContent('anomalies-skeleton', 'anomalies-content');
             var el = document.getElementById('anomalies-content');
-            if (el) el.textContent = 'Failed to load anomalies.';
+            if (el) el.innerHTML = '<p style="color:var(--rose);font-size:13px;">Failed to load anomalies.</p>';
         });
+
+    /* ---- Initial load ---- */
+    loadForecast();
 })();
 </script>
 {% endblock %}

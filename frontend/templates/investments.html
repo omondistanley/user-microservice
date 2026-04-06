@@ -11,9 +11,11 @@
     </div>
 </div>
 
-<nav class="flex flex-wrap gap-1 mb-4 border-b border-slate-200 dark:border-slate-700" role="tablist" aria-label="Investments views">
-    <button type="button" class="inv-view-tab px-3 py-2 text-sm font-semibold border-b-2 border-[#135bec] text-[#135bec]" data-inv-view="overview" role="tab" aria-selected="true">Overview</button>
-    <button type="button" class="inv-view-tab px-3 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200" data-inv-view="holdings" role="tab" aria-selected="false">Holdings</button>
+<nav class="tab-bar mb-16" role="tablist" aria-label="Investments views" style="border-bottom:1px solid var(--border-subtle);display:flex;gap:4px;flex-wrap:wrap;">
+    <button type="button" class="inv-view-tab tab-btn tab-btn--active" data-inv-view="overview" role="tab" aria-selected="true">Overview</button>
+    <button type="button" class="inv-view-tab tab-btn" data-inv-view="holdings" role="tab" aria-selected="false">Holdings</button>
+    <button type="button" class="inv-view-tab tab-btn" data-inv-view="tlh" role="tab" aria-selected="false"><span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;">eco</span> Tax Harvest</button>
+    <button type="button" class="inv-view-tab tab-btn" data-inv-view="stress" role="tab" aria-selected="false"><span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;">thunderstorm</span> Stress Test</button>
 </nav>
 
 <!-- Finance Context Strip -->
@@ -45,7 +47,7 @@
     <div id="inv-health-flags" style="font-size:0.8125rem;color:var(--text-muted);"></div>
     <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem;opacity:0.7;">Not financial advice. Score is based on your stated preferences and portfolio data only.</p>
 </div>
-<div class="stat-row">
+<div class="grid-4 mb-24">
     <div class="stat-card">
         <div class="stat-label">Portfolio Value</div>
         <div class="stat-value" id="inv-total">—</div>
@@ -74,23 +76,45 @@
         </button>
     </div>
     <div id="inv-gains-body">
-        <p class="muted" style="font-size: 0.875rem; margin-bottom: 0.75rem;">
-            Rolling 90-day view from current holdings and historical prices. Toggle series to compare total, manual-only, or Alpaca-linked.
-        </p>
-        <div style="display:flex; flex-wrap:wrap; align-items:center; gap: 0.75rem; margin-bottom: 1rem;">
-            <span style="font-size: 0.8125rem; color: var(--text-muted);">Show:</span>
-            <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
-                <input type="checkbox" id="inv-gains-total" checked /> Total
-            </label>
-            <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
-                <input type="checkbox" id="inv-gains-manual" /> Manual
-            </label>
-            <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
-                <input type="checkbox" id="inv-gains-alpaca" /> Alpaca
-            </label>
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem;">
+            <!-- Period selector -->
+            <div class="inv-period-bar" style="display:flex; gap:0.25rem;">
+                <button type="button" class="inv-period-btn" data-days="7">1W</button>
+                <button type="button" class="inv-period-btn" data-days="30">1M</button>
+                <button type="button" class="inv-period-btn inv-period-btn--active" data-days="90">3M</button>
+                <button type="button" class="inv-period-btn" data-days="365">1Y</button>
+                <button type="button" class="inv-period-btn" data-days="0">ALL</button>
+            </div>
+            <!-- Chart type toggle -->
+            <div class="inv-chart-type-bar" style="display:flex; gap:0.25rem;">
+                <button type="button" class="inv-chart-type-btn" data-type="area">Area</button>
+                <button type="button" class="inv-chart-type-btn inv-chart-type-btn--active" data-type="line">Line</button>
+                <button type="button" class="inv-chart-type-btn" data-type="bar">Bar</button>
+            </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;">
+                <span style="font-size: 0.8125rem; color: var(--text-muted);">Series:</span>
+                <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
+                    <input type="checkbox" id="inv-gains-total" checked /> Total
+                </label>
+                <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
+                    <input type="checkbox" id="inv-gains-manual" /> Manual
+                </label>
+                <label style="display:inline-flex; align-items:center; gap: 0.35rem; font-size: 0.8125rem; cursor:pointer;">
+                    <input type="checkbox" id="inv-gains-alpaca" /> Alpaca
+                </label>
+            </div>
+            <!-- Return method toggle -->
+            <div style="display:flex;gap:0.25rem;" id="inv-return-method-bar" title="Return calculation method">
+                <button type="button" class="inv-chart-type-btn inv-chart-type-btn--active" data-return-method="pl" title="Absolute P&amp;L in dollars">P&amp;L $</button>
+                <button type="button" class="inv-chart-type-btn" data-return-method="twr" title="Time-Weighted Return — removes effect of cash flows">TWR %</button>
+                <button type="button" class="inv-chart-type-btn" data-return-method="mwr" title="Money-Weighted Return (Modified Dietz) — accounts for timing of contributions">MWR %</button>
+            </div>
         </div>
         <div id="inv-gains-chart" style="min-height: 260px;"></div>
         <p id="inv-gains-note" class="muted" style="font-size: 0.75rem; margin-top: 0.5rem; display:none;"></p>
+        <p id="inv-return-method-note" class="muted" style="font-size:0.75rem;margin-top:0.25rem;display:none;"></p>
     </div>
 </div>
 
@@ -147,8 +171,6 @@
                     <th>Market Price</th>
                     <th>Market Value</th>
                     <th>Unrealized P&amp;L</th>
-                    <th>7d</th>
-                    <th>Ann. ret.</th>
                     <th>Change %</th>
                     <th></th>
                 </tr>
@@ -205,6 +227,57 @@
     View personalised stock and ETF suggestions on the
     <a href="/recommendations" class="btn btn-ghost" style="display:inline-block; padding: 0.25rem 0.75rem; margin-left: 0.25rem;">Recommendations</a> page.
 </p>
+
+<!-- Tax-Loss Harvesting Tab -->
+<div id="inv-view-tlh" style="display:none;">
+    <div class="card">
+        <div class="section-head" style="margin-bottom:0.75rem;">
+            <h2 class="section-title-sm"><span class="material-symbols-rounded">eco</span> Tax-Loss Harvesting Opportunities</h2>
+            <button type="button" id="tlh-refresh-btn" class="btn btn-sm btn-ghost icon-btn-label">
+                <span class="material-symbols-rounded">refresh</span> Refresh
+            </button>
+        </div>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1rem;">
+            Positions with unrealized losses that may be worth realising for tax purposes.
+            <strong>Consult a tax professional before acting.</strong> Wash-sale rules apply within 30 days.
+        </p>
+        <div id="tlh-loading" class="muted" style="font-size:0.875rem;">Loading opportunities…</div>
+        <div id="tlh-list" style="display:flex;flex-direction:column;gap:0.6rem;display:none;"></div>
+        <div id="tlh-empty" style="display:none;">
+            <div class="empty-state-inline">
+                <span class="material-symbols-rounded empty-icon">check_circle</span>
+                <span class="empty-title">No harvestable losses found</span>
+                <span class="empty-body">All positions have unrealized gains, or losses are below the $200 threshold. Check back after market moves.</span>
+            </div>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:1rem;opacity:0.7;">Not tax advice. For informational purposes only. Consult a qualified tax professional.</p>
+    </div>
+</div>
+
+<!-- Stress Test Tab -->
+<div id="inv-view-stress" style="display:none;">
+    <div class="card">
+        <div class="section-head" style="margin-bottom:0.75rem;">
+            <h2 class="section-title-sm"><span class="material-symbols-rounded">thunderstorm</span> Portfolio Stress Test</h2>
+            <button type="button" id="stress-refresh-btn" class="btn btn-sm btn-ghost icon-btn-label">
+                <span class="material-symbols-rounded">refresh</span> Run tests
+            </button>
+        </div>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1rem;">
+            Simulated impact of historical macro shocks on your current portfolio. Not a prediction of future performance.
+        </p>
+        <div id="stress-loading" class="muted" style="font-size:0.875rem;">Running scenarios…</div>
+        <div id="stress-grid" style="display:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.75rem;"></div>
+        <div id="stress-empty" style="display:none;">
+            <div class="empty-state-inline">
+                <span class="material-symbols-rounded empty-icon">inventory_2</span>
+                <span class="empty-title">No holdings to stress test</span>
+                <span class="empty-body">Add holdings first, then run the stress test to see scenario impacts.</span>
+            </div>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:1rem;opacity:0.7;">Not financial advice. Scenarios based on historical analogs. Past events do not predict future results.</p>
+    </div>
+</div>
 
 <!-- CSV Import Modal -->
 <div id="import-csv-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="import-csv-title">
@@ -314,27 +387,162 @@
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/investments.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function () {
+    var _tlhLoaded = false;
+    var _stressLoaded = false;
     document.querySelectorAll('.inv-view-tab').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var v = btn.getAttribute('data-inv-view');
-            var ov = document.getElementById('inv-view-overview');
-            var hd = document.getElementById('inv-view-holdings');
             document.querySelectorAll('.inv-view-tab').forEach(function (b) {
                 var on = b.getAttribute('data-inv-view') === v;
                 b.setAttribute('aria-selected', on ? 'true' : 'false');
-                b.classList.toggle('border-[#135bec]', on);
-                b.classList.toggle('text-[#135bec]', on);
-                b.classList.toggle('border-transparent', !on);
-                b.classList.toggle('text-slate-500', !on);
+                b.classList.toggle('tab-btn--active', on);
             });
-            if (ov) ov.style.display = v === 'overview' ? '' : 'none';
-            if (hd) hd.style.display = v === 'holdings' ? '' : 'none';
+            ['overview','holdings','tlh','stress'].forEach(function(name) {
+                var el = document.getElementById('inv-view-' + name);
+                if (el) el.style.display = name === v ? '' : 'none';
+            });
+            if (v === 'tlh' && !_tlhLoaded) { _tlhLoaded = true; loadTlhOpportunities(); }
+            if (v === 'stress' && !_stressLoaded) { _stressLoaded = true; loadStressTest(); }
         });
     });
     if (window.location.hash === '#holdings') {
         var t = document.querySelector('.inv-view-tab[data-inv-view="holdings"]');
         if (t) t.click();
     }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function fmtDollar(v) {
+        var n = parseFloat(v);
+        return isNaN(n) ? '—' : '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function fmtPct(v) {
+        var n = parseFloat(v);
+        return isNaN(n) ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+    }
+
+    function loadTlhOpportunities() {
+        var loadingEl = document.getElementById('tlh-loading');
+        var listEl = document.getElementById('tlh-list');
+        var emptyEl = document.getElementById('tlh-empty');
+        var API = window.API_BASE || '';
+        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        if (loadingEl) loadingEl.style.display = '';
+        if (listEl) listEl.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'none';
+        fetch(API + '/api/v1/tax/harvesting-opportunities', { headers: headers })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(data) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                var items = (data && (Array.isArray(data) ? data : data.opportunities || data.items)) || [];
+                if (!items.length) {
+                    if (emptyEl) emptyEl.style.display = '';
+                    return;
+                }
+                if (listEl) {
+                    listEl.style.display = 'flex';
+                    listEl.innerHTML = items.map(function(op) {
+                        var washBadge = op.wash_sale_risk ? '<span class="badge" style="background:var(--color-amber,#ecc94b);color:#000;font-size:0.75rem;">Wash-sale risk</span>' : '';
+                        var loss = parseFloat(op.unrealized_loss || op.harvestable_loss || 0);
+                        return '<div class="tlh-card' + (op.wash_sale_risk ? ' tlh-card--wash' : '') + '">' +
+                            '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.35rem;">' +
+                            '<div><strong style="font-size:0.95rem;">' + escHtml(op.symbol || op.holding_id) + '</strong>' +
+                            (op.suggested_replacement ? ' <span class="muted" style="font-size:0.8rem;">→ ' + escHtml(op.suggested_replacement) + '</span>' : '') +
+                            '</div>' +
+                            '<div style="text-align:right;">' +
+                            '<span style="font-size:1rem;font-weight:700;color:var(--color-emerald,#38a169);">Save ~' + fmtDollar(Math.abs(loss) * 0.24) + '</span>' +
+                            '<div class="muted" style="font-size:0.8rem;">at 24% rate</div>' +
+                            '</div>' +
+                            '</div>' +
+                            '<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.3rem;">' +
+                            (op.quantity != null ? '<span class="muted" style="font-size:0.8125rem;">Qty: ' + parseFloat(op.quantity).toLocaleString() + '</span>' : '') +
+                            (op.cost_basis != null ? '<span class="muted" style="font-size:0.8125rem;">Basis: ' + fmtDollar(op.cost_basis) + '</span>' : '') +
+                            (op.current_value != null ? '<span class="muted" style="font-size:0.8125rem;">Value: ' + fmtDollar(op.current_value) + '</span>' : '') +
+                            '<span style="font-size:0.8125rem;color:var(--color-danger,#ef4444);">Loss: ' + fmtDollar(loss) + '</span>' +
+                            washBadge +
+                            '</div>' +
+                            '</div>';
+                    }).join('');
+                }
+            })
+            .catch(function() {
+                if (loadingEl) { loadingEl.style.display = ''; loadingEl.textContent = 'Failed to load harvesting data.'; }
+            });
+    }
+
+    function loadStressTest() {
+        var loadingEl = document.getElementById('stress-loading');
+        var gridEl = document.getElementById('stress-grid');
+        var emptyEl = document.getElementById('stress-empty');
+        var API = window.API_BASE || '';
+        var headers = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
+        if (loadingEl) loadingEl.style.display = '';
+        if (gridEl) gridEl.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'none';
+        fetch(API + '/api/v1/portfolio/stress-test', { headers: headers })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(data) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                var scenarios = (data && (Array.isArray(data) ? data : data.scenarios || data.results)) || [];
+                if (!scenarios.length) {
+                    if (emptyEl) emptyEl.style.display = '';
+                    return;
+                }
+                if (gridEl) {
+                    gridEl.style.display = 'grid';
+                    gridEl.innerHTML = scenarios.map(function(sc) {
+                        var ret = parseFloat(sc.projected_return_pct || 0);
+                        var impact = parseFloat(sc.dollar_impact || 0);
+                        var cls = ret >= 3 ? 'stress-card--up' : ret >= -3 ? 'stress-card--flat' : 'stress-card--down';
+                        var retColor = ret > 0 ? 'var(--color-emerald,#38a169)' : ret < 0 ? 'var(--color-danger,#ef4444)' : 'var(--text-muted)';
+                        return '<div class="stress-card ' + cls + '">' +
+                            '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:0.4rem;">' + escHtml(sc.scenario_name || sc.scenario_id) + '</div>' +
+                            '<div style="font-size:1.5rem;font-weight:700;color:' + retColor + ';">' + fmtPct(ret) + '</div>' +
+                            '<div style="font-size:0.875rem;margin-top:0.25rem;color:' + retColor + ';">' + (impact >= 0 ? '+' : '') + fmtDollar(impact) + ' impact</div>' +
+                            (sc.projected_value != null ? '<div class="muted" style="font-size:0.8rem;margin-top:0.2rem;">Portfolio → ' + fmtDollar(sc.projected_value) + '</div>' : '') +
+                            '</div>';
+                    }).join('');
+                }
+            })
+            .catch(function() {
+                if (loadingEl) { loadingEl.style.display = ''; loadingEl.textContent = 'Failed to run stress tests.'; }
+            });
+    }
+
+    document.getElementById('tlh-refresh-btn') && document.getElementById('tlh-refresh-btn').addEventListener('click', function() {
+        _tlhLoaded = false; loadTlhOpportunities();
+    });
+    document.getElementById('stress-refresh-btn') && document.getElementById('stress-refresh-btn').addEventListener('click', function() {
+        _stressLoaded = false; loadStressTest();
+    });
+
+    // ── Return method toggle (TWR / MWR / P&L) ────────────────────────────────
+    var _returnMethod = 'pl';
+    var METHOD_NOTES = {
+        pl:  '',
+        twr: 'TWR (Time-Weighted Return) removes the effect of cash flows. Best for comparing manager performance.',
+        mwr: 'MWR / Modified Dietz weights returns by when capital was deployed. Reflects your personal experience.',
+    };
+    document.querySelectorAll('[data-return-method]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            _returnMethod = btn.getAttribute('data-return-method');
+            document.querySelectorAll('[data-return-method]').forEach(function(b) {
+                b.classList.toggle('inv-chart-type-btn--active', b.getAttribute('data-return-method') === _returnMethod);
+            });
+            var note = document.getElementById('inv-return-method-note');
+            if (note) {
+                var txt = METHOD_NOTES[_returnMethod] || '';
+                note.textContent = txt;
+                note.style.display = txt ? '' : 'none';
+            }
+            // Re-render chart with chosen method: request gains-history with method param
+            // The investments.js chart render is triggered by updateGainsChart; we dispatch
+            // a custom event that investments.js can listen to, or fall back to reloading the
+            // gains series with a ?return_method= query param appended.
+            document.dispatchEvent(new CustomEvent('inv:returnMethodChange', { detail: { method: _returnMethod } }));
+        });
+    });
 })();
 (function () {
     function fmt(n) {
@@ -360,7 +568,7 @@
 
         var items = listEl.querySelectorAll('.holding-item');
         if (!items.length) {
-            tbody.innerHTML = '<tr><td colspan="12" class="muted" style="padding:1rem;">No holdings yet. Click "+ Add holding" to track a position.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state-inline"><span class="material-symbols-rounded empty-icon">trending_up</span><span class="empty-title">No holdings yet</span><span class="empty-body">Click "+ Add holding" to track a position, or connect Alpaca to auto-sync.</span></div></td></tr>';
             if (totalEl) totalEl.textContent = '$0.00';
             if (costEl) costEl.textContent = '$0.00';
             if (dayChangeEl) dayChangeEl.textContent = '$0.00';
@@ -411,8 +619,6 @@
             rows += '<td>' + (priceNum != null ? fmt(priceNum) : '<span class="muted">—</span>') + '</td>';
             rows += '<td>' + fmt(marketValue) + '</td>';
             rows += '<td>' + (unrNum != null && !isNaN(unrNum) ? '<span style="color:' + (unrNum >= 0 ? 'var(--green,#38a169)' : 'var(--red,#e53e3e)') + ';">' + fmt(unrNum) + '</span>' : '<span class="muted">—</span>') + '</td>';
-            rows += '<td><span class="muted" title="Connect history API for sparkline">—</span></td>';
-            rows += '<td><span class="muted" title="Requires holding age / history">—</span></td>';
             rows += '<td>' + fmtChangePct(changePct !== '' ? changePct : null) + '</td>';
             rows += '<td style="white-space:nowrap;">';
             rows += '<button type="button" class="btn btn-ghost holding-table-details"'

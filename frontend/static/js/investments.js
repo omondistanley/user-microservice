@@ -5,6 +5,27 @@
     holdings: [],
     quotes: {}
   };
+  function showNotice(message, tone) {
+    if (!message) return;
+    var box = document.getElementById("inv-inline-notice");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "inv-inline-notice";
+      box.className = "note";
+      box.style.marginBottom = "0.75rem";
+      var main = document.querySelector(".content-area") || document.querySelector("main") || document.body;
+      if (main.firstChild) main.insertBefore(box, main.firstChild);
+      else main.appendChild(box);
+    }
+    box.textContent = String(message);
+    box.style.display = "block";
+    box.style.borderLeftColor = tone === "error" ? "#e53e3e" : tone === "success" ? "#38a169" : "#38bdf8";
+    clearTimeout(showNotice._timer);
+    showNotice._timer = setTimeout(function() {
+      box.style.display = "none";
+      box.textContent = "";
+    }, 3500);
+  }
   function apiUrl(path) {
     var base = typeof window !== "undefined" && window.API_BASE ? window.API_BASE : "";
     return (base || "") + path;
@@ -111,16 +132,29 @@
         });
       }
     }).catch(function(err) {
-      alert(err.message || "Sell failed");
+      showNotice(err.message || "Sell failed", "error");
     });
   }
   function formatMoney(n) {
     return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   var INV_GAINS_DAYS = 90;
+  var invGainsChartType = "line";
+  var _invReturnMethod = "pl";
   function fetchGainsHistory(days) {
-    return gatewayJson("/api/v1/portfolio/gains-history?days=" + (days || INV_GAINS_DAYS));
+    var method = _invReturnMethod !== "pl" ? "&return_method=" + _invReturnMethod : "";
+    return gatewayJson("/api/v1/portfolio/gains-history?days=" + (days || INV_GAINS_DAYS) + method);
   }
+  document.addEventListener("inv:returnMethodChange", function(e) {
+    var method = e.detail && e.detail.method;
+    if (!method) return;
+    _invReturnMethod = method;
+    fetchGainsHistory(INV_GAINS_DAYS).then(function(data) {
+      invGainsLastData = data;
+      renderGainsChart(data, invGainsVisible());
+    }).catch(function() {
+    });
+  });
   function placeholderGainsData(message) {
     var dates = [];
     var zeros = [];
@@ -188,7 +222,7 @@
       gridColor = "rgba(255,255,255,0.06)";
     }
     var opts = {
-      chart: { type: "line", zoom: { enabled: false }, fontFamily: "'Source Sans 3', sans-serif", toolbar: { show: false }, background: "transparent" },
+      chart: { type: invGainsChartType, zoom: { enabled: false }, fontFamily: "'Source Sans 3', sans-serif", toolbar: { show: false }, background: "transparent" },
       series,
       xaxis: { categories: data.dates, labels: { rotate: -45, formatter: function(v) {
         return (v || "").substring(0, 10);
@@ -310,7 +344,7 @@
             listEl.innerHTML = '<p class="muted">No holdings yet. Click "Add holding" to track a position.</p>';
           }
         }).catch(function(err) {
-          alert(err.message || "Delete failed");
+          showNotice(err.message || "Delete failed", "error");
         });
       });
     });
@@ -342,7 +376,7 @@
     if (!listEl) return;
     var invTbody = document.getElementById("inv-holdings-table-body");
     if (invTbody) {
-      invTbody.innerHTML = '<tr><td colspan="12" style="padding:1rem;"><div class="skeleton-line skeleton-line--wide"></div><div class="skeleton-line skeleton-line--medium" style="margin-top:10px;"></div></td></tr>';
+      invTbody.innerHTML = '<tr><td colspan="10" style="padding:1rem;"><div class="skeleton-line skeleton-line--wide"></div><div class="skeleton-line skeleton-line--medium" style="margin-top:10px;"></div></td></tr>';
     }
     function loadHoldings() {
       fetchHoldings().then(function(data) {
@@ -398,6 +432,34 @@
         if (invGainsLastData) renderGainsChart(invGainsLastData, invGainsVisible());
       });
     });
+    document.querySelectorAll(".inv-period-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        document.querySelectorAll(".inv-period-btn").forEach(function(b) {
+          b.classList.remove("inv-period-btn--active");
+        });
+        btn.classList.add("inv-period-btn--active");
+        var days = parseInt(btn.getAttribute("data-days") || "90", 10);
+        var fetchDays = days === 0 ? 1825 : days;
+        INV_GAINS_DAYS = fetchDays;
+        fetchGainsHistory(fetchDays).then(function(data) {
+          invGainsLastData = data;
+          renderGainsChart(data, invGainsVisible());
+        }).catch(function() {
+          invGainsLastData = placeholderGainsData("Could not load gains history for this period. Try again later.");
+          renderGainsChart(invGainsLastData, invGainsVisible());
+        });
+      });
+    });
+    document.querySelectorAll(".inv-chart-type-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        document.querySelectorAll(".inv-chart-type-btn").forEach(function(b) {
+          b.classList.remove("inv-chart-type-btn--active");
+        });
+        btn.classList.add("inv-chart-type-btn--active");
+        invGainsChartType = btn.getAttribute("data-type") || "line";
+        if (invGainsLastData) renderGainsChart(invGainsLastData, invGainsVisible());
+      });
+    });
     var addBtn = document.getElementById("holdings-add-btn");
     if (addBtn) addBtn.addEventListener("click", showAddForm);
     var addParam = typeof URLSearchParams !== "undefined" && window.location.search ? new URLSearchParams(window.location.search).get("add") : null;
@@ -420,7 +482,7 @@
         var currency = ((document.getElementById("holding-currency") || {}).value || "USD").trim().toUpperCase();
         var notes = ((document.getElementById("holding-notes") || {}).value || "").trim() || null;
         if (!symbol || isNaN(quantity) || quantity <= 0 || isNaN(avgCost) || avgCost < 0) {
-          alert("Please fill symbol, quantity (positive), and avg. cost (\u2265 0).");
+          showNotice("Please fill symbol, quantity (positive), and avg. cost (>= 0).", "error");
           return;
         }
         var accountType = ((document.getElementById("holding-account-type") || {}).value || "taxable").trim();
@@ -442,7 +504,7 @@
             return fetchAlpacaStatus().then(function(status) {
               if (status && status.connected && confirm("Place this as a buy order on Alpaca? Market order for " + quantity + " share(s) of " + symbol.toUpperCase() + ".")) {
                 return placeOrder(symbol.toUpperCase(), quantity, "buy").then(function() {
-                  alert("Order placed.");
+                  showNotice("Order placed.", "success");
                   return alpacaSync().catch(function() {
                   }).then(function() {
                     return fetchHoldings();
@@ -457,13 +519,13 @@
                     });
                   }
                 }).catch(function(err) {
-                  alert(err.message || "Order failed");
+                  showNotice(err.message || "Order failed", "error");
                 });
               }
             });
           });
         }).catch(function(err) {
-          alert(err.message || "Failed to add holding");
+          showNotice(err.message || "Failed to add holding", "error");
         });
       });
     }

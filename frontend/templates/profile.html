@@ -45,7 +45,6 @@
             </div>
             <div>
                 <button type="submit" class="btn btn-primary">Save changes</button>
-                <p id="profile-edit-msg" class="form-hint" style="margin-top: 8px;"></p>
             </div>
         </form>
 
@@ -67,18 +66,17 @@
             </div>
             <button type="submit" class="btn btn-primary icon-btn-label" style="width: fit-content;"><span class="material-symbols-rounded">key</span> Update password</button>
         </form>
-        <p id="profile-password-msg" class="form-hint" style="margin-top: 8px;"></p>
     </div>
 
     <!-- Right card: account info -->
     <div class="card">
         <h2 class="stat-label" style="margin-bottom: 16px;"><span class="icon-btn-label"><span class="material-symbols-rounded">person</span> Account</span></h2>
 
-        <div class="stat-row" style="margin-bottom: 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <span class="stat-label">Member since</span>
-            <span class="stat-value" id="profile-member-since" style="font-size: 0.9rem;">—</span>
+            <span class="stat-value" id="profile-member-since" style="font-size:0.9rem;">—</span>
         </div>
-        <div class="stat-row" style="margin-bottom: 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
             <span class="stat-label">Plan</span>
             <span class="badge badge-emerald" id="profile-badge">Free</span>
         </div>
@@ -100,7 +98,6 @@
                 Delete account
             </button>
         </div>
-        <p id="profile-export-msg" class="form-hint" style="margin-top: 8px;"></p>
     </div>
 
 </div>
@@ -162,13 +159,11 @@
 
     document.getElementById('profile-edit-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        var msg = document.getElementById('profile-edit-msg');
         var payload = {
             first_name: document.getElementById('profile-first-name').value.trim(),
             last_name: document.getElementById('profile-last-name').value.trim(),
             bio: document.getElementById('profile-bio').value.trim()
         };
-        msg.textContent = 'Saving…';
         fetch(API + '/user/me', {
             method: 'PATCH',
             headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
@@ -176,15 +171,16 @@
         })
             .then(function(r) {
                 if (r.ok) {
-                    msg.textContent = 'Changes saved.';
+                    window.showToast && window.showToast('Changes saved.', 'success');
                     loadProfile();
                 } else {
                     return r.json().then(function(d) {
-                        msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to save.';
+                        var detail = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to save.';
+                        window.showToast && window.showToast(detail, 'error');
                     });
                 }
             })
-            .catch(function() { msg.textContent = 'Request failed.'; });
+            .catch(function() { window.showToast && window.showToast('Request failed.', 'error'); });
     });
 
     document.getElementById('profile-change-password').addEventListener('submit', function(e) {
@@ -192,16 +188,14 @@
         var cur = document.getElementById('current-password').value;
         var newP = document.getElementById('new-password').value;
         var conf = document.getElementById('confirm-password').value;
-        var msg = document.getElementById('profile-password-msg');
         if (newP !== conf) {
-            msg.textContent = 'New password and confirm do not match.';
+            window.showToast && window.showToast('New password and confirm do not match.', 'warning');
             return;
         }
         if (newP.length < 8) {
-            msg.textContent = 'New password must be at least 8 characters.';
+            window.showToast && window.showToast('New password must be at least 8 characters.', 'warning');
             return;
         }
-        msg.textContent = 'Updating…';
         fetch(API + '/user/me/change-password', {
             method: 'POST',
             headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
@@ -209,21 +203,21 @@
         })
             .then(function(r) {
                 if (r.ok || r.status === 204) {
-                    msg.textContent = 'Password updated. You may need to sign in again.';
+                    window.showToast && window.showToast('Password updated. You may need to sign in again.', 'success');
                     document.getElementById('current-password').value = '';
                     document.getElementById('new-password').value = '';
                     document.getElementById('confirm-password').value = '';
                 } else {
                     return r.json().then(function(d) {
-                        msg.textContent = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to update password.';
+                        var detail = (d && d.detail) ? (typeof d.detail === 'string' ? d.detail : 'Failed') : 'Failed to update password.';
+                        window.showToast && window.showToast(detail, 'error');
                     });
                 }
             })
-            .catch(function() { msg.textContent = 'Request failed.'; });
+            .catch(function() { window.showToast && window.showToast('Request failed.', 'error'); });
     });
     document.getElementById('profile-export').addEventListener('click', function() {
-        var msg = document.getElementById('profile-export-msg');
-        msg.textContent = 'Preparing export…';
+        window.showToast && window.showToast('Preparing export…');
         fetch(API + '/user/me/export', { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Export failed');
@@ -235,9 +229,9 @@
                 a.download = 'my_data_export.zip';
                 a.click();
                 URL.revokeObjectURL(a.href);
-                msg.textContent = 'Export downloaded.';
+                window.showToast && window.showToast('Export downloaded.', 'success');
             })
-            .catch(function() { msg.textContent = 'Export failed. Try again later.'; });
+            .catch(function() { window.showToast && window.showToast('Export failed. Try again later.', 'error'); });
     });
     document.getElementById('profile-delete').addEventListener('click', function() {
         if (!confirm('Permanently delete your account and all data? This cannot be undone.')) return;

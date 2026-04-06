@@ -41,7 +41,18 @@
         <a href="/expenses" class="m-section-link">View all →</a>
     </div>
     <ul class="m-list" id="m-dashboard-txn-list">
-        <li class="m-loading-item">Loading…</li>
+        <li class="m-loading-item" aria-busy="true">
+            <div class="skeleton skeleton-text" style="width:60%;margin-bottom:6px;"></div>
+            <div class="skeleton skeleton-text skeleton-text--sm" style="width:40%;"></div>
+        </li>
+        <li class="m-loading-item" aria-hidden="true">
+            <div class="skeleton skeleton-text" style="width:75%;margin-bottom:6px;"></div>
+            <div class="skeleton skeleton-text skeleton-text--sm" style="width:35%;"></div>
+        </li>
+        <li class="m-loading-item" aria-hidden="true">
+            <div class="skeleton skeleton-text" style="width:55%;margin-bottom:6px;"></div>
+            <div class="skeleton skeleton-text skeleton-text--sm" style="width:45%;"></div>
+        </li>
     </ul>
 
     <!-- Budget Overview -->
@@ -49,8 +60,10 @@
         <span class="m-section-title">Budgets</span>
         <a href="/budgets" class="m-section-link">All →</a>
     </div>
-    <div id="m-dashboard-budgets">
-        <p class="m-loading-copy">Loading…</p>
+    <div id="m-dashboard-budgets" aria-busy="true">
+        <div class="skeleton skeleton-text" style="width:80%;margin-bottom:8px;"></div>
+        <div class="skeleton skeleton-text skeleton-text--sm" style="width:60%;margin-bottom:8px;"></div>
+        <div class="skeleton skeleton-text skeleton-text--sm" style="width:70%;"></div>
     </div>
 
     <!-- Quick Actions -->
@@ -66,40 +79,74 @@
 
 <!-- ── DESKTOP DASHBOARD ── (hidden on mobile) -->
 <div class="m-dash-desktop">
-    <div class="dash-editorial-grid">
-        <section class="dash-balance-anchor">
-            <div class="dash-balance-label">Running Balance</div>
-            <h1 class="dash-balance-value" id="dashboard-total-balance">—</h1>
-            <div class="dash-balance-trend" id="dashboard-balance-change">Updated this month</div>
-            <div class="dash-balance-glow"></div>
-        </section>
 
-        <section class="dash-side-kpis">
-            <div class="dash-side-kpi">
-                <div class="dash-side-kpi-label">Monthly Expenses</div>
-                <div class="dash-side-kpi-value" id="dashboard-expenses">—</div>
-                <div class="stat-change down" id="dashboard-expense-change"></div>
-            </div>
-            <div class="dash-side-kpi">
-                <div class="dash-side-kpi-label">Monthly Income</div>
-                <div class="dash-side-kpi-value" id="dashboard-income">—</div>
-                <div class="stat-change up" id="dashboard-income-change"></div>
-            </div>
-            <div class="dash-side-kpi">
-                <div class="dash-side-kpi-label">Savings Rate</div>
-                <div class="dash-side-kpi-value" id="dashboard-savings-rate">—</div>
-                <div class="stat-change" id="dashboard-savings-change"></div>
-            </div>
-        </section>
+    <!-- Get started checklist (hidden after dismiss) -->
+    <div class="card" id="dashboard-checklist-card" style="display:none;margin-bottom:1.25rem;border-left:3px solid var(--brand);">
+        <div class="dash-section-head">
+            <h2 class="dash-section-title">Get started</h2>
+            <button type="button" class="btn btn-ghost btn-sm" id="dashboard-checklist-dismiss">Dismiss</button>
+        </div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+            <a href="/link-bank" class="btn btn-secondary btn-sm"><span class="material-symbols-rounded">account_balance</span> Link bank</a>
+            <a href="/expenses/add" class="btn btn-secondary btn-sm">+ Log expense</a>
+            <a href="/budgets/add" class="btn btn-secondary btn-sm">+ Create budget</a>
+            <a href="/goals/add" class="btn btn-secondary btn-sm">+ Add goal</a>
+        </div>
     </div>
 
-    <div class="dash-main-layout">
-        <div class="dash-main-column">
-            <div class="card">
-                <div class="dash-section-head">
-                    <h2 class="dash-section-title">Recent Transactions</h2>
-                    <a href="/expenses" class="dash-section-link">View all →</a>
-                </div>
+    <!-- Row 1: 4 stat cards -->
+    <div class="grid-4 mb-24">
+        <div class="stat-card">
+            <div class="stat-label">Running Balance</div>
+            <div class="stat-value" id="dashboard-total-balance">—</div>
+            <div class="stat-change" id="dashboard-balance-change"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Income (this month)</div>
+            <div class="stat-value" id="dashboard-income">—</div>
+            <div class="stat-change up" id="dashboard-income-change"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Expenses (this month)</div>
+            <div class="stat-value" id="dashboard-expenses">—</div>
+            <div class="stat-change down" id="dashboard-expense-change"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Savings Rate</div>
+            <div class="stat-value" id="dashboard-savings-rate">—</div>
+            <div class="stat-change" id="dashboard-savings-change"></div>
+        </div>
+    </div>
+
+    <!-- Row 2: Spending by category (2/3) + Budget health (1/3) -->
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;margin-bottom:20px;">
+        <div class="card">
+            <div class="dash-section-head" style="margin-bottom:16px;">
+                <h2 class="dash-section-title">Spending by Category</h2>
+                <a href="/reports" class="dash-section-link">Full report →</a>
+            </div>
+            <div id="dashboard-category-bars">
+                <p class="table-loading-copy">Loading…</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="dash-section-head" style="margin-bottom:16px;">
+                <h2 class="dash-section-title">Budget health</h2>
+                <a href="/budgets" class="dash-section-link">View all →</a>
+            </div>
+            <div id="dashboard-budgets-list">
+                <p class="table-loading-copy">Loading…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Recent transactions (2/3) + AI insight + goals (1/3) -->
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;margin-bottom:20px;">
+        <div class="card">
+            <div class="dash-section-head" style="margin-bottom:16px;">
+                <h2 class="dash-section-title">Recent Transactions</h2>
+                <a href="/expenses" class="dash-section-link">View all →</a>
+            </div>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -117,54 +164,22 @@
             </div>
         </div>
 
-        <!-- Spending by Category -->
-        <div class="card">
-            <div class="dash-section-head">
-                <h2 class="dash-section-title">Spending by Category</h2>
-                <a href="/reports" class="dash-section-link">Full report →</a>
-            </div>
-            <div id="dashboard-category-bars">
-                <p class="table-loading-copy">Loading…</p>
-            </div>
-        </div>
-
-        <!-- Recurring & monthly pace (data from expense service) -->
-        <div class="card">
-            <div class="dash-section-head">
-                <h2 class="dash-section-title">Recurring &amp; cash pace</h2>
-                <a href="/recurring" class="dash-section-link">Manage recurring →</a>
-            </div>
-            <div id="dashboard-recurring-panel">
-                <p class="table-loading-copy">Loading…</p>
-            </div>
-        </div>
-        </div>
-
-        <div class="dash-side-column">
-            <div class="card" id="dashboard-checklist-card" style="display:none;">
-                <div class="dash-section-head">
-                    <h2 class="dash-section-title">Get started</h2>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <!-- AI Insight card -->
+            <div class="ai-insight-card">
+                <div class="ai-label"><span class="material-symbols-rounded" style="font-size:12px;vertical-align:middle;">auto_awesome</span> AI Insight</div>
+                <div class="ai-text" id="dashboard-ai-insight-text">Run analysis on the <a href="/recommendations" style="color:var(--brand);">Recommendations</a> page for personalised investment and budget insights.</div>
+                <div class="ai-conf-row" id="dashboard-ai-conf-row" style="display:none;">
+                    <span class="ai-conf-label">Confidence</span>
+                    <div class="ai-conf-bar"><div class="ai-conf-fill" id="dashboard-ai-conf-fill" style="width:0%"></div></div>
+                    <span class="ai-conf-pct" id="dashboard-ai-conf-pct">0%</span>
                 </div>
-                <ul style="margin:0;padding:0 0 0 1.1rem;font-size:13px;color:var(--text-secondary);line-height:1.7;">
-                    <li><a href="/link-bank">Link a bank account</a></li>
-                    <li><a href="/expenses/add">Log an expense</a></li>
-                    <li><a href="/budgets/add">Create a budget</a></li>
-                    <li><a href="/goals/add">Add a savings goal</a></li>
-                </ul>
-                <button type="button" class="btn btn-ghost btn-sm" id="dashboard-checklist-dismiss" style="margin-top:12px;">Dismiss</button>
+                <a href="/recommendations" class="btn btn-primary btn-sm" style="margin-top:10px;display:inline-flex;">View recommendations →</a>
             </div>
+
+            <!-- Savings Goals -->
             <div class="card">
-                <div class="dash-section-head">
-                    <h2 class="dash-section-title">Budget Overview</h2>
-                    <a href="/budgets" class="dash-section-link">All budgets →</a>
-                </div>
-                <div id="dashboard-budgets-list">
-                    <p class="table-loading-copy">Loading…</p>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="dash-section-head">
+                <div class="dash-section-head" style="margin-bottom:12px;">
                     <h2 class="dash-section-title">Savings Goals</h2>
                     <a href="/goals" class="dash-section-link">All goals →</a>
                 </div>
@@ -172,16 +187,17 @@
                     <p class="table-loading-copy">Loading…</p>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="card dash-quick-card">
-                <h2 class="dash-section-title">Quick Actions</h2>
-                <div class="dash-quick-actions-col">
-                    <a href="/expenses/add" class="btn btn-primary btn-sm btn-block-centered">+ Add</a>
-                    <a href="/income/add" class="btn btn-ghost btn-sm btn-block-centered">+ Add Income</a>
-                    <a href="/link-bank" class="btn btn-ghost btn-sm btn-block-centered"><span class="material-symbols-rounded">account_balance</span> Link Bank</a>
-                    <a href="/expenses/import" class="btn btn-ghost btn-sm btn-block-centered"><span class="material-symbols-rounded">download</span> Import CSV</a>
-                </div>
-            </div>
+    <!-- Row 4: Recurring & cash pace (full width) -->
+    <div class="card" style="margin-bottom:20px;">
+        <div class="dash-section-head" style="margin-bottom:12px;">
+            <h2 class="dash-section-title">Recurring &amp; cash pace</h2>
+            <a href="/recurring" class="dash-section-link">Manage →</a>
+        </div>
+        <div id="dashboard-recurring-panel">
+            <p class="table-loading-copy">Loading…</p>
         </div>
     </div>
 <!-- Monthly Review CTA -->

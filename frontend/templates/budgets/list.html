@@ -11,10 +11,11 @@
 </div>
 
 <!-- Stats row -->
-<div class="stat-row section-block">
+<div class="grid-4 mb-24">
     <div class="stat-card">
         <div class="stat-label">Total Budgeted</div>
         <div class="stat-value" id="budget-total-limit">—</div>
+        <div class="stat-change" style="color:var(--text-muted);">this month</div>
     </div>
     <div class="stat-card">
         <div class="stat-label">Total Spent</div>
@@ -27,6 +28,7 @@
     <div class="stat-card">
         <div class="stat-label">On Track</div>
         <div class="stat-value" id="budget-on-track">—</div>
+        <div class="stat-change down" id="budget-over-count"></div>
     </div>
 </div>
 
@@ -54,7 +56,7 @@
 </div>
 
 <!-- Budget cards -->
-<div id="budgets-categories-list" class="budget-cards-grid section-block" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+<div id="budgets-categories-list" class="grid-3 section-block">
     <p style="color:var(--s400);font-size:14px;">Loading…</p>
 </div>
 {% endblock %}
@@ -159,28 +161,24 @@
                 var pctBar = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
                 var over = spent > limit;
                 var near = !over && pctBar >= 75;
-                var fillClass = over ? 'red' : (near ? 'amber' : 'green');
+                var barClass = over ? 'progress-red' : (near ? 'progress-amber' : 'progress-green');
                 var name = (b.name || b.category_name || '').trim() || 'Budget';
-                var emoji = getCatEmoji(b.category_code, name);
+                var catName = b.category_name || name;
                 var left = limit - spent;
-                var leftText = over ? ('-' + fmt(Math.abs(left)) + ' over budget') : (fmt(left) + ' left');
-                var badgeColor = over ? 'rose' : (near ? 'amber' : 'emerald');
+                var leftText = over
+                    ? ('<span class="text-danger">' + fmt(Math.abs(left)) + ' over budget</span>')
+                    : ('<span class="text-success">' + fmt(left) + ' remaining (' + pctBar + '% used)</span>');
                 var href = b.budget_id ? '/budgets/' + b.budget_id : '#';
-                var cardBorder = over ? 'border-color:var(--rose);' : '';
-                return '<a href="' + href + '" class="card" style="text-decoration:none;color:inherit;display:block;' + cardBorder + '">' +
-                    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-                    '<div style="display:flex;align-items:center;gap:10px;">' +
-                    '<div style="width:40px;height:40px;border-radius:10px;background:var(--s100);display:flex;align-items:center;justify-content:center;font-size:18px;">' + emoji + '</div>' +
-                    '<span style="font-size:14px;font-weight:700;color:var(--s900);">' + name.replace(/</g,'&lt;') + '</span>' +
+                var cardStyle = over ? 'border-color:var(--rose);' : '';
+                return '<a href="' + href + '" class="budget-card" style="text-decoration:none;color:inherit;display:block;' + cardStyle + '">' +
+                    '<div class="budget-cat"' + (over ? ' style="color:var(--rose);"' : '') + '>' + catName.replace(/</g,'&lt;') + '</div>' +
+                    '<div class="budget-name">' + name.replace(/</g,'&lt;') + '</div>' +
+                    '<div class="budget-amounts">' +
+                    '<span class="budget-spent"' + (over ? ' style="color:var(--rose);"' : '') + '>' + fmt(spent) + '</span>' +
+                    '<span class="budget-limit">of ' + fmt(limit) + '</span>' +
                     '</div>' +
-                    '<span class="badge badge-' + badgeColor + '">' + pctBar + '%</span>' +
-                    '</div>' +
-                    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">' +
-                    '<span style="font-size:18px;font-weight:800;color:' + (over ? 'var(--rose)' : 'var(--s900)') + ';">' + fmt(spent) + '</span>' +
-                    '<span style="font-size:12px;color:var(--s400);">of ' + fmt(limit) + '</span>' +
-                    '</div>' +
-                    '<div class="progress-bar"><div class="progress-fill ' + fillClass + '" style="width:' + pctBar + '%;"></div></div>' +
-                    '<div style="font-size:12px;font-weight:500;margin-top:6px;color:' + (over ? 'var(--rose)' : 'var(--s500)') + ';">' + leftText + '</div>' +
+                    '<div class="progress"><div class="progress-bar ' + barClass + '" style="width:' + pctBar + '%;"></div></div>' +
+                    '<div class="budget-remaining">' + leftText + '</div>' +
                     '</a>';
             }).join('');
             listEl.innerHTML = html;

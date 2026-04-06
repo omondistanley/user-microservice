@@ -234,24 +234,21 @@
                         var fillClass = pct >= 100 ? 'green' : (pct >= 75 ? 'amber' : 'green');
                         var goalId = String(g.goal_id);
                         self._goalsById[goalId] = g;
-                        html += '<div class="card goal-card-budget" role="button" tabindex="0" data-goal-id="' + escapeHtml(goalId) + '" style="text-decoration:none;color:inherit;display:block;cursor:pointer;">' +
-                            '<div class="goal-card-budget-inner" style="display:flex;flex-direction:column;">' +
-                            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-                            '<div style="display:flex;align-items:center;gap:10px;">' +
-                            '<div style="width:40px;height:40px;border-radius:10px;background:var(--s100);display:flex;align-items:center;justify-content:center;font-size:18px;">⭐</div>' +
-                            '<span style="font-size:14px;font-weight:700;color:var(--text-primary);">' + name + '</span>' +
+                        var barColor = pct >= 100 ? 'progress-green' : (pct >= 75 ? 'progress-amber' : 'progress-blue');
+                        html += '<div class="goal-card goal-card-budget" role="button" tabindex="0" data-goal-id="' + escapeHtml(goalId) + '" style="cursor:pointer;">' +
+                            '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">' +
+                            '<div class="goal-icon" style="background:var(--brand-50,#eff6ff);color:var(--brand,#2563eb);">⭐</div>' +
+                            '<div style="flex:1;">' +
+                            '<div class="goal-name">' + name + '</div>' +
+                            (g.target_date ? '<div class="goal-target">Target: ' + fmtMoney(target) + ' · ' + escapeHtml(String(g.target_date).slice(0,10)) + '</div>' : '<div class="goal-target">Target: ' + fmtMoney(target) + '</div>') +
                             '</div>' +
                             '<span class="badge badge-emerald">' + pct + '%</span>' +
                             '</div>' +
-                            '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">' +
-                            '<span style="font-size:18px;font-weight:800;color:var(--text-primary);">' + fmtMoney(current) + '</span>' +
-                            '<span style="font-size:12px;color:var(--text-muted);">of ' + fmtMoney(target) + '</span>' +
-                            '</div>' +
-                            '<div class="progress-bar"><div class="progress-fill ' + fillClass + '" style="width:' + pct + '%;"></div></div>' +
-                            '<div style="font-size:12px;font-weight:500;margin-top:6px;color:var(--text-secondary);">' + leftText + '</div>' +
+                            '<div class="goal-progress-meta"><span class="goal-current">' + fmtMoney(current) + '</span><span class="goal-pct">' + pct + '%</span></div>' +
+                            '<div class="progress"><div class="progress-bar ' + barColor + '" style="width:' + pct + '%;"></div></div>' +
+                            '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">' + leftText + '</div>' +
                             '<div style="display:flex;justify-content:flex-end;margin-top:12px;">' +
                             '<button type="button" class="btn btn-ghost btn-sm goal-edit-btn" data-goal-id="' + escapeHtml(goalId) + '" aria-label="Edit goal">Edit</button>' +
-                            '</div>' +
                             '</div>' +
                             '</div>';
                     });

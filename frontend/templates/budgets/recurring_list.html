@@ -2,41 +2,64 @@
 {% block body_class %}recurring-budgets-page{% endblock %}
 {% block title %}Recurring budgets — pocketii{% endblock %}
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-6 pb-24 md:pb-8">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Recurring budgets</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Templates by cadence (weekly, monthly, yearly)</p>
-        </div>
-        <a href="/budgets" class="text-sm font-semibold text-[#135bec] hover:underline">Period budgets</a>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Recurring budgets</h1>
+        <p class="page-meta">Templates by cadence (weekly, monthly, yearly)</p>
     </div>
-    <form id="rb-create" class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 mb-6 space-y-3">
-        <h2 class="font-bold text-slate-900 dark:text-white">New recurring budget</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input name="name" type="text" placeholder="Label (optional)" class="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-900 text-sm" />
-            <input name="amount" type="number" step="0.01" min="0" placeholder="Amount" required class="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-900 text-sm" />
-            <select name="category_code" class="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-900 text-sm" required>
-                <option value="1">Food</option>
-                <option value="2">Transportation</option>
-                <option value="3">Travel</option>
-                <option value="4">Utilities</option>
-                <option value="5">Entertainment</option>
-                <option value="6">Health</option>
-                <option value="7">Shopping</option>
-                <option value="8">Other</option>
-            </select>
-            <select name="cadence" class="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-900 text-sm" required>
-                <option value="weekly">Weekly</option>
-                <option value="monthly" selected>Monthly</option>
-                <option value="yearly">Yearly</option>
-            </select>
-            <input name="start_date" type="date" required class="rounded-lg border-slate-200 dark:border-slate-600 dark:bg-slate-900 text-sm sm:col-span-2" />
-        </div>
-        <button type="submit" class="px-4 py-2 rounded-lg bg-[#135bec] text-white text-sm font-semibold">Create</button>
-        <p id="rb-msg" class="text-sm text-slate-500"></p>
-    </form>
-    <div id="rb-list" class="space-y-3"></div>
+    <a href="/budgets" class="btn btn-ghost btn-sm">Period budgets</a>
 </div>
+
+<div class="card mb-24">
+    <div class="card-header">
+        <span class="card-title">New recurring budget</span>
+    </div>
+    <form id="rb-create" class="form" style="margin-top:12px;">
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Label (optional)</label>
+                <input name="name" type="text" class="form-input" placeholder="e.g. Netflix" />
+            </div>
+            <div class="form-group">
+                <label>Amount <span class="required">*</span></label>
+                <input name="amount" type="number" step="0.01" min="0" class="form-input" placeholder="0.00" required />
+            </div>
+            <div class="form-group">
+                <label>Category <span class="required">*</span></label>
+                <select name="category_code" class="form-select" required>
+                    <option value="1">Food</option>
+                    <option value="2">Transportation</option>
+                    <option value="3">Travel</option>
+                    <option value="4">Utilities</option>
+                    <option value="5">Entertainment</option>
+                    <option value="6">Health</option>
+                    <option value="7">Shopping</option>
+                    <option value="8">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Cadence <span class="required">*</span></label>
+                <select name="cadence" class="form-select" required>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly" selected>Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>Start date <span class="required">*</span></label>
+                <input name="start_date" type="date" class="form-input" required />
+            </div>
+        </div>
+        <div class="form-actions" style="margin-top:12px;">
+            <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+        <p id="rb-msg" class="muted" style="font-size:0.875rem;margin-top:8px;"></p>
+    </form>
+</div>
+
+<div id="rb-list" style="display:flex;flex-direction:column;gap:12px;"></div>
+
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/recurring_budgets_list.js"></script>

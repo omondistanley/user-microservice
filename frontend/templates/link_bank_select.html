@@ -1,140 +1,106 @@
 {% extends "layout.html" %}
 {% block body_class %}link-bank-select-page{% endblock %}
-{% block title %}Select Your Bank — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#135bec",
-          "background-light": "#f6f6f8",
-          "background-dark": "#101622",
-        },
-        fontFamily: { "display": ["Manrope", "sans-serif"] },
-        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
-<style>
-  body { font-family: 'Manrope', sans-serif; min-height: max(884px, 100dvh); }
-</style>
-{% endblock %}
+{% block title %}Select Your Bank — pocketii{% endblock %}
 {% block content %}
-<div class="relative flex h-auto min-h-screen w-full max-w-[430px] mx-auto flex-col bg-white dark:bg-slate-950 overflow-x-hidden shadow-2xl font-display text-slate-900 dark:text-slate-100">
-  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
-  <div class="flex items-center bg-white dark:bg-slate-950 p-4 pb-2 justify-between sticky top-0 z-10">
-    <a href="/link-bank" class="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center justify-center cursor-pointer" aria-label="Back">
-      <span class="material-symbols-outlined text-2xl">arrow_back_ios</span>
-    </a>
-    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Select Your Bank</h2>
-  </div>
-  <div class="px-4 py-3">
-    <label class="flex flex-col min-w-40 h-14 w-full">
-      <div class="flex w-full flex-1 items-stretch rounded-xl h-full shadow-sm border border-slate-200 dark:border-slate-800">
-        <div class="text-slate-400 dark:text-slate-500 flex bg-slate-50 dark:bg-slate-900 items-center justify-center pl-4 rounded-l-xl">
-          <span class="material-symbols-outlined text-2xl">search</span>
-        </div>
-        <input type="text" id="bank-search" class="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-r-xl text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-0 border-none bg-slate-50 dark:bg-slate-900 h-full placeholder:text-slate-400 dark:placeholder:text-slate-500 px-4 pl-2 text-base font-medium leading-normal" placeholder="Search for your institution" />
-      </div>
-    </label>
-  </div>
-  <div class="flex items-center justify-between px-4 pb-2 pt-6">
-    <h3 class="text-slate-900 dark:text-slate-100 text-lg font-extrabold leading-tight tracking-tight">Most popular</h3>
-    <span class="text-primary text-sm font-semibold cursor-pointer">View all</span>
-  </div>
-  <div class="grid grid-cols-2 gap-4 p-4">
-    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Chase">
-      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
-        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
-      </div>
-      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Chase</p>
-    </button>
-    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Wells Fargo">
-      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
-        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
-      </div>
-      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Wells Fargo</p>
-    </button>
-    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Bank of America">
-      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
-        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
-      </div>
-      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Bank of America</p>
-    </button>
-    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Citi">
-      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
-        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
-      </div>
-      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Citi</p>
-    </button>
-    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="Capital One">
-      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
-        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
-      </div>
-      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">Capital One</p>
-    </button>
-    <button type="button" class="plaid-open-link group relative flex flex-col gap-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 aspect-square items-center justify-center transition-all hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm" data-name="US Bank">
-      <div class="w-16 h-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm mb-2">
-        <span class="material-symbols-outlined text-3xl text-slate-500">account_balance</span>
-      </div>
-      <p class="text-slate-900 dark:text-slate-100 text-base font-bold leading-tight text-center">US Bank</p>
-    </button>
-  </div>
-  <div class="px-4 py-4">
-    <h3 class="text-slate-900 dark:text-slate-100 text-lg font-extrabold leading-tight tracking-tight pb-4">Other institutions</h3>
-    <div class="flex flex-col space-y-2">
-      <button type="button" class="plaid-open-link flex items-center p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer border border-transparent hover:border-slate-100 dark:hover:border-slate-800 w-full text-left" data-name="American Express">
-        <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-4">
-          <span class="material-symbols-outlined text-slate-500">account_balance</span>
-        </div>
-        <div class="flex-1">
-          <p class="text-slate-900 dark:text-slate-100 font-semibold">American Express</p>
-          <p class="text-slate-500 text-xs">Credit Cards &amp; Personal Loans</p>
-        </div>
-        <span class="material-symbols-outlined text-slate-400">chevron_right</span>
-      </button>
-      <button type="button" class="plaid-open-link flex items-center p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer border border-transparent hover:border-slate-100 dark:hover:border-slate-800 w-full text-left" data-name="Fidelity Investments">
-        <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-4">
-          <span class="material-symbols-outlined text-slate-500">account_balance</span>
-        </div>
-        <div class="flex-1">
-          <p class="text-slate-900 dark:text-slate-100 font-semibold">Fidelity Investments</p>
-          <p class="text-slate-500 text-xs">Retirement &amp; Brokerage</p>
-        </div>
-        <span class="material-symbols-outlined text-slate-400">chevron_right</span>
-      </button>
-      <button type="button" class="plaid-open-link flex items-center p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer border border-transparent hover:border-slate-100 dark:hover:border-slate-800 w-full text-left" data-name="PNC Bank">
-        <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center mr-4">
-          <span class="material-symbols-outlined text-slate-500">account_balance</span>
-        </div>
-        <div class="flex-1">
-          <p class="text-slate-900 dark:text-slate-100 font-semibold">PNC Bank</p>
-          <p class="text-slate-500 text-xs">Personal &amp; Business Banking</p>
-        </div>
-        <span class="material-symbols-outlined text-slate-400">chevron_right</span>
-      </button>
+
+<div class="page-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <a href="/link-bank" class="btn btn-ghost btn-sm" aria-label="Back">
+            <span class="material-symbols-rounded">arrow_back</span>
+        </a>
+        <h1 class="page-title">Select Your Bank</h1>
     </div>
-  </div>
-  <div class="mt-auto p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky bottom-0 border-t border-slate-100 dark:border-slate-900">
-    <div class="flex flex-col items-center gap-3">
-      <div class="flex items-center gap-2 text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-        <span class="material-symbols-outlined text-sm">lock</span>
-        Secure connection via Plaid
-      </div>
-      <p class="text-[11px] text-slate-500 text-center leading-relaxed">
-        By linking your account, you agree to our <a class="text-primary underline" href="#">Terms of Service</a> and <a class="text-primary underline" href="#">Privacy Policy</a>.
-      </p>
-    </div>
-  </div>
-  <div class="h-8 bg-white dark:bg-slate-950"></div>
-  <div id="plaid-select-error" class="fixed top-20 left-4 right-4 mx-auto max-w-md text-sm text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 p-3 rounded-lg shadow-lg border border-red-200 dark:border-red-900 z-50" style="display: none;"></div>
 </div>
+
+<div class="card mb-24" style="position:relative;">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface-container-low,#f8fafc);">
+        <span class="material-symbols-rounded" style="color:var(--text-muted);font-size:20px;">search</span>
+        <input type="text" id="bank-search" class="form-input" style="border:none;background:transparent;padding:0;font-size:0.9375rem;flex:1;" placeholder="Search for your institution" />
+    </div>
+</div>
+
+<div class="card mb-16">
+    <div class="card-header">
+        <span class="card-title">Most popular</span>
+    </div>
+    <div class="grid-2" style="margin-top:12px;gap:12px;">
+        <button type="button" class="plaid-open-link" data-name="Chase" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px;border:1px solid var(--border);border-radius:12px;background:var(--surface-container-low,#f8fafc);cursor:pointer;transition:border-color 0.15s;">
+            <span class="material-symbols-rounded" style="font-size:32px;color:var(--brand,#135bec);">account_balance</span>
+            <span style="font-size:0.875rem;font-weight:700;color:var(--text-primary);">Chase</span>
+        </button>
+        <button type="button" class="plaid-open-link" data-name="Wells Fargo" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px;border:1px solid var(--border);border-radius:12px;background:var(--surface-container-low,#f8fafc);cursor:pointer;transition:border-color 0.15s;">
+            <span class="material-symbols-rounded" style="font-size:32px;color:var(--brand,#135bec);">account_balance</span>
+            <span style="font-size:0.875rem;font-weight:700;color:var(--text-primary);">Wells Fargo</span>
+        </button>
+        <button type="button" class="plaid-open-link" data-name="Bank of America" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px;border:1px solid var(--border);border-radius:12px;background:var(--surface-container-low,#f8fafc);cursor:pointer;transition:border-color 0.15s;">
+            <span class="material-symbols-rounded" style="font-size:32px;color:var(--brand,#135bec);">account_balance</span>
+            <span style="font-size:0.875rem;font-weight:700;color:var(--text-primary);">Bank of America</span>
+        </button>
+        <button type="button" class="plaid-open-link" data-name="Citi" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px;border:1px solid var(--border);border-radius:12px;background:var(--surface-container-low,#f8fafc);cursor:pointer;transition:border-color 0.15s;">
+            <span class="material-symbols-rounded" style="font-size:32px;color:var(--brand,#135bec);">account_balance</span>
+            <span style="font-size:0.875rem;font-weight:700;color:var(--text-primary);">Citi</span>
+        </button>
+        <button type="button" class="plaid-open-link" data-name="Capital One" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px;border:1px solid var(--border);border-radius:12px;background:var(--surface-container-low,#f8fafc);cursor:pointer;transition:border-color 0.15s;">
+            <span class="material-symbols-rounded" style="font-size:32px;color:var(--brand,#135bec);">account_balance</span>
+            <span style="font-size:0.875rem;font-weight:700;color:var(--text-primary);">Capital One</span>
+        </button>
+        <button type="button" class="plaid-open-link" data-name="US Bank" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px;border:1px solid var(--border);border-radius:12px;background:var(--surface-container-low,#f8fafc);cursor:pointer;transition:border-color 0.15s;">
+            <span class="material-symbols-rounded" style="font-size:32px;color:var(--brand,#135bec);">account_balance</span>
+            <span style="font-size:0.875rem;font-weight:700;color:var(--text-primary);">US Bank</span>
+        </button>
+    </div>
+</div>
+
+<div class="card mb-16">
+    <div class="card-header">
+        <span class="card-title">Other institutions</span>
+    </div>
+    <div style="margin-top:8px;">
+        <button type="button" class="plaid-open-link settings-item" data-name="American Express">
+            <div style="display:flex;align-items:center;gap:12px;flex:1;">
+                <span class="material-symbols-rounded settings-item-icon">credit_card</span>
+                <div>
+                    <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);">American Express</div>
+                    <div class="muted" style="font-size:0.75rem;">Credit Cards &amp; Personal Loans</div>
+                </div>
+            </div>
+            <span class="material-symbols-rounded settings-item-arrow">chevron_right</span>
+        </button>
+        <button type="button" class="plaid-open-link settings-item" data-name="Fidelity Investments">
+            <div style="display:flex;align-items:center;gap:12px;flex:1;">
+                <span class="material-symbols-rounded settings-item-icon">show_chart</span>
+                <div>
+                    <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);">Fidelity Investments</div>
+                    <div class="muted" style="font-size:0.75rem;">Retirement &amp; Brokerage</div>
+                </div>
+            </div>
+            <span class="material-symbols-rounded settings-item-arrow">chevron_right</span>
+        </button>
+        <button type="button" class="plaid-open-link settings-item" data-name="PNC Bank">
+            <div style="display:flex;align-items:center;gap:12px;flex:1;">
+                <span class="material-symbols-rounded settings-item-icon">account_balance</span>
+                <div>
+                    <div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);">PNC Bank</div>
+                    <div class="muted" style="font-size:0.75rem;">Personal &amp; Business Banking</div>
+                </div>
+            </div>
+            <span class="material-symbols-rounded settings-item-arrow">chevron_right</span>
+        </button>
+    </div>
+</div>
+
+<div style="text-align:center;padding:1rem 0 2rem;border-top:1px solid var(--border-subtle);">
+    <div class="muted" style="font-size:0.75rem;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;">
+        <span class="material-symbols-rounded" style="font-size:14px;">lock</span>
+        Secure connection via Plaid
+    </div>
+    <p class="muted" style="font-size:0.75rem;">
+        By linking your account, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+    </p>
+</div>
+
+<div id="plaid-select-error" class="note" style="display:none;border-left-color:var(--color-rose,#ef4444);position:fixed;top:80px;left:50%;transform:translateX(-50%);max-width:420px;width:calc(100% - 32px);z-index:500;"></div>
+
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/plaid.js"></script>

@@ -8,22 +8,14 @@
     <h1 class="page-title">Net Worth</h1>
   </div>
 
-  <div class="stat-row">
-    <div class="stat-card">
-      <div class="stat-label">Net worth</div>
-      <div class="stat-value" id="nw-total">$0.00</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Total assets</div>
-      <div class="stat-value" id="nw-assets">$0.00</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Total liabilities</div>
-      <div class="stat-value" id="nw-liabilities">$0.00</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Change</div>
-      <div class="stat-value" id="nw-change">—</div>
+  <!-- Balance hero -->
+  <div class="balance-hero">
+    <div class="balance-label">Current Net Worth</div>
+    <div class="balance-amount" id="nw-total">$0.00</div>
+    <div class="balance-meta">
+      <div class="balance-meta-item"><strong id="nw-assets">$0.00</strong> total assets</div>
+      <div class="balance-meta-item"><strong id="nw-liabilities">$0.00</strong> liabilities</div>
+      <div class="balance-meta-item"><strong id="nw-change">—</strong> change</div>
     </div>
   </div>
 
@@ -104,6 +96,26 @@
   </div>
 
   <div id="nw-panel-liabilities" class="nw-tab-panel nw-tab-panel-hidden" role="tabpanel" aria-labelledby="nw-tab-liabilities" hidden>
+
+    <!-- Debt-to-Asset ratio badge -->
+    <div id="nw-debt-ratio-strip" style="display:none;margin-bottom:1rem;padding:0.65rem 1rem;border-radius:8px;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <span class="material-symbols-rounded" style="font-size:1.1rem;">monitoring</span>
+        <span style="font-size:0.9rem;">Debt-to-Asset ratio: <strong id="nw-debt-ratio-pct">—</strong></span>
+        <span id="nw-debt-ratio-badge" class="badge">—</span>
+        <span style="font-size:0.8125rem;color:var(--text-muted);flex:1;">A ratio below 40% is generally considered healthy.</span>
+    </div>
+
+    <!-- Plaid credit accounts detail -->
+    <div class="card" id="nw-plaid-credit-card" style="margin-bottom:1.25rem;display:none;">
+        <div class="section-head" style="margin-bottom:0.75rem;">
+            <h2 class="nw-section-title" style="margin:0;">
+                <span class="icon-btn-label"><span class="material-symbols-rounded">credit_card</span> Linked credit &amp; loan accounts</span>
+            </h2>
+            <span class="badge badge-neutral" style="font-size:0.75rem;">via Plaid</span>
+        </div>
+        <div id="nw-plaid-credit-list" style="display:flex;flex-direction:column;gap:0.6rem;"></div>
+    </div>
+
     <div class="card" style="margin-bottom:1.25rem;">
       <h2 class="nw-section-title">What we count as liabilities</h2>
       <p class="form-hint" style="margin-top:0;margin-bottom:1rem;">Spending obligations from your expense profile and any manual debts you track.</p>
@@ -350,6 +362,43 @@
       });
   }
 
+  function loadPlaidLiabilities() {
+    var API = window.API_BASE || '';
+    var headers = getAuthHeaders();
+    var card = document.getElementById('nw-plaid-credit-card');
+    var list = document.getElementById('nw-plaid-credit-list');
+    if (!card || !list) return;
+    fetch(API + '/api/v1/plaid/liabilities', { headers: headers })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        var accounts = (data && (data.credit || data.student || data.mortgage)) ? [] : null;
+        if (!data) return;
+        var all = (data.credit || []).concat(data.student || []).concat(data.mortgage || []);
+        if (!all.length) return;
+        card.style.display = '';
+        list.innerHTML = all.map(function(acc) {
+            var name = (acc.name || acc.account_id || 'Account').replace(/</g,'&lt;');
+            var bal = acc.balances && acc.balances.current != null ? '$' + parseFloat(acc.balances.current).toFixed(2) : '—';
+            var apr = acc.apr != null ? parseFloat(acc.apr).toFixed(2) + '%' : (acc.aprs && acc.aprs[0] ? parseFloat(acc.aprs[0].apr_percentage||0).toFixed(2)+'%' : null);
+            var minPay = acc.minimum_payment_amount != null ? '$' + parseFloat(acc.minimum_payment_amount).toFixed(2) : null;
+            var limit = acc.balances && acc.balances.limit != null ? '$' + parseFloat(acc.balances.limit).toFixed(2) : null;
+            var util = (acc.balances && acc.balances.limit > 0) ? Math.round(acc.balances.current / acc.balances.limit * 100) : null;
+            var utilColor = util == null ? '' : util > 70 ? 'color:var(--color-danger,#ef4444)' : util > 40 ? 'color:var(--color-amber,#ecc94b)' : 'color:var(--color-emerald,#38a169)';
+            return '<div class="tlh-card" style="flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">' +
+                '<div><strong style="font-size:0.9rem;">' + name + '</strong>' +
+                (apr ? '<span class="badge badge-neutral" style="margin-left:0.4rem;font-size:0.75rem;">APR ' + apr + '</span>' : '') +
+                (minPay ? '<div class="muted" style="font-size:0.8rem;margin-top:0.2rem;">Min. payment: ' + minPay + '</div>' : '') +
+                '</div>' +
+                '<div style="text-align:right;">' +
+                '<div style="font-size:1rem;font-weight:700;color:var(--color-danger,#ef4444);">' + bal + '</div>' +
+                (limit ? '<div class="muted" style="font-size:0.8rem;">Limit: ' + limit + (util != null ? ' &bull; <span style="' + utilColor + '">' + util + '% used</span>' : '') + '</div>' : '') +
+                '</div>' +
+                '</div>';
+        }).join('');
+      })
+      .catch(function() {});
+  }
+
   function loadBalance() {
     var api = window.API_BASE || '';
     var h = window.Auth && window.Auth.getAuthHeaders ? window.Auth.getAuthHeaders() : {};
@@ -387,8 +436,26 @@
         renderSummaryAssetsRows(assets);
         renderSummaryLiabilitiesRows(liabilities);
         showNwWarnings(summary.warnings);
+        // Debt-to-Asset ratio
+        if (assetsTotal > 0) {
+            var ratio = liabilitiesTotal / assetsTotal;
+            var pct = (ratio * 100).toFixed(1) + '%';
+            var strip = document.getElementById('nw-debt-ratio-strip');
+            var ratioEl = document.getElementById('nw-debt-ratio-pct');
+            var badgeEl = document.getElementById('nw-debt-ratio-badge');
+            if (strip) strip.style.display = 'flex';
+            if (ratioEl) ratioEl.textContent = pct;
+            if (badgeEl) {
+                if (ratio < 0.20) { badgeEl.textContent = 'Excellent'; badgeEl.style.background='var(--color-emerald,#38a169)'; badgeEl.style.color='#fff'; }
+                else if (ratio < 0.40) { badgeEl.textContent = 'Good'; badgeEl.style.background='var(--brand,#135bec)'; badgeEl.style.color='#fff'; }
+                else if (ratio < 0.60) { badgeEl.textContent = 'Fair'; badgeEl.style.background='var(--color-amber,#ecc94b)'; badgeEl.style.color='#000'; }
+                else { badgeEl.textContent = 'High'; badgeEl.style.background='var(--color-danger,#ef4444)'; badgeEl.style.color='#fff'; }
+                if (strip) strip.style.background = ratio < 0.40 ? 'rgba(16,185,129,0.07)' : ratio < 0.60 ? 'rgba(245,158,11,0.07)' : 'rgba(244,63,94,0.07)';
+            }
+        }
         loadAssetsList();
         loadLiabilitiesList();
+        loadPlaidLiabilities();
       })
       .catch(function(err) {
         showNwLoadError(err && err.message ? err.message : null);

@@ -197,6 +197,7 @@ async def teller_sync(
                 if not tx_id:
                     continue
                 # Skip credits (income) — only sync debits as expenses
+                # Note: "digital_wallet" is a Teller sub-type (not "credit"), so it falls through
                 if tx.get("type") == "credit":
                     continue
                 amount_raw = tx.get("amount")
@@ -222,7 +223,16 @@ async def teller_sync(
                 if isinstance(description, dict):
                     description = description.get("name") or "Transaction"
                 description = str(description).strip() or "Expense"
-                category_code = _teller_type_to_category_code(tx.get("type"), description)
+                tx_type = tx.get("type") or ""
+                category_code = _teller_type_to_category_code(tx_type, description)
+                # Detect digital wallet (Apple Pay / Google Pay via Teller)
+                tx_source = "teller"
+                if tx_type == "digital_wallet":
+                    desc_upper = description.upper()
+                    if "GOOGLE" in desc_upper or "GPAY" in desc_upper:
+                        tx_source = "teller_google_pay"
+                    else:
+                        tx_source = "teller_apple_pay"
                 payload = ExpenseCreate(
                     amount=amount,
                     date=tx_date,
@@ -234,7 +244,7 @@ async def teller_sync(
                     resource.create(
                         user_id,
                         payload,
-                        source="teller",
+                        source=tx_source,
                         teller_transaction_id=tx_id,
                     )
                     created += 1

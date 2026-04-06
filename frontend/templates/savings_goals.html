@@ -9,7 +9,7 @@
     <a href="/goals/add" class="btn btn-primary">+ New goal</a>
   </div>
 
-  <div class="stat-row">
+  <div class="grid-4 mb-24">
     <div class="stat-card">
       <div class="stat-label">Total Saved</div>
       <div class="stat-value" id="goals-total-saved">$0</div>
@@ -18,24 +18,23 @@
     <div class="stat-card">
       <div class="stat-label">Active Goals</div>
       <div class="stat-value" id="goals-count">0</div>
-      <div class="stat-label" id="goals-subtitle">Saved across 0 active goals</div>
+      <div class="stat-change" id="goals-subtitle"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Overall %</div>
+      <div class="stat-label">Overall Progress</div>
       <div class="stat-value" id="goals-pct">0%</div>
-      <div class="stat-label" id="goals-target-label">of $0 target</div>
+      <div class="stat-change up" id="goals-target-label"></div>
     </div>
-  </div>
-
-  <div class="card" style="margin-bottom: 1.5rem;">
-    <div class="stat-label" style="margin-bottom: 0.5rem;">Overall Progress</div>
-    <div class="progress-bar">
-      <div class="progress-fill green" id="goals-global-progress" style="width: 0%;"></div>
+    <div class="stat-card">
+      <div class="stat-label">Overall Progress Bar</div>
+      <div style="margin-top:12px;">
+        <div class="progress"><div class="progress-bar progress-green" id="goals-global-progress" style="width:0%;"></div></div>
+      </div>
     </div>
   </div>
 
   <div class="card">
-    <div id="goals-list" class="budget-cards-grid">
+    <div id="goals-list" class="grid-3" style="gap:16px;">
       <p style="color: var(--text-muted);">Loading&hellip;</p>
     </div>
   </div>
@@ -111,7 +110,7 @@
   if (window.Goals && window.Goals.renderList) {
     window.Goals.renderList('goals-list', { onTotals: updateTotals });
   } else {
-    document.getElementById('goals-list').innerHTML = '<p style="color: var(--text-muted);">No goals yet.</p>';
+    document.getElementById('goals-list').innerHTML = '<div class="empty-state-inline"><span class="material-symbols-rounded empty-icon">kid_star</span><span class="empty-title">No goals yet</span><span class="empty-body">Set a savings goal to start tracking your progress.</span><a href="/goals/add" class="btn btn-primary" style="margin-top:0.5rem;">+ Create goal</a></div>';
     updateTotals({ totalSaved: 0, totalTarget: 0, count: 0 });
   }
   var addBtn = document.querySelector('a[aria-label="Add goal"]');

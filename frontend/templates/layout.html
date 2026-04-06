@@ -37,17 +37,9 @@
             </div>
 
             <nav class="sb-nav">
-                <div class="sb-section">Overview</div>
+                <div class="sb-section">Core</div>
                 <a href="/dashboard" class="sb-link {% if request.url.path == '/dashboard' %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">dashboard</span></span> Dashboard
-                </a>
-                <a href="/net-worth" class="sb-link {% if request.url.path == '/net-worth' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">diamond</span></span> Net Worth
-                </a>
-
-                <div class="sb-section">Money</div>
-                <a href="/transactions" class="sb-link {% if request.url.path == '/transactions' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-outlined text-lg">sync_alt</span></span> Transactions
                 </a>
                 <a href="/expenses" class="sb-link {% if request.url.path.startswith('/expenses') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-outlined text-lg">receipt_long</span></span> Expenses
@@ -55,35 +47,43 @@
                 <a href="/income" class="sb-link {% if request.url.path.startswith('/income') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">payments</span></span> Income
                 </a>
-                <a href="/recurring" class="sb-link {% if request.url.path.startswith('/recurring') %}active{% endif %}">
+                <a href="/transactions" class="sb-link {% if request.url.path == '/transactions' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-outlined text-lg">sync_alt</span></span> Transactions
+                </a>
+                <a href="/recurring" class="sb-link {% if request.url.path.startswith('/recurring') and not request.url.path.startswith('/budgets/recurring') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">sync</span></span> Recurring
                 </a>
+
+                <div class="sb-section">Planning</div>
                 <a href="/budgets" class="sb-link {% if request.url.path.startswith('/budgets') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-outlined text-lg">account_balance_wallet</span></span> Budgets
                     <span id="sidebar-budgets-badge" class="sb-badge" style="display:none;">!</span>
                 </a>
-                <a href="/budgets/recurring" class="sb-link {% if request.url.path.startswith('/budgets/recurring') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-outlined text-lg">event_repeat</span></span> Recurring budgets
-                </a>
                 <a href="/goals" class="sb-link {% if request.url.path.startswith('/goals') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">kid_star</span></span> Goals
                 </a>
+                <a href="/net-worth" class="sb-link {% if request.url.path == '/net-worth' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">diamond</span></span> Net Worth
+                </a>
 
-                <div class="sb-section">Analytics</div>
+                <div class="sb-section">Invest &amp; AI</div>
+                <a href="/investments" class="sb-link {% if request.url.path.startswith('/investments') %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">trending_up</span></span> Investments
+                </a>
+                <a href="/recommendations" class="sb-link {% if request.url.path.startswith('/recommendations') %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">candlestick_chart</span></span> AI Picks
+                </a>
+                <a href="/risk-profile" class="sb-link {% if request.url.path == '/risk-profile' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">tune</span></span> Risk Profile
+                </a>
+                <a href="/insights" class="sb-link {% if request.url.path == '/insights' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-outlined text-lg">query_stats</span></span> Insights
+                </a>
                 <a href="/reports" class="sb-link {% if request.url.path == '/reports' or request.url.path.startswith('/reports/') %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">assignment</span></span> Reports
                 </a>
                 <a href="/analytics" class="sb-link {% if request.url.path == '/analytics' %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-outlined text-lg">bar_chart</span></span> Analytics
-                </a>
-                <a href="/insights" class="sb-link {% if request.url.path == '/insights' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-outlined text-lg">query_stats</span></span> Spending analysis
-                </a>
-                <a href="/investments" class="sb-link {% if request.url.path.startswith('/investments') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">trending_up</span></span> Investments
-                </a>
-                <a href="/recommendations" class="sb-link {% if request.url.path.startswith('/recommendations') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">candlestick_chart</span></span> Portfolio ideas
                 </a>
 
                 <div class="sb-section">Account</div>
@@ -91,28 +91,23 @@
                     <span class="icon"><span class="material-symbols-rounded">notifications</span></span> Notifications
                     <span id="sidebar-notif-badge" class="sb-badge" style="display:none;">0</span>
                 </a>
+                <a href="/settings/integrations" class="sb-link {% if request.url.path == '/settings/integrations' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">link</span></span> Integrations
+                </a>
                 <a href="/household" class="sb-link {% if request.url.path == '/household' %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">groups</span></span> Household
+                </a>
+                <a href="/profile" class="sb-link {% if request.url.path == '/profile' %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">person</span></span> Profile
+                </a>
+                <a href="/settings" class="sb-link {% if request.url.path == '/settings' or (request.url.path.startswith('/settings/') and request.url.path != '/settings/integrations') %}active{% endif %}">
+                    <span class="icon"><span class="material-symbols-rounded">settings</span></span> Settings
                 </a>
                 <a href="/sessions" class="sb-link {% if request.url.path == '/sessions' %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">verified_user</span></span> Sessions
                 </a>
                 <a href="/security" class="sb-link {% if request.url.path == '/security' %}active{% endif %}">
                     <span class="icon"><span class="material-symbols-rounded">shield</span></span> Security
-                </a>
-                <a href="/profile" class="sb-link {% if request.url.path == '/profile' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">person</span></span> Profile
-                </a>
-                <a href="/settings" class="sb-link {% if request.url.path == '/settings' or request.url.path.startswith('/settings/') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">settings</span></span> Settings
-                </a>
-
-                <div class="sb-section">Connections</div>
-                <a href="/settings/integrations#alpaca-integration-card" class="sb-link {% if request.url.path == '/settings/integrations' %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">trending_up</span></span> Link Alpaca
-                </a>
-                <a href="/link-bank" class="sb-link {% if request.url.path.startswith('/link-bank') %}active{% endif %}">
-                    <span class="icon"><span class="material-symbols-rounded">account_balance</span></span> Link Bank
                 </a>
             </nav>
 
@@ -656,6 +651,8 @@
     }
     {% endif %}
     </script>
+    <!-- Global toast — populated by window.showToast() -->
+    <div id="global-toast" role="status" aria-live="polite" aria-atomic="true"></div>
     {% block scripts %}{% endblock %}
 </body>
 </html>

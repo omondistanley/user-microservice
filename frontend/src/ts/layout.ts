@@ -159,6 +159,7 @@
         '/investments',
         '/investments/add',
         '/recommendations',
+        '/risk-profile',
         '/net-worth',
         '/notifications',
         '/household',
@@ -232,6 +233,56 @@
             initAppShell();
         }
     }
+
+    // ── Global toast ──────────────────────────────────────────────
+    // Usage: window.showToast('Saved.', 'success')
+    //        window.showToast('Failed to save.', 'error')
+    //        types: 'success' | 'error' | 'warning' | '' (neutral dark)
+    var _toastTimer = null;
+    window.showToast = function(msg, type, duration) {
+        var el = document.getElementById('global-toast');
+        if (!el || !msg) return;
+        clearTimeout(_toastTimer);
+        el.textContent = String(msg);
+        el.className = 'toast--visible' + (type ? ' toast--' + String(type) : '');
+        _toastTimer = setTimeout(function() {
+            el.className = '';
+            el.textContent = '';
+        }, Number(duration) > 0 ? Number(duration) : 4000);
+    };
+
+    // ── Skeleton helpers ──────────────────────────────────────────
+    // Usage: window.Skeleton.show(el, 3)   — replaces el content with N shimmer rows
+    //        window.Skeleton.hide(el, html) — restores el content with real html
+    window.Skeleton = {
+        show: function(el, rows) {
+            if (!el) return;
+            rows = rows || 3;
+            var html = '';
+            for (var i = 0; i < rows; i++) {
+                var w = [90, 70, 80, 60, 75][i % 5];
+                html += '<div class="skeleton skeleton-text" style="width:' + w + '%;margin-bottom:8px;"></div>';
+            }
+            el.innerHTML = html;
+        },
+        hide: function(el, html) {
+            if (!el) return;
+            el.innerHTML = html != null ? html : '';
+        },
+        // Card-level: wraps stat cards with shimmer overlay
+        showCards: function(containerEl, count) {
+            if (!containerEl) return;
+            count = count || 4;
+            var html = '';
+            for (var i = 0; i < count; i++) {
+                html += '<div class="stat-card">';
+                html += '<div class="skeleton skeleton-text skeleton-text--sm" style="width:55%;margin-bottom:10px;"></div>';
+                html += '<div class="skeleton skeleton-text skeleton-text--lg" style="width:70%;"></div>';
+                html += '</div>';
+            }
+            containerEl.innerHTML = html;
+        },
+    };
 
     var filtersToggle = document.getElementById('navbar-filters-toggle');
     var filtersPanel = document.getElementById('navbar-filters-panel');

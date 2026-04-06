@@ -8,6 +8,18 @@
     latestPayload: null,
     pageState: ""
   };
+  function showToast(message, tone) {
+    var el = document.getElementById("rec-toast");
+    if (!el || !message) return;
+    el.textContent = String(message);
+    el.style.display = "block";
+    el.style.borderLeftColor = tone === "error" ? "#e53e3e" : tone === "success" ? "#38a169" : "#38bdf8";
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(function() {
+      el.style.display = "none";
+      el.textContent = "";
+    }, 3500);
+  }
   function _isVolatileBuyAdjacentCopy(s) {
     if (!s) return false;
     return /tax-?loss|harvest|tlh|buy\s+more|add\s+to\s+holdings|increase\s+exposure/i.test(String(s));
@@ -205,7 +217,7 @@
     statusEl.textContent = "Latest run at " + (run.created_at || "\u2014");
     var html = '<div class="rec-cards-grid">';
     if (!items.length) {
-      html += '<p class="muted">No items on this page.</p>';
+      html += '<div class="empty-state-inline"><span class="material-symbols-rounded empty-icon">auto_awesome</span><span class="empty-title">No recommendations on this page</span><span class="empty-body">Try a different page or regenerate recommendations with updated preferences.</span></div>';
     } else {
       items.forEach(function(it, idx) {
         var sym = (it.symbol || "").toUpperCase();
@@ -222,9 +234,21 @@
         html += '<header class="rec-card-head"><div>';
         html += '<div class="rec-card-symbol">' + escapeHtml(sym) + "</div>";
         html += '<div class="rec-card-name muted">' + escapeHtml(name) + "</div></div>";
+        var confPct = it.confidence != null ? Math.round(Number(it.confidence) * 100) : null;
+        var confColor = confPct == null ? "#94a3b8" : confPct >= 75 ? "#10b981" : confPct >= 50 ? "#f59e0b" : "#ef4444";
         html += '<div class="rec-card-scores">';
         html += '<button type="button" class="rec-score-pill rec-score-btn" data-symbol="' + escapeHtml(sym) + '" title="Score breakdown">' + escapeHtml(scoreStr) + "</button>";
-        html += '<span class="rec-conf-pill">' + escapeHtml(formatPct(it.confidence)) + " conf.</span></div></header>";
+        html += "</div></header>";
+        if (confPct != null) {
+          html += '<div class="rec-conf-bar-wrap" style="margin:0.4rem 0 0.25rem;" title="Confidence: ' + confPct + '%">';
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.2rem;">';
+          html += '<span style="font-size:0.75rem;color:var(--text-muted);">Confidence</span>';
+          html += '<span style="font-size:0.75rem;font-weight:600;color:' + confColor + ';">' + confPct + "%</span>";
+          html += "</div>";
+          html += '<div style="background:var(--border,#e2e8f0);border-radius:99px;height:5px;overflow:hidden;">';
+          html += '<div style="height:100%;border-radius:99px;width:' + confPct + "%;background:" + confColor + ';transition:width 0.5s ease;"></div>';
+          html += "</div></div>";
+        }
         html += '<p class="rec-card-sector muted" style="font-size:0.8125rem;margin:0 0 0.5rem;">Sector: ' + escapeHtml(sector) + "</p>";
         if (it.why_shown_one_line) {
           html += '<p class="rec-card-why"><span class="rec-card-why-label">Why shown</span> ' + escapeHtml(it.why_shown_one_line) + "</p>";
@@ -267,11 +291,25 @@
     html += '<div id="rec-pagination" class="rec-pagination">';
     if (totalItems > 0) {
       html += '<span class="rec-pagination-info">Page ' + currentPage + " of " + totalPages + " (" + totalItems + " total)</span>";
+      if (totalPages > 1 && currentPage > 1) {
+        html += ' <button type="button" class="btn btn-sm rec-pagination-first" data-page="1">First</button>';
+      }
       if (currentPage > 1) {
         html += ' <button type="button" class="btn btn-sm rec-pagination-prev" data-page="' + (currentPage - 1) + '">Prev</button>';
       }
+      if (totalPages > 1) {
+        var start = Math.max(1, currentPage - 2);
+        var end = Math.min(totalPages, currentPage + 2);
+        for (var p = start; p <= end; p++) {
+          var cls = p === currentPage ? "btn btn-sm btn-primary rec-pagination-page" : "btn btn-sm rec-pagination-page";
+          html += ' <button type="button" class="' + cls + '" data-page="' + p + '">' + p + "</button>";
+        }
+      }
       if (currentPage < totalPages) {
         html += ' <button type="button" class="btn btn-sm rec-pagination-next" data-page="' + (currentPage + 1) + '">Next</button>';
+      }
+      if (totalPages > 1 && currentPage < totalPages) {
+        html += ' <button type="button" class="btn btn-sm rec-pagination-last" data-page="' + totalPages + '">Last</button>';
       }
     }
     html += "</div>";
@@ -304,6 +342,45 @@
     list.innerHTML = html;
     card.style.display = "block";
   }
+  var _SHAP_LABELS = {
+    "heuristic_score": "Risk-adj. score",
+    "weight": "Position weight",
+    "vol_annual": "Volatility",
+    "hhi": "Concentration",
+    "tlh_loss_scaled": "TLH opportunity"
+  };
+  function renderShapBars(contributions) {
+    if (!contributions || typeof contributions !== "object") return "";
+    var entries = Object.keys(contributions).map(function(k) {
+      return { key: k, val: parseFloat(contributions[k]) || 0 };
+    }).filter(function(e) {
+      return Math.abs(e.val) > 1e-4;
+    });
+    if (!entries.length) return "";
+    entries.sort(function(a, b) {
+      return Math.abs(b.val) - Math.abs(a.val);
+    });
+    var maxAbs = Math.max.apply(null, entries.map(function(e) {
+      return Math.abs(e.val);
+    }));
+    if (maxAbs === 0) return "";
+    var html = '<div class="shap-section">';
+    html += '<div class="shap-section-title">Score drivers</div>';
+    html += '<div class="shap-section-hint">How each factor shaped this ranking (analytical attribution)</div>';
+    entries.forEach(function(e) {
+      var pct = Math.round(Math.abs(e.val) / maxAbs * 100);
+      var cls = e.val > 0 ? "shap-bar-fill--pos" : e.val < 0 ? "shap-bar-fill--neg" : "shap-bar-fill--zero";
+      var label = _SHAP_LABELS[e.key] || e.key.replace(/_/g, " ");
+      var sign = e.val > 0 ? "+" : "";
+      html += '<div class="shap-bar-row">';
+      html += '<span class="shap-bar-label">' + escapeHtml(label) + "</span>";
+      html += '<div class="shap-bar-track"><div class="shap-bar-fill ' + cls + '" style="width:' + pct + '%"></div></div>';
+      html += '<span class="shap-bar-value">' + escapeHtml(sign + e.val.toFixed(3)) + "</span>";
+      html += "</div>";
+    });
+    html += "</div>";
+    return html;
+  }
   function openExplainDrawer(rootEl, runId, symbol) {
     var wrap = document.getElementById("rec-explain-wrap");
     if (!wrap || !runId) return;
@@ -331,6 +408,14 @@
       var html = "";
       if (ex.personalized_with_finance_data) {
         html += '<p class="muted" style="font-size:0.85rem; margin-bottom:1rem;">Personalized using your savings, goals, and budget data.</p>';
+      }
+      var fc = ex.score_breakdown && ex.score_breakdown.factor_contributions || ex.factor_contributions;
+      var shapHtml = renderShapBars(fc);
+      if (shapHtml) {
+        html += shapHtml;
+        if (ex.model_version) {
+          html += '<p class="muted" style="font-size:0.75rem;margin-top:-0.5rem;margin-bottom:1rem;">Model: ' + escapeHtml(String(ex.model_version)) + " \xB7 Not financial advice.</p>";
+        }
       }
       if (ex.security) {
         var sec = ex.security;
@@ -559,6 +644,25 @@
     var statusEl = document.getElementById("rec-status");
     var summaryEl = document.getElementById("rec-portfolio-summary");
     if (!listEl || !statusEl) return;
+    function syncRiskChips(value) {
+      document.querySelectorAll(".rec-risk-chip").forEach(function(chip) {
+        chip.classList.toggle("rec-risk-chip--active", chip.getAttribute("data-risk") === value);
+      });
+      var riskEl = document.getElementById("rec-pref-risk");
+      if (riskEl && value) riskEl.value = value;
+    }
+    document.querySelectorAll(".rec-risk-chip").forEach(function(chip) {
+      chip.addEventListener("click", function() {
+        var risk = chip.getAttribute("data-risk");
+        syncRiskChips(risk);
+      });
+    });
+    var riskSelect = document.getElementById("rec-pref-risk");
+    if (riskSelect) {
+      riskSelect.addEventListener("change", function() {
+        syncRiskChips(riskSelect.value);
+      });
+    }
     fetchRiskProfile().then(function(profile) {
       if (profile) {
         var riskEl = document.getElementById("rec-pref-risk");
@@ -567,6 +671,7 @@
         var lossEl = document.getElementById("rec-pref-loss");
         var useFinanceEl = document.getElementById("rec-pref-use-finance");
         if (riskEl && profile.risk_tolerance) riskEl.value = profile.risk_tolerance;
+        if (profile.risk_tolerance) syncRiskChips(profile.risk_tolerance);
         if (indEl && profile.industry_preferences && profile.industry_preferences.length)
           indEl.value = profile.industry_preferences.join(", ");
         if (sharpeEl && profile.sharpe_objective != null) sharpeEl.value = Number(profile.sharpe_objective).toFixed(2);
@@ -599,8 +704,9 @@
             savePrefsBtn.textContent = "Save preferences";
             savePrefsBtn.disabled = false;
           }, 1500);
+          showToast("Preferences saved", "success");
         }).catch(function(err) {
-          alert(err.message || "Failed to save preferences");
+          showToast(err.message || "Failed to save preferences", "error");
           savePrefsBtn.disabled = false;
         });
       });
@@ -632,8 +738,9 @@
         }).then(function(data) {
           renderList(listEl, statusEl, data, 1);
           renderNorthStarStripRec();
+          showToast("Recommendations updated", "success");
         }).catch(function(err) {
-          alert(err.message || "Failed to run recommendations");
+          showToast(err.message || "Failed to run recommendations", "error");
         }).finally(function() {
           runBtn.disabled = false;
         });
@@ -665,12 +772,45 @@
         });
         return;
       }
+      var firstBtn = e.target.closest(".rec-pagination-first");
+      if (firstBtn) {
+        var fp = parseInt(firstBtn.getAttribute("data-page"), 10) || 1;
+        statusEl.textContent = "Loading page " + fp + "\u2026";
+        fetchLatest(fp, true).then(function(data) {
+          renderList(listEl, statusEl, data, fp);
+        }).catch(function() {
+          statusEl.textContent = "Failed to load page.";
+        });
+        return;
+      }
       var nextBtn = e.target.closest(".rec-pagination-next");
       if (nextBtn) {
         var page = parseInt(nextBtn.getAttribute("data-page"), 10) || 1;
         statusEl.textContent = "Loading page " + page + "\u2026";
         fetchLatest(page, true).then(function(data) {
           renderList(listEl, statusEl, data, page);
+        }).catch(function() {
+          statusEl.textContent = "Failed to load page.";
+        });
+        return;
+      }
+      var pageBtn = e.target.closest(".rec-pagination-page");
+      if (pageBtn) {
+        var pg = parseInt(pageBtn.getAttribute("data-page"), 10) || 1;
+        statusEl.textContent = "Loading page " + pg + "\u2026";
+        fetchLatest(pg, true).then(function(data) {
+          renderList(listEl, statusEl, data, pg);
+        }).catch(function() {
+          statusEl.textContent = "Failed to load page.";
+        });
+        return;
+      }
+      var lastBtn = e.target.closest(".rec-pagination-last");
+      if (lastBtn) {
+        var lp = parseInt(lastBtn.getAttribute("data-page"), 10) || 1;
+        statusEl.textContent = "Loading page " + lp + "\u2026";
+        fetchLatest(lp, true).then(function(data) {
+          renderList(listEl, statusEl, data, lp);
         }).catch(function() {
           statusEl.textContent = "Failed to load page.";
         });
@@ -688,6 +828,9 @@
       if (ev.key === "Escape") {
         if (document.getElementById("rec-score-modal-wrap") && document.getElementById("rec-score-modal-wrap").style.display === "block") {
           closeScoreModal();
+        }
+        if (document.getElementById("rec-explain-wrap") && document.getElementById("rec-explain-wrap").style.display === "block") {
+          closeExplainDrawer();
         }
       }
     });
@@ -994,7 +1137,7 @@
         fetch(API + "/api/v1/watchlist/" + id, { method: "DELETE", headers: getAuthHeaders() }).then(function() {
           return fetchWatchlist();
         }).then(renderWatchlist).catch(function() {
-          alert("Failed to remove");
+          showToast("Failed to remove from watchlist", "error");
         });
       });
     });
@@ -1038,8 +1181,9 @@
           wrap.style.display = "none";
           form.reset();
           fetchWatchlist().then(renderWatchlist);
+          showToast("Added to watchlist", "success");
         }).catch(function() {
-          alert("Failed to add to watchlist");
+          showToast("Failed to add to watchlist", "error");
         });
       });
     }
@@ -1085,7 +1229,7 @@
       goalProbEl.textContent = "Estimated probability of reaching your goal: " + data.goal_probability + "% (based on these assumptions).";
       goalProbEl.style.display = "block";
     }
-    if (chartEl && typeof ApexCharts !== "undefined" && data.sample_paths && data.sample_paths.length) {
+    if (chartEl && typeof ApexCharts !== "undefined") {
       if (_mcChartInstance) {
         try {
           _mcChartInstance.destroy();
@@ -1094,25 +1238,67 @@
         _mcChartInstance = null;
       }
       chartEl.innerHTML = "";
-      var mcYears = data.assumptions ? data.assumptions.years : 20;
-      var labels = Array.from({ length: data.months + 1 }, function(_, i) {
-        return i % 12 === 0 ? "Year " + Math.floor(i / 12) : "";
-      });
-      var series = data.sample_paths.slice(0, 10).map(function(path, idx) {
-        return { name: "Path " + (idx + 1), data: path };
+      var months = data.months || 240;
+      var p10arr = data.p10_path || null;
+      var p25arr = data.p25_path || null;
+      var p50arr = data.p50_path || null;
+      var p75arr = data.p75_path || null;
+      var p90arr = data.p90_path || null;
+      if (!p50arr && data.sample_paths && data.sample_paths.length) {
+        var paths = data.sample_paths;
+        var nSteps = paths[0].length;
+        p10arr = [];
+        p25arr = [];
+        p50arr = [];
+        p75arr = [];
+        p90arr = [];
+        for (var si = 0; si < nSteps; si++) {
+          var col = paths.map(function(p) {
+            return p[si];
+          }).sort(function(a, b) {
+            return a - b;
+          });
+          var idx10 = Math.floor(col.length * 0.1);
+          var idx25 = Math.floor(col.length * 0.25);
+          var idx50 = Math.floor(col.length * 0.5);
+          var idx75 = Math.floor(col.length * 0.75);
+          var idx90 = Math.floor(col.length * 0.9);
+          p10arr.push(col[idx10] || 0);
+          p25arr.push(col[idx25] || 0);
+          p50arr.push(col[Math.min(idx50, col.length - 1)] || 0);
+          p75arr.push(col[idx75] || 0);
+          p90arr.push(col[Math.min(idx90, col.length - 1)] || 0);
+        }
+      }
+      if (!p50arr) return;
+      var labels = p50arr.map(function(_, i) {
+        return i % 12 === 0 ? "Y" + Math.floor(i / 12) : "";
       });
       _mcChartInstance = new ApexCharts(chartEl, {
-        chart: { type: "line", height: 260, toolbar: { show: false }, animations: { enabled: false } },
-        series,
-        xaxis: { categories: labels, labels: { rotate: 0 } },
+        chart: { type: "area", height: 280, toolbar: { show: false }, animations: { enabled: false }, zoom: { enabled: false } },
+        series: [
+          { name: "P90 (optimistic)", data: p90arr },
+          { name: "P75", data: p75arr },
+          { name: "P50 (median)", data: p50arr },
+          { name: "P25", data: p25arr },
+          { name: "P10 (pessimistic)", data: p10arr }
+        ],
+        colors: ["#805ad5", "#3182ce", "#38a169", "#ecc94b", "#e53e3e"],
+        fill: {
+          type: "solid",
+          opacity: [0.08, 0.12, 0.25, 0.12, 0.08]
+        },
+        stroke: { width: [1, 1, 2, 1, 1], curve: "smooth", dashArray: [4, 3, 0, 3, 4] },
+        xaxis: { categories: labels, labels: { style: { fontSize: "10px" } }, tickAmount: Math.min(10, Math.floor(p50arr.length / 12)) },
         yaxis: { labels: { formatter: function(v) {
           return "$" + Math.round(v / 1e3) + "k";
-        } } },
-        stroke: { width: 1, curve: "smooth" },
-        legend: { show: false },
-        colors: Array(10).fill("#94a3b8"),
+        }, style: { fontSize: "11px" } } },
+        legend: { position: "top", fontSize: "11px", markers: { radius: 3 } },
         dataLabels: { enabled: false },
-        tooltip: { enabled: false }
+        tooltip: { shared: true, y: { formatter: function(v) {
+          return "$" + Math.round(v).toLocaleString();
+        } } },
+        grid: { borderColor: "rgba(0,0,0,0.06)" }
       });
       _mcChartInstance.render();
     }
@@ -1127,10 +1313,11 @@
         renderMonteCarlo(data);
         btn.disabled = false;
         btn.textContent = "Run projection";
+        showToast("Projection updated", "success");
       }).catch(function() {
         btn.disabled = false;
         btn.textContent = "Run projection";
-        alert("Projection failed. Please try again.");
+        showToast("Projection failed. Please try again.", "error");
       });
     });
   }

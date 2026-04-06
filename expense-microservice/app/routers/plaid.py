@@ -424,6 +424,18 @@ async def plaid_sync(
                 continue
             name = (tx.get("name") or tx.get("merchant_name") or "Transaction").strip() or "Expense"
             category_code = _plaid_category_to_code(tx.get("category") or tx.get("personal_finance_category"))
+            # Detect Apple Pay: APL* prefix + in-store NFC tap
+            tx_source = "plaid"
+            if (
+                name.upper().startswith("APL*")
+                and tx.get("payment_channel") == "in store"
+            ):
+                tx_source = "plaid_apple_pay"
+            elif (
+                name.upper().startswith(("GOOGLE*", "GPAY*"))
+                and tx.get("payment_channel") == "in store"
+            ):
+                tx_source = "plaid_google_pay"
             payload = ExpenseCreate(
                 amount=amount,
                 date=tx_date,
@@ -435,7 +447,7 @@ async def plaid_sync(
                 resource.create(
                     user_id,
                     payload,
-                    source="plaid",
+                    source=tx_source,
                     plaid_transaction_id=tx_id,
                 )
                 created += 1

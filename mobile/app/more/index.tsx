@@ -10,8 +10,9 @@ export default function MoreScreen() {
   const router = useRouter();
 
   const Item = ({ title, href }: { title: string; href: string }) => (
-    <Pressable style={styles.item} onPress={() => router.push(href)}>
+    <Pressable style={({ pressed }) => [styles.item, pressed && styles.itemPressed]} onPress={() => router.push(href)}>
       <Text style={styles.itemText}>{title}</Text>
+      <Text style={styles.itemArrow}>›</Text>
     </Pressable>
   );
 
@@ -72,11 +73,16 @@ const styles = StyleSheet.create({
   title: { marginBottom: 2 },
   item: {
     backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.outlineVariant,
+    borderRadius: 0,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.outlineVariant,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  itemText: { fontSize: 14, fontFamily: "Inter_700Bold", color: theme.colors.onSurface },
+  itemPressed: { backgroundColor: theme.colors.surfaceContainer },
+  itemText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: theme.colors.onSurface },
+  itemArrow: { fontSize: 18, color: theme.colors.outlineVariant, fontWeight: "300" },
 });

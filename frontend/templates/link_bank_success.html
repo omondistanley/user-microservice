@@ -1,91 +1,59 @@
 {% extends "layout.html" %}
 {% block body_class %}link-bank-success-page{% endblock %}
-{% block title %}Bank Connection — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          "primary": "#13ec5b",
-          "background-light": "#f6f8f6",
-          "background-dark": "#102216",
-        },
-        fontFamily: { "display": ["Manrope", "sans-serif"] },
-        borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-      },
-    },
-  }
-</script>
-<style>
-  body { font-family: 'Manrope', sans-serif; min-height: max(884px, 100dvh); }
-  .radar-pulse { position: relative; display: flex; align-items: center; justify-content: center; }
-  .radar-pulse::before, .radar-pulse::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: #13ec5b; opacity: 0.2; }
-</style>
-{% endblock %}
+{% block title %}Bank Connection — pocketii{% endblock %}
 {% block content %}
-<div class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
-  <!-- Top Navigation Bar -->
-  <div class="flex items-center p-4 justify-between bg-background-light dark:bg-background-dark border-b border-slate-200 dark:border-primary/10">
-    <a href="/dashboard" class="text-slate-900 dark:text-slate-100 flex size-10 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-primary/20 transition-colors text-lg leading-none" aria-label="Back to dashboard">
-      <span aria-hidden="true">←</span>
-    </a>
-    <h2 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center">Bank Connection</h2>
-    <div class="size-10"></div>
-  </div>
-  <!-- Main Content Area -->
-  <div class="flex-1 flex flex-col px-6 py-8 items-center">
-    <div class="relative mb-10">
-      <div class="radar-pulse w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center">
-        <div class="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center">
-          <span class="text-primary text-5xl leading-none select-none" aria-hidden="true" role="img"><span class="material-symbols-rounded">check_circle</span></span>
-        </div>
-      </div>
+
+<div class="page-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <a href="/dashboard" class="btn btn-ghost btn-sm" aria-label="Back to dashboard">
+            <span class="material-symbols-rounded">arrow_back</span>
+        </a>
+        <h1 class="page-title">Bank Connection</h1>
     </div>
-    <div class="text-center mb-8">
-      <h1 class="text-4xl font-extrabold tracking-tight mb-2">Success!</h1>
-      <p class="text-slate-600 dark:text-slate-400 text-base leading-relaxed">
-        Your bank accounts have been successfully linked. We've finished importing your recent history.
-      </p>
-    </div>
-    <div class="w-full mb-10">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Import complete</span>
-        <span class="text-sm font-medium text-slate-500">100%</span>
-      </div>
-      <div class="h-2.5 w-full bg-slate-200 dark:bg-primary/10 rounded-full overflow-hidden">
-        <div class="h-full bg-primary rounded-full w-full"></div>
-      </div>
-    </div>
-    <div class="w-full mb-8">
-      <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
-        <span class="text-primary text-xl leading-none select-none" aria-hidden="true"><span class="material-symbols-rounded">account_balance</span></span>
-        Connected accounts
-      </h3>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mb-2 max-w-md mx-auto text-center">Each linked bank account (checking, savings, etc.) appears below. Use <strong>Plaid sync</strong> on Expenses to import transactions.</p>
-      <p id="plaid-success-status" class="text-slate-500 dark:text-slate-400 text-sm mb-3 min-h-[20px]">Preparing…</p>
-      <div id="plaid-success-accounts" class="space-y-3">
-        <p class="text-slate-500 dark:text-slate-400 text-sm">Loading…</p>
-      </div>
-    </div>
-  </div>
-  <div class="p-6 bg-background-light dark:bg-background-dark">
-    <a href="/dashboard" class="block w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 text-center">
-      Return to Dashboard
-      <span class="text-xl leading-none" aria-hidden="true">→</span>
-    </a>
-    <p class="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
-      Security powered by BankSync v2.4 Microservices
-    </p>
-  </div>
-  <div class="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden -z-10">
-    <div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
-    <div class="absolute top-1/2 -left-32 w-80 h-80 bg-primary/5 rounded-full blur-3xl"></div>
-  </div>
 </div>
+
+<div class="card" style="text-align:center;padding:2rem 1.5rem;margin-bottom:1.5rem;">
+    <div style="width:80px;height:80px;border-radius:50%;background:var(--emerald-light,#ecfdf5);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;">
+        <span class="material-symbols-rounded" style="font-size:40px;color:var(--color-emerald,#10b981);">check_circle</span>
+    </div>
+    <h2 style="font-size:1.5rem;font-weight:800;margin:0 0 0.5rem;">Success!</h2>
+    <p class="muted" style="font-size:0.9375rem;max-width:360px;margin:0 auto;">
+        Your bank accounts have been successfully linked. We've finished importing your recent history.
+    </p>
+</div>
+
+<div class="card mb-24">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <span style="font-size:0.875rem;font-weight:600;">Import complete</span>
+        <span class="muted" style="font-size:0.875rem;">100%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-fill green" style="width:100%;"></div>
+    </div>
+</div>
+
+<div class="card mb-24">
+    <div class="card-header">
+        <span class="card-title"><span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;margin-right:4px;">account_balance</span> Connected accounts</span>
+    </div>
+    <p class="muted" style="font-size:0.8125rem;margin-top:8px;margin-bottom:12px;">
+        Each linked bank account appears below. Use <strong>Plaid sync</strong> on Expenses to import transactions.
+    </p>
+    <p id="plaid-success-status" class="muted" style="font-size:0.875rem;margin-bottom:8px;min-height:18px;">Preparing…</p>
+    <div id="plaid-success-accounts" style="display:flex;flex-direction:column;gap:8px;">
+        <p class="muted" style="font-size:0.875rem;">Loading…</p>
+    </div>
+</div>
+
+<div style="padding-bottom:2rem;">
+    <a href="/dashboard" class="btn btn-primary" style="width:100%;text-align:center;display:block;">
+        Return to Dashboard
+    </a>
+    <p class="muted" style="font-size:0.75rem;text-align:center;margin-top:12px;">
+        Security powered by Plaid &amp; Teller
+    </p>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/plaid.js"></script>
@@ -111,60 +79,56 @@
       : (window.API_BASE || '');
   }
 
-  var icons = ['<span class="material-symbols-rounded">credit_card</span>', '<span class="material-symbols-rounded">account_balance</span>', '<span class="material-symbols-rounded">dashboard</span>', '<span class="material-symbols-rounded">payments</span>'];
   var hadHostedLinkToken = false;
   try { hadHostedLinkToken = !!localStorage.getItem('plaid_hosted_link_token'); } catch (e) { hadHostedLinkToken = false; }
 
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   function renderItems(items, provider) {
-    return items.map(function(item, i) {
+    return items.map(function(item) {
       var name = item.institution_name || item.institution_id || item.enrollment_id || 'Linked account';
-      var icon = icons[i % icons.length];
       var badge = provider === 'teller' ? 'Teller' : 'Plaid';
-      var badgeClass = provider === 'teller'
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : 'text-emerald-700 dark:text-primary';
-      return '<div class="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-primary/5 border border-slate-200 dark:border-primary/10">' +
-        '<div class="flex items-center gap-3">' +
-        '<div class="p-2 bg-white dark:bg-background-dark rounded-lg text-xl leading-none select-none" aria-hidden="true">' + icon + '</div>' +
-        '<div><p class="font-bold text-sm text-slate-900 dark:text-slate-100">' + (name.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</p>' +
-        '<p class="text-xs text-slate-600 dark:text-slate-400">Linked via ' + badge + '</p></div>' +
-        '</div><div class="text-right"><span class="' + badgeClass + ' text-xs font-bold uppercase tracking-wider">' + badge + '</span></div></div>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-container-low,#f8fafc);">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<span class="material-symbols-rounded" style="color:var(--brand,#135bec);font-size:22px;">account_balance</span>' +
+        '<div><div style="font-size:0.875rem;font-weight:700;color:var(--text-primary);">' + esc(name) + '</div>' +
+        '<div class="muted" style="font-size:0.75rem;">Linked via ' + esc(badge) + '</div></div></div>' +
+        '<span style="font-size:0.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--brand,#135bec);">' + esc(badge) + '</span></div>';
     }).join('');
   }
 
-  function mergePlaidRows(apiItems, bankRows) {
-    var map = {};
-    (apiItems || []).forEach(function(i) {
-      var id = (i.item_id != null && i.item_id !== '') ? String(i.item_id) : '';
-      var key = id || ('n:' + (i.institution_name || ''));
-      map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+  function renderPlaidAccountDetails(accounts) {
+    var byItem = {};
+    (accounts || []).forEach(function(a) {
+      var k = a.item_id != null ? String(a.item_id) : '_';
+      if (!byItem[k]) byItem[k] = { institution_name: a.institution_name || 'Bank', rows: [] };
+      byItem[k].rows.push(a);
     });
-    (bankRows || []).forEach(function(i) {
-      var id = (i.institution_id != null && i.institution_id !== '') ? String(i.institution_id) : '';
-      var key = id || ('n:' + (i.institution_name || ''));
-      if (!map[key]) map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+    var keys = Object.keys(byItem);
+    if (!keys.length) return '';
+    var html = '';
+    keys.forEach(function(k) {
+      var g = byItem[k];
+      html += '<div style="margin-bottom:12px;"><p class="muted" style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">' + esc(g.institution_name) + '</p>';
+      g.rows.forEach(function(a) {
+        var title = esc(a.official_name || a.name || 'Account');
+        var mask = a.mask ? ' ··' + esc(String(a.mask)) : '';
+        var sub = esc([a.subtype, a.type].filter(Boolean).join(' · ') || 'Account');
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-container-low,#f8fafc);margin-bottom:6px;">' +
+          '<div><div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);">' + title + mask + '</div>' +
+          '<div class="muted" style="font-size:0.75rem;">' + sub + '</div></div>' +
+          '<span style="font-size:0.6875rem;font-weight:700;text-transform:uppercase;color:var(--brand,#135bec);">Plaid</span></div>';
+      });
+      html += '</div>';
     });
-    return Object.keys(map).map(function(k) { return map[k]; });
-  }
-
-  function mergeTellerRows(apiItems, bankRows) {
-    var map = {};
-    (apiItems || []).forEach(function(i) {
-      var id = (i.enrollment_id != null && i.enrollment_id !== '') ? String(i.enrollment_id) : '';
-      var key = id || ('n:' + (i.institution_name || ''));
-      map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
-    });
-    (bankRows || []).forEach(function(i) {
-      var id = (i.institution_id != null && i.institution_id !== '') ? String(i.institution_id) : '';
-      var key = id || ('n:' + (i.institution_name || ''));
-      if (!map[key]) map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
-    });
-    return Object.keys(map).map(function(k) { return map[k]; });
+    return html;
   }
 
   function renderProvisionalHtml(plaidRows, tellerRows) {
     var ph = renderItems(plaidRows, 'plaid');
-    var th = tellerRows.length ? '<div class="mt-4">' + renderItems(tellerRows, 'teller') + '</div>' : '';
+    var th = tellerRows.length ? '<div style="margin-top:8px;">' + renderItems(tellerRows, 'teller') + '</div>' : '';
     return ph + th;
   }
 
@@ -180,7 +144,6 @@
       : Promise.resolve([]);
   }
 
-  /** Poll until we have Plaid + Teller items or max attempts (webhook / DB may lag). */
   function loadAllLinkedWithRetry(maxAttempts, intervalMs) {
     var attempt = 0;
     function step() {
@@ -200,7 +163,6 @@
     return step();
   }
 
-  // Hosted Link: poll /link/token/get, then exchange every public_token (multi-institution).
   function finalizeHostedPlaidIfNeeded() {
     var flow = (window.PLAID_FLOW || 'hosted').toLowerCase();
     if (flow === 'embedded') return Promise.resolve();
@@ -221,10 +183,7 @@
         var token = (pt || '').trim();
         if (!token) return;
         chain = chain.then(function() {
-          return window.PlaidApi.exchangeItem(token).catch(function() {
-            /* public_token may already be used by Plaid webhook — items still load via GET /items */
-            return null;
-          });
+          return window.PlaidApi.exchangeItem(token).catch(function() { return null; });
         });
       });
       return chain.then(function() {
@@ -280,36 +239,34 @@
     return { plaid: plaid, teller: teller };
   }
 
-  function esc(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function mergePlaidRows(apiItems, bankRows) {
+    var map = {};
+    (apiItems || []).forEach(function(i) {
+      var id = (i.item_id != null && i.item_id !== '') ? String(i.item_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+    });
+    (bankRows || []).forEach(function(i) {
+      var id = (i.institution_id != null && i.institution_id !== '') ? String(i.institution_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      if (!map[key]) map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
+    });
+    return Object.keys(map).map(function(k) { return map[k]; });
   }
 
-  function renderPlaidAccountDetails(accounts) {
-    var byItem = {};
-    (accounts || []).forEach(function(a) {
-      var k = a.item_id != null ? String(a.item_id) : '_';
-      if (!byItem[k]) byItem[k] = { institution_name: a.institution_name || 'Bank', rows: [] };
-      byItem[k].rows.push(a);
+  function mergeTellerRows(apiItems, bankRows) {
+    var map = {};
+    (apiItems || []).forEach(function(i) {
+      var id = (i.enrollment_id != null && i.enrollment_id !== '') ? String(i.enrollment_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
     });
-    var keys = Object.keys(byItem);
-    if (!keys.length) return '';
-    var html = '<div class="w-full max-w-lg mx-auto space-y-5">';
-    keys.forEach(function(k) {
-      var g = byItem[k];
-      html += '<div class="text-left"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">' + esc(g.institution_name) + '</p><div class="space-y-2">';
-      g.rows.forEach(function(a) {
-        var title = esc(a.official_name || a.name || 'Account');
-        var mask = a.mask ? ' ··' + esc(String(a.mask)) : '';
-        var sub = esc([a.subtype, a.type].filter(Boolean).join(' · ') || 'Account');
-        html += '<div class="flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-primary/5 border border-slate-200 dark:border-primary/10">' +
-          '<div><p class="font-semibold text-sm text-slate-900 dark:text-slate-100">' + title + mask + '</p>' +
-          '<p class="text-xs text-slate-500 dark:text-slate-400">' + sub + '</p></div>' +
-          '<span class="text-[10px] font-bold text-primary uppercase shrink-0 ml-2">Plaid</span></div>';
-      });
-      html += '</div></div>';
+    (bankRows || []).forEach(function(i) {
+      var id = (i.institution_id != null && i.institution_id !== '') ? String(i.institution_id) : '';
+      var key = id || ('n:' + (i.institution_name || ''));
+      if (!map[key]) map[key] = { institution_name: i.institution_name || 'Linked account', institution_id: id };
     });
-    html += '</div>';
-    return html;
+    return Object.keys(map).map(function(k) { return map[k]; });
   }
 
   function showFinalUI(plaidItemsFallback, tellerItems, hasPlaidConnection) {
@@ -317,10 +274,10 @@
     if (!hasPlaidConnection && !tellerHtml) {
       setStatus('');
       container.innerHTML =
-        '<p class="text-slate-500 dark:text-slate-400 text-sm mb-3">No linked accounts loaded yet.</p>' +
+        '<p class="muted" style="font-size:0.875rem;margin-bottom:8px;">No linked accounts loaded yet.</p>' +
         (hadHostedLinkToken
-          ? '<p class="text-slate-500 dark:text-slate-400 text-sm mb-3">If you just finished Plaid, wait a moment and refresh, or open <a href="/settings/integrations" class="text-primary underline font-medium">Settings → Integrations</a>.</p>'
-          : '<p class="text-slate-500 dark:text-slate-400 text-sm">Open <a href="/settings/integrations" class="text-primary underline font-medium">Settings → Integrations</a> to link a bank.</p>');
+          ? '<p class="muted" style="font-size:0.875rem;">If you just finished Plaid, wait a moment and refresh, or open <a href="/settings/integrations">Settings → Integrations</a>.</p>'
+          : '<p class="muted" style="font-size:0.875rem;">Open <a href="/settings/integrations">Settings → Integrations</a> to link a bank.</p>');
       return;
     }
     if (!hasPlaidConnection && tellerHtml) {
@@ -330,7 +287,7 @@
     }
     if (!window.PlaidApi || !window.PlaidApi.getAccounts) {
       setStatus('Bank linked');
-      container.innerHTML = renderItems(plaidItemsFallback, 'plaid') + (tellerHtml ? '<div class="mt-6">' + tellerHtml + '</div>' : '');
+      container.innerHTML = renderItems(plaidItemsFallback, 'plaid') + (tellerHtml ? '<div style="margin-top:8px;">' + tellerHtml + '</div>' : '');
       return;
     }
     setStatus('Loading accounts from Plaid…');
@@ -346,20 +303,19 @@
     tryAccounts().then(function(accts) {
       if (accts.length) {
         setStatus(accts.length + ' account' + (accts.length === 1 ? '' : 's') + ' connected · run Plaid sync from Expenses to import transactions');
-        container.innerHTML = renderPlaidAccountDetails(accts) + (tellerHtml ? '<div class="mt-8 pt-6 border-t border-slate-200 dark:border-primary/10">' + tellerHtml + '</div>' : '');
+        container.innerHTML = renderPlaidAccountDetails(accts) + (tellerHtml ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);">' + tellerHtml + '</div>' : '');
       } else {
         var fb = (plaidItemsFallback && plaidItemsFallback.length)
           ? renderItems(plaidItemsFallback, 'plaid')
-          : '<p class="text-sm text-slate-500 dark:text-slate-400 text-center">Bank linked. Pull to refresh this page to load account names.</p>';
+          : '<p class="muted" style="font-size:0.875rem;">Bank linked. Refresh this page to load account names.</p>';
         setStatus('');
-        container.innerHTML = fb + (tellerHtml ? '<div class="mt-6">' + tellerHtml + '</div>' : '');
+        container.innerHTML = fb + (tellerHtml ? '<div style="margin-top:8px;">' + tellerHtml + '</div>' : '');
       }
     });
   }
 
   setStatus('Preparing…');
 
-  /* Show institutions as soon as unified /bank/items or provider lists respond (no need to wait for Plaid finalize). */
   Promise.all([loadBankItemsFallback(), loadPlaidItems(), loadTellerItems()])
     .then(function(results) {
       var bankItems = results[0] || [];
@@ -370,7 +326,7 @@
       setStatus(hadHostedLinkToken ? 'Finalizing bank connection with Plaid…' : 'Loading account details…');
       container.innerHTML = renderProvisionalHtml(plaidMerged, tellerMerged);
     })
-    .catch(function() { /* non-fatal */ });
+    .catch(function() {});
 
   finalizeHostedPlaidIfNeeded().then(function() {
     return loadAllLinkedWithRetry(24, 2500);
@@ -387,17 +343,17 @@
       if (!split.plaid.length && !split.teller.length) {
         setStatus('');
         container.innerHTML =
-          '<p class="text-slate-500 dark:text-slate-400 text-sm mb-3">No linked accounts loaded yet.</p>' +
+          '<p class="muted" style="font-size:0.875rem;margin-bottom:8px;">No linked accounts loaded yet.</p>' +
           (hadHostedLinkToken
-            ? '<p class="text-slate-500 dark:text-slate-400 text-sm mb-3">Refresh in a moment or open <a href="/settings/integrations" class="text-primary underline font-medium">Settings → Integrations</a>.</p>'
-            : '<p class="text-slate-500 dark:text-slate-400 text-sm">Open <a href="/settings/integrations" class="text-primary underline font-medium">Settings → Integrations</a>.</p>');
+            ? '<p class="muted" style="font-size:0.875rem;">Refresh in a moment or open <a href="/settings/integrations">Settings → Integrations</a>.</p>'
+            : '<p class="muted" style="font-size:0.875rem;">Open <a href="/settings/integrations">Settings → Integrations</a>.</p>');
         return;
       }
       showFinalUI(split.plaid, split.teller, split.plaid.length > 0);
     });
   }).catch(function() {
     setStatus('');
-    container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 text-sm">Could not load linked accounts. Try <a href="/link-bank/success" class="text-primary underline">refreshing</a> or <a href="/settings/integrations" class="text-primary underline">Integrations</a>.</p>';
+    container.innerHTML = '<p class="muted" style="font-size:0.875rem;">Could not load linked accounts. Try <a href="/link-bank/success">refreshing</a> or <a href="/settings/integrations">Integrations</a>.</p>';
   });
 })();
 </script>

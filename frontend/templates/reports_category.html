@@ -1,58 +1,60 @@
 {% extends "layout.html" %}
 {% block body_class %}reports-page reports-category-page{% endblock %}
-{% block title %}Category Report — Expense Tracker{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-  tailwind.config = { theme: { extend: { colors: { "primary": "#135bec", "expense": "#ef4444" }, fontFamily: { "display": ["Manrope", "sans-serif"] } } } };
-</script>
-{% endblock %}
+{% block title %}Category Report — pocketii{% endblock %}
 {% block content %}
-<div class="relative flex min-h-screen w-full flex-col max-w-[430px] mx-auto bg-white dark:bg-slate-900 shadow-2xl overflow-x-hidden font-display text-slate-900 dark:text-slate-100 antialiased">
-  <script nonce="{{ csp_nonce | default('') }}">document.documentElement.classList.add('dark');</script>
-  <div class="flex items-center p-4 pb-2 justify-between sticky top-0 z-10 bg-white dark:bg-slate-900">
-    <a href="/reports" class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Back">
-      <span class="material-symbols-outlined">arrow_back</span>
-    </a>
-    <h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center truncate" id="category-report-title">Category</h2>
-    <div class="w-10"></div>
-  </div>
-  <p class="text-slate-500 dark:text-slate-400 text-sm px-4 pb-2" id="category-report-subtitle">Monthly Analysis</p>
 
-  <div class="px-4 border-b border-slate-100 dark:border-slate-800">
-    <div class="flex gap-1">
-      <button type="button" class="category-tab py-2 px-3 text-sm font-semibold rounded-t-lg border-b-2 border-primary text-primary" data-tab="overview">Overview</button>
-      <button type="button" class="category-tab py-2 px-3 text-sm font-semibold text-slate-500 dark:text-slate-400" data-tab="merchants">Merchants</button>
-      <button type="button" class="category-tab py-2 px-3 text-sm font-semibold text-slate-500 dark:text-slate-400" data-tab="budget">Budget</button>
-      <button type="button" class="category-tab py-2 px-3 text-sm font-semibold text-slate-500 dark:text-slate-400" data-tab="history">History</button>
+<div class="page-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <a href="/reports" class="btn btn-ghost btn-sm icon-btn-label" aria-label="Back to reports">
+            <span class="material-symbols-rounded">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="page-title" id="category-report-title">Category</h1>
+            <p class="page-meta" id="category-report-subtitle">Monthly Analysis</p>
+        </div>
     </div>
-  </div>
-
-  <div class="flex flex-col gap-6 p-4 pb-24">
-    <section class="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
-      <h3 class="text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Category Spending</h3>
-      <p class="text-2xl font-extrabold text-slate-900 dark:text-slate-100" id="category-total">$0.00</p>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" id="category-trend">—</p>
-    </section>
-
-    <section class="bg-white dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-      <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold mb-4">Spending trend</h3>
-      <div id="category-chart-placeholder" class="h-32 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 text-sm">Chart placeholder</div>
-    </section>
-
-    <section class="bg-white dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800" id="section-merchants">
-      <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold mb-4">Merchant Insights</h3>
-      <div id="category-merchants" class="space-y-2 text-sm text-slate-500 dark:text-slate-400">Loading…</div>
-    </section>
-
-    <section class="bg-white dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-      <h3 class="text-slate-900 dark:text-slate-100 text-base font-bold mb-4">Recent Transactions</h3>
-      <div id="category-transactions" class="divide-y divide-slate-100 dark:divide-slate-800">Loading…</div>
-    </section>
-  </div>
 </div>
+
+<nav class="tab-bar mb-16" role="tablist" style="border-bottom:1px solid var(--border-subtle);display:flex;gap:4px;">
+    <button type="button" class="category-tab tab-btn tab-btn--active" data-tab="overview">Overview</button>
+    <button type="button" class="category-tab tab-btn" data-tab="merchants">Merchants</button>
+    <button type="button" class="category-tab tab-btn" data-tab="budget">Budget</button>
+    <button type="button" class="category-tab tab-btn" data-tab="history">History</button>
+</nav>
+
+<div class="grid-2 mb-24">
+    <div class="stat-card">
+        <div class="stat-label">Total Category Spending</div>
+        <div class="stat-value" id="category-total">$0.00</div>
+        <div class="stat-label" id="category-trend" style="margin-top:4px;">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Transactions</div>
+        <div class="stat-value" id="category-tx-count">—</div>
+    </div>
+</div>
+
+<div class="card mb-16" id="section-trend">
+    <div class="card-header">
+        <span class="card-title">Spending trend</span>
+    </div>
+    <div id="category-chart-placeholder" class="muted" style="padding:2rem;text-align:center;font-size:0.875rem;">No chart data</div>
+</div>
+
+<div class="card mb-16" id="section-merchants">
+    <div class="card-header">
+        <span class="card-title">Merchant insights</span>
+    </div>
+    <div id="category-merchants" class="muted" style="font-size:0.875rem;margin-top:8px;">Loading…</div>
+</div>
+
+<div class="card" id="section-recent">
+    <div class="card-header">
+        <span class="card-title">Recent transactions</span>
+    </div>
+    <div id="category-transactions" style="margin-top:8px;">Loading…</div>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/expenses.js"></script>
@@ -68,13 +70,12 @@
   var subtitleEl = document.getElementById('category-report-subtitle');
   if (subtitleEl) {
     var now = new Date();
-    subtitleEl.textContent = 'Monthly Analysis • ' + now.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+    subtitleEl.textContent = 'Monthly Analysis · ' + now.toLocaleString('en-US', { month: 'short', year: 'numeric' });
   }
 
   function setTab(active) {
     document.querySelectorAll('.category-tab').forEach(function(btn) {
-      var isActive = btn.getAttribute('data-tab') === active;
-      btn.className = 'category-tab py-2 px-3 text-sm font-semibold rounded-t-lg ' + (isActive ? 'border-b-2 border-primary text-primary' : 'text-slate-500 dark:text-slate-400');
+      btn.classList.toggle('tab-btn--active', btn.getAttribute('data-tab') === active);
     });
   }
   document.querySelectorAll('.category-tab').forEach(function(btn) {
@@ -85,6 +86,13 @@
     if (v == null || v === '') return '0.00';
     var n = parseFloat(v, 10);
     return isNaN(n) ? '0.00' : n.toFixed(2);
+  }
+
+  function escHtml(s) {
+    if (s == null) return '';
+    var d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
   }
 
   function load() {
@@ -104,10 +112,13 @@
       var items = (data && data.items) || [];
       var total = 0;
       items.forEach(function(e) { total += Math.abs(Number(e.amount) || 0); });
+
       var totalEl = document.getElementById('category-total');
       if (totalEl) totalEl.textContent = '$' + fmt(total);
       var trendEl = document.getElementById('category-trend');
-      if (trendEl) trendEl.textContent = items.length + ' transaction' + (items.length !== 1 ? 's' : '') + ' in period';
+      if (trendEl) trendEl.textContent = items.length + ' transaction' + (items.length !== 1 ? 's' : '') + ' this month';
+      var countEl = document.getElementById('category-tx-count');
+      if (countEl) countEl.textContent = items.length;
 
       var byDesc = {};
       items.forEach(function(e) {
@@ -118,28 +129,36 @@
       var merchants = Object.keys(byDesc).map(function(k) { return byDesc[k]; }).sort(function(a, b) { return b.total - a.total; }).slice(0, 5);
       var merchantsEl = document.getElementById('category-merchants');
       if (merchantsEl) {
-        if (merchants.length === 0) merchantsEl.innerHTML = '<p>No merchant data in this period.</p>';
-        else merchantsEl.innerHTML = merchants.map(function(m) { return '<div class="flex justify-between"><span>' + (m.name.length > 25 ? m.name.slice(0, 25) + '…' : m.name) + '</span><span class="font-semibold text-expense">-$' + fmt(m.total) + '</span></div>'; }).join('');
+        if (merchants.length === 0) merchantsEl.innerHTML = '<span class="muted">No merchant data in this period.</span>';
+        else merchantsEl.innerHTML = merchants.map(function(m) {
+          var name = m.name.length > 30 ? m.name.slice(0, 30) + '…' : m.name;
+          return '<div class="txn-item" style="padding:8px 0;border-bottom:1px solid var(--border-subtle);">' +
+            '<span style="font-size:0.875rem;color:var(--text-primary);">' + escHtml(name) + '</span>' +
+            '<span style="font-size:0.875rem;font-weight:700;color:var(--color-rose);">-$' + fmt(m.total) + '</span></div>';
+        }).join('');
       }
 
       var recent = items.slice(0, 15);
       var txEl = document.getElementById('category-transactions');
       if (txEl) {
-        if (recent.length === 0) txEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400 py-4">No transactions in this period.</p>';
+        if (recent.length === 0) txEl.innerHTML = '<p class="muted" style="padding:1rem 0;">No transactions in this period.</p>';
         else {
           txEl.innerHTML = recent.map(function(e) {
             var d = (e.date || '').slice(0, 10);
             var amt = Math.abs(Number(e.amount) || 0);
             var desc = (e.description || 'Expense').trim() || 'Expense';
-            return '<div class="flex justify-between items-center py-3"><div><p class="text-sm font-medium text-slate-900 dark:text-slate-100">' + (desc.length > 28 ? desc.slice(0, 28) + '…' : desc) + '</p><p class="text-xs text-slate-500">' + d + '</p></div><span class="text-sm font-bold text-expense">-$' + fmt(amt) + '</span></div>';
+            return '<div class="txn-item" style="padding:10px 0;border-bottom:1px solid var(--border-subtle);">' +
+              '<div><div style="font-size:0.875rem;font-weight:600;color:var(--text-primary);">' + escHtml(desc.length > 32 ? desc.slice(0, 32) + '…' : desc) + '</div>' +
+              '<div class="muted" style="font-size:0.75rem;margin-top:2px;">' + escHtml(d) + '</div></div>' +
+              '<span style="font-size:0.875rem;font-weight:700;color:var(--color-rose);">-$' + fmt(amt) + '</span></div>';
           }).join('');
         }
       }
     }).catch(function() {
-      document.getElementById('category-total').textContent = '$0.00';
-      document.getElementById('category-trend').textContent = 'Unable to load data.';
-      document.getElementById('category-merchants').innerHTML = '<p>Unable to load data.</p>';
-      document.getElementById('category-transactions').innerHTML = '<p class="text-slate-500 py-4">Unable to load data.</p>';
+      var totalEl = document.getElementById('category-total'); if (totalEl) totalEl.textContent = '$0.00';
+      var trendEl = document.getElementById('category-trend'); if (trendEl) trendEl.textContent = 'Unable to load data.';
+      var merchantsEl = document.getElementById('category-merchants'); if (merchantsEl) merchantsEl.innerHTML = '<span class="muted">Unable to load data.</span>';
+      var txEl = document.getElementById('category-transactions'); if (txEl) txEl.innerHTML = '<p class="muted" style="padding:1rem 0;">Unable to load data.</p>';
     });
   }
 

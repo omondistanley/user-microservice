@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GATEWAY_BASE_URL } from "../config";
 import { authClient } from "../authClient";
 import { gatewayJson, gatewayJsonOptional } from "../gatewayRequest";
-import { theme } from "../theme";
+import { useAppTheme, type AppTheme } from "../theme";
 import { formatApiDetail } from "../formatApiDetail";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
@@ -70,14 +70,6 @@ function fmtMoney(v: unknown): string {
   return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const HOLDING_ACCENTS = [
-  { tile: "#dbeafe", ink: theme.colors.primary },
-  { tile: "#f1f5f9", ink: "#64748b" },
-  { tile: "#fef9c3", ink: "#a16207" },
-  { tile: "#ede9fe", ink: "#6d28d9" },
-  { tile: "#ffedd5", ink: "#c2410c" },
-];
-
 const RANGE_OPTIONS = ["1W", "1M", "3M", "1Y", "ALL"] as const;
 
 function rangeToDays(r: (typeof RANGE_OPTIONS)[number]): number {
@@ -108,6 +100,8 @@ function bucketForSymbol(sym: string): "stocks" | "crypto" | "bonds" | "cash" {
 export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boolean }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PortfolioValueResponse | null>(null);
@@ -124,6 +118,18 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
   const [addQty, setAddQty] = useState("");
   const [addCost, setAddCost] = useState("");
   const [addBusy, setAddBusy] = useState(false);
+  const [activeView, setActiveView] = useState<"overview" | "holdings">("overview");
+
+  const holdingAccents = useMemo(
+    () => [
+      { tile: theme.colors.primaryContainer, ink: theme.colors.primary },
+      { tile: theme.colors.secondaryContainer, ink: theme.colors.secondary },
+      { tile: theme.colors.tertiaryContainer, ink: theme.colors.tertiary },
+      { tile: theme.colors.surfaceContainerHigh, ink: theme.colors.onSurfaceVariant },
+      { tile: theme.colors.surfaceContainerHighest, ink: theme.colors.onSurface },
+    ],
+    [theme],
+  );
 
   const bumpRefresh = useCallback(() => setRefreshTick((t) => t + 1), []);
 
@@ -250,7 +256,7 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
     const centerPct = segments[0]?.pct ?? 0;
     const centerLabel = segments[0]?.label ?? "Top";
     return { segments, centerPct, centerLabel };
-  }, [data]);
+  }, [data, theme]);
 
   const sparkHeights = useMemo(() => {
     const raw = gainsHistory?.series?.[gainsSeries]?.gain_loss;
@@ -286,14 +292,14 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
         { key: "stocks" as const, label: "Stocks", pct: 0, color: theme.colors.primary },
         { key: "crypto" as const, label: "Crypto", pct: 0, color: theme.colors.tertiary },
         { key: "bonds" as const, label: "Bonds", pct: 0, color: theme.colors.primaryFixed },
-        { key: "cash" as const, label: "Cash", pct: 0, color: "#16a34a" },
+        { key: "cash" as const, label: "Cash", pct: 0, color: theme.colors.onTertiaryContainer },
       ];
     }
     return [
       { key: "stocks" as const, label: "Stocks", pct: Math.round((sums.stocks / total) * 100), color: theme.colors.primary },
       { key: "crypto" as const, label: "Crypto", pct: Math.round((sums.crypto / total) * 100), color: theme.colors.tertiary },
       { key: "bonds" as const, label: "Bonds", pct: Math.round((sums.bonds / total) * 100), color: theme.colors.primaryFixed },
-      { key: "cash" as const, label: "Cash", pct: Math.round((sums.cash / total) * 100), color: "#16a34a" },
+      { key: "cash" as const, label: "Cash", pct: Math.round((sums.cash / total) * 100), color: theme.colors.onTertiaryContainer },
     ];
   }, [data]);
 
@@ -318,11 +324,11 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
           allocPct: pctMv,
           source,
           holdingId: p?.holding_id ?? null,
-          accent: HOLDING_ACCENTS[idx % HOLDING_ACCENTS.length],
+          accent: holdingAccents[idx % holdingAccents.length],
         };
       })
       .sort((a, b) => (b.mv ?? 0) - (a.mv ?? 0));
-  }, [data]);
+  }, [data, holdingAccents]);
 
   const onAlpacaSync = async () => {
     setAlpacaBusy(true);
@@ -447,6 +453,15 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
       ? `Portfolio health score ${Math.round(health.score)}/100. Revisit recommendations as your holdings change.`
       : "Connect holdings or add positions to unlock tailored portfolio guidance.";
 
+  const healthScore = typeof health?.score === "number" ? Math.max(0, Math.min(100, Math.round(health.score))) : null;
+  const healthColor =
+    healthScore === null ? "#94a3b8"
+    : healthScore >= 70 ? "#16a34a"
+    : healthScore >= 40 ? "#d97706"
+    : "#dc2626";
+
+  const [selectedHolding, setSelectedHolding] = useState<(typeof positionsSorted)[number] | null>(null);
+
   if (loading) {
     return (
       <View style={{ paddingVertical: 40 }}>
@@ -470,14 +485,44 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.viewSwitchRow}>
+          <Pressable
+            style={[styles.viewSwitchBtn, activeView === "overview" && styles.viewSwitchBtnOn]}
+            onPress={() => setActiveView("overview")}
+          >
+            <Text style={[styles.viewSwitchTxt, activeView === "overview" && styles.viewSwitchTxtOn]}>Overview</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.viewSwitchBtn, activeView === "holdings" && styles.viewSwitchBtnOn]}
+            onPress={() => setActiveView("holdings")}
+          >
+            <Text style={[styles.viewSwitchTxt, activeView === "holdings" && styles.viewSwitchTxtOn]}>Holdings</Text>
+          </Pressable>
+        </View>
+
+        {activeView === "overview" ? (
         <View style={styles.bluePanel}>
           <Text style={styles.panelKicker}>Total investment balance</Text>
           <View style={styles.panelValueRow}>
             <Text style={styles.panelValue}>{fmtMoney(data?.total_market_value)}</Text>
-            <View style={styles.inlinePill}>
+            <View style={[styles.inlinePill, unrealized !== null && unrealized < 0 && { backgroundColor: "rgba(220,38,38,0.25)" }]}>
               <Text style={styles.inlinePillTxt}>{ytdLabel}</Text>
             </View>
           </View>
+          {healthScore !== null ? (
+            <View style={{ marginTop: 14, marginBottom: 4 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                <Text style={[styles.panelKicker, { marginTop: 0, fontSize: 11 }]}>Portfolio health</Text>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: healthColor }}>{healthScore}/100</Text>
+              </View>
+              <View style={{ height: 6, borderRadius: 99, backgroundColor: "rgba(255,255,255,0.18)", overflow: "hidden" }}>
+                <View style={{ width: `${healthScore}%`, height: "100%", borderRadius: 99, backgroundColor: healthColor }} />
+              </View>
+              {health?.headline ? (
+                <Text style={[styles.panelKicker, { marginTop: 5, fontSize: 11, opacity: 0.85 }]} numberOfLines={1}>{health.headline}</Text>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles.ytdPill}>
             <MaterialCommunityIcons
               name={ytdPositive ? "trending-up" : "trending-down"}
@@ -567,9 +612,11 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
             <Text style={styles.reportBtnText}>Generate Performance Report</Text>
           </Pressable>
         </View>
+        ) : null}
 
         <View style={styles.lower}>
-          <Text style={styles.alpacaSectionK}>Alpaca brokerage</Text>
+          {activeView === "overview" ? <Text style={styles.alpacaSectionK}>Alpaca brokerage</Text> : null}
+          {activeView === "overview" ? (
           <View style={styles.alpacaCard}>
             {alpacaStatus?.connected ? (
               <>
@@ -616,8 +663,9 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
               </>
             )}
           </View>
+          ) : null}
 
-          <Text style={styles.allocTitle}>Asset allocation</Text>
+          <Text style={styles.allocTitle}>{activeView === "overview" ? "Asset allocation" : "Holdings allocation"}</Text>
           <View style={styles.allocGrid}>
             {bucketAlloc.map((b) => (
               <View key={b.key} style={styles.allocCard}>
@@ -652,7 +700,7 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
               const isAlpaca = p.source === "alpaca";
               const qtyDisp = p.qty != null && Number.isFinite(p.qty) ? p.qty : null;
               return (
-                <View key={p.key} style={styles.holdingCard}>
+                <Pressable key={p.key} style={styles.holdingCard} onPress={() => setSelectedHolding(p)}>
                   <View style={styles.holdingTop}>
                     <View style={styles.holdingLeft}>
                       <View style={[styles.holdingIcon, { backgroundColor: p.accent.tile }]}>
@@ -668,52 +716,51 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
                               <Text style={styles.alpacaBadgeTxt}>Alpaca</Text>
                             </View>
                           ) : null}
+                          {pl !== null ? (
+                            <View style={[styles.plChip, { backgroundColor: up ? "rgba(22,163,74,0.12)" : "rgba(220,38,38,0.12)" }]}>
+                              <Text style={[styles.plChipTxt, { color: up ? "#16a34a" : theme.colors.error }]}>
+                                {up ? "+" : ""}{pl.toFixed(1)}%
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
                         <Text style={styles.holdingMeta}>
                           {qtyDisp != null ? `${qtyDisp} sh · ` : ""}
-                          Equity • USD
+                          {p.allocPct.toFixed(1)}% of portfolio
                         </Text>
                       </View>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>
                       <Text style={styles.holdingMv}>{fmtMoney(p.mv)}</Text>
-                      {pl !== null ? (
-                        <View style={styles.plRow}>
-                          <MaterialCommunityIcons
-                            name={up ? "arrow-up" : "arrow-down"}
-                            size={14}
-                            color={up ? "#16a34a" : theme.colors.error}
-                          />
-                          <Text style={[styles.plText, { color: up ? "#16a34a" : theme.colors.error }]}>
-                            {Math.abs(pl).toFixed(1)}%
-                          </Text>
-                        </View>
-                      ) : null}
+                      <Text style={styles.allocFooter} numberOfLines={1}>Tap for detail</Text>
                     </View>
                   </View>
-                  <View style={styles.holdingFooterRow}>
-                    <Text style={styles.allocFooter}>{p.allocPct.toFixed(1)}% allocation</Text>
-                    {isAlpaca && alpacaStatus?.connected && qtyDisp != null && qtyDisp > 0 ? (
+                  {isAlpaca && alpacaStatus?.connected && qtyDisp != null && qtyDisp > 0 ? (
+                    <View style={styles.holdingFooterRow}>
+                      <Text style={styles.allocFooter}>{p.allocPct.toFixed(1)}% allocation</Text>
                       <Pressable
                         style={styles.sellBtn}
-                        onPress={() => onSellAlpaca(p.symbol, qtyDisp)}
+                        onPress={(e) => { e.stopPropagation?.(); onSellAlpaca(p.symbol, qtyDisp); }}
                         hitSlop={8}
                       >
                         <Text style={styles.sellBtnTxt}>Market sell</Text>
                       </Pressable>
-                    ) : null}
-                  </View>
-                </View>
+                    </View>
+                  ) : null}
+                </Pressable>
               );
             })
           )}
 
+          {activeView === "overview" ? (
           <View style={styles.insightHeadRow}>
             <Text style={styles.insightSectionTitle}>Institutional Insights</Text>
             <Pressable onPress={() => router.push("/recommendations")}>
               <Text style={styles.recLink}>View Recommendations</Text>
             </Pressable>
           </View>
+          ) : null}
+          {activeView === "overview" ? (
           <View style={styles.insightCard}>
             <MaterialCommunityIcons name="lightbulb-on-outline" size={28} color={theme.colors.primary} />
             <View style={{ flex: 1 }}>
@@ -721,6 +768,7 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
               <Text style={styles.insightCardBody}>{insightBody}</Text>
             </View>
           </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -751,12 +799,114 @@ export function InvestmentsOverviewBody({ stackMode = false }: { stackMode?: boo
           </View>
         </View>
       </Modal>
+
+      {/* Holding detail bottom sheet */}
+      <Modal visible={selectedHolding !== null} transparent animationType="slide" onRequestClose={() => setSelectedHolding(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedHolding(null)}>
+          <Pressable style={[styles.modalCard, { paddingBottom: insets.bottom + 16 }]} onPress={() => {}}>
+            {selectedHolding ? (() => {
+              const h = selectedHolding;
+              const up = h.plPct === null || h.plPct >= 0;
+              const plColor = up ? "#16a34a" : theme.colors.error;
+              return (
+                <>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                    <View style={[styles.holdingIcon, { backgroundColor: h.accent.tile }]}>
+                      <MaterialCommunityIcons name="domain" size={24} color={h.accent.ink} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.modalTitle, { marginBottom: 0 }]}>{h.symbol}</Text>
+                      <Text style={styles.alpacaMeta}>{h.source === "alpaca" ? "Alpaca-linked" : "Manual"} · USD</Text>
+                    </View>
+                    <Pressable onPress={() => setSelectedHolding(null)} hitSlop={10}>
+                      <MaterialCommunityIcons name="close" size={22} color={theme.colors.onSurfaceVariant} />
+                    </Pressable>
+                  </View>
+
+                  <View style={{ gap: 10, marginBottom: 16 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={styles.alpacaMeta}>Market value</Text>
+                      <Text style={styles.holdingMv}>{fmtMoney(h.mv)}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={styles.alpacaMeta}>Quantity</Text>
+                      <Text style={[styles.holdingMeta, { fontFamily: "Inter_600SemiBold" }]}>{h.qty != null ? String(h.qty) : "—"} shares</Text>
+                    </View>
+                    {h.plPct !== null ? (
+                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                        <Text style={styles.alpacaMeta}>Unrealized P&L</Text>
+                        <Text style={[styles.holdingMeta, { color: plColor, fontFamily: "Inter_700Bold" }]}>
+                          {up ? "+" : ""}{h.plPct.toFixed(2)}%
+                        </Text>
+                      </View>
+                    ) : null}
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={styles.alpacaMeta}>Portfolio weight</Text>
+                      <Text style={[styles.holdingMeta, { fontFamily: "Inter_600SemiBold" }]}>{h.allocPct.toFixed(1)}%</Text>
+                    </View>
+                  </View>
+
+                  {/* P&L mini bar */}
+                  {h.plPct !== null ? (
+                    <View style={{ marginBottom: 16 }}>
+                      <View style={{ height: 8, borderRadius: 99, backgroundColor: theme.colors.surfaceContainerHigh, overflow: "hidden" }}>
+                        <View style={{ width: `${Math.min(100, Math.abs(h.plPct))}%`, height: "100%", borderRadius: 99, backgroundColor: plColor }} />
+                      </View>
+                      <Text style={[styles.alpacaMeta, { marginTop: 4, textAlign: "right" }]}>
+                        {up ? "Gain" : "Loss"} {Math.abs(h.plPct).toFixed(1)}% vs cost basis
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {h.source === "alpaca" && alpacaStatus?.connected && h.qty != null && h.qty > 0 ? (
+                    <Pressable style={styles.sellBtn} onPress={() => { setSelectedHolding(null); onSellAlpaca(h.symbol, h.qty!); }}>
+                      <Text style={styles.sellBtnTxt}>Market sell on Alpaca</Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              );
+            })() : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AppTheme) => StyleSheet.create({
   scrollContent: { flexGrow: 1 },
+  viewSwitchRow: {
+    marginHorizontal: theme.spacing.xl,
+    marginTop: 8,
+    marginBottom: 10,
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    flexDirection: "row",
+    gap: 6,
+    ...theme.shadows.sm,
+  },
+  viewSwitchBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 999,
+    alignItems: "center",
+  },
+  viewSwitchBtnOn: {
+    backgroundColor: theme.colors.primary,
+  },
+  viewSwitchTxt: {
+    fontSize: 12,
+    fontFamily: "Inter_800ExtraBold",
+    color: theme.colors.onSurfaceVariant,
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  viewSwitchTxtOn: {
+    color: theme.colors.onPrimary,
+  },
   bluePanel: {
     backgroundColor: theme.colors.primary,
     paddingHorizontal: theme.spacing.xl,
@@ -813,16 +963,21 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     minHeight: 8,
   },
-  rangeRow: { flexDirection: "row", gap: 8, marginTop: 14, paddingVertical: 4 },
+  rangeRow: { flexDirection: "row", gap: 6, marginTop: 12, paddingVertical: 2 },
   rangeChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
-  rangeChipOn: { backgroundColor: theme.colors.surface },
-  rangeTxt: { fontSize: 12, fontFamily: "Inter_800ExtraBold", color: "rgba(255,255,255,0.75)" },
-  rangeTxtOn: { color: theme.colors.primary },
+  rangeChipOn: {
+    backgroundColor: "#ffffff",
+    borderColor: "#ffffff",
+  },
+  rangeTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: "rgba(255,255,255,0.8)", letterSpacing: 0.3 },
+  rangeTxtOn: { color: theme.colors.primary, fontFamily: "Inter_800ExtraBold" },
   ytdPill: {
     marginTop: 14,
     flexDirection: "row",
@@ -908,7 +1063,7 @@ const styles = StyleSheet.create({
   lower: {
     paddingHorizontal: theme.spacing.xl,
     paddingTop: theme.spacing.xxl,
-    backgroundColor: theme.colors.surfaceContainerLow,
+    backgroundColor: theme.colors.background,
   },
   allocTitle: {
     fontSize: 18,
@@ -925,6 +1080,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: theme.colors.outlineVariant,
+    ...theme.shadows.sm,
   },
   allocCardTop: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   allocLabel: { fontSize: 12, fontFamily: "Inter_500Medium", color: theme.colors.secondary },
@@ -971,6 +1127,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.outlineVariant,
     padding: theme.spacing.xl,
     marginBottom: 14,
+    ...theme.shadows.sm,
   },
   holdingTop: {
     flexDirection: "row",
@@ -1015,11 +1172,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: theme.radii.md,
-    backgroundColor: "#fef2f2",
+    backgroundColor: theme.colors.errorContainer,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: theme.colors.outlineVariant,
   },
-  sellBtnTxt: { fontSize: 12, fontFamily: "Inter_800ExtraBold", color: "#991b1b" },
+  sellBtnTxt: { fontSize: 12, fontFamily: "Inter_800ExtraBold", color: theme.colors.onErrorContainer },
   alpacaBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1060,6 +1217,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     marginBottom: 20,
     gap: 12,
+    ...theme.shadows.sm,
   },
   alpacaRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   alpacaTitle: { fontSize: 16, fontFamily: "Inter_800ExtraBold", color: theme.colors.onSurface },
@@ -1091,6 +1249,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.lg,
     padding: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    ...theme.shadows.md,
   },
   modalTitle: { fontSize: 18, fontFamily: "Inter_800ExtraBold", marginBottom: 8, color: theme.colors.onSurface },
   modalHint: { fontSize: 12, color: theme.colors.secondary, marginBottom: 14, lineHeight: 18 },
@@ -1122,24 +1283,34 @@ const styles = StyleSheet.create({
   insightCard: {
     flexDirection: "row",
     gap: 12,
-    backgroundColor: theme.colors.primaryContainer,
+    backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.lg,
     padding: theme.spacing.xl,
     borderWidth: 1,
-    borderColor: `${theme.colors.primary}22`,
+    borderColor: theme.colors.outlineVariant,
     marginBottom: 32,
+    ...theme.shadows.sm,
   },
   insightCardTitle: {
     fontSize: 16,
     fontFamily: "Inter_800ExtraBold",
-    color: theme.colors.primary,
+    color: theme.colors.onSurface,
   },
   insightCardBody: {
     marginTop: 6,
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-    color: theme.colors.onPrimaryContainer,
+    color: theme.colors.onSurfaceVariant,
     opacity: 0.9,
   },
   errorText: { color: theme.colors.error, fontFamily: "Inter_600SemiBold", padding: 20 },
+  plChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  plChipTxt: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+  },
 });

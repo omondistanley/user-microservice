@@ -8,9 +8,11 @@
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
         <button type="button" id="rec-onboarding-open" class="btn btn-ghost btn-sm icon-btn-label" title="How this page works"><span class="material-symbols-rounded">help</span> Tour</button>
         <button type="button" id="rec-prefs-focus" class="btn btn-ghost btn-sm icon-btn-label" title="Jump to preferences"><span class="material-symbols-rounded">settings</span> Preferences</button>
-        <button type="button" id="rec-run-btn" class="btn btn-primary">Run Analysis</button>
+        <a href="#rec-run-analysis-card" class="btn btn-primary">Run Analysis</a>
     </div>
 </div>
+
+<div id="rec-toast" class="note" style="display:none;margin-bottom:1rem;" role="status" aria-live="polite"></div>
 
 <!-- Surplus waterfall (spec 6-1): after income, bills, goals, reserve — what may be genuinely yours to consider for investing -->
 <div id="rec-surplus-waterfall-card" class="card" style="margin-bottom:1.25rem;display:none;">
@@ -66,23 +68,33 @@
         <br><span style="opacity:0.7;">Not financial advice. For informational purposes only.</span>
     </p>
 
+    <!-- Risk profile chips (always visible) -->
+    <div style=”margin-bottom:1rem;”>
+        <p style=”font-size:0.8125rem;color:var(--text-muted);margin-bottom:0.5rem;”>Risk profile</p>
+        <div class=”rec-risk-chips” style=”display:flex;gap:0.5rem;flex-wrap:wrap;” role=”group” aria-label=”Risk tolerance”>
+            <button type=”button” class=”rec-risk-chip” data-risk=”conservative”>Conservative</button>
+            <button type=”button” class=”rec-risk-chip rec-risk-chip--active” data-risk=”balanced”>Balanced</button>
+            <button type=”button” class=”rec-risk-chip” data-risk=”aggressive”>Aggressive</button>
+        </div>
+    </div>
+
     <!-- Preferences: collapsible “drawer” (native details) -->
-    <details id="rec-preferences-details" class="rec-prefs-details" style="margin-bottom:1rem;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;background:var(--surface-alt,#f8fafc);">
-        <summary style="cursor:pointer;font-weight:600;list-style-position:outside;padding:0.25rem 0;">
-            <span class="material-symbols-rounded" style="font-size:1.1rem;vertical-align:middle;">tune</span>
-            Your preferences <span class="muted" style="font-weight:400;font-size:0.8125rem;">(expand to edit)</span>
+    <details id=”rec-preferences-details” class=”rec-prefs-details” style=”margin-bottom:1rem;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;background:var(--surface-alt,#f8fafc);”>
+        <summary style=”cursor:pointer;font-weight:600;list-style-position:outside;padding:0.25rem 0;”>
+            <span class=”material-symbols-rounded” style=”font-size:1.1rem;vertical-align:middle;”>tune</span>
+            More preferences <span class=”muted” style=”font-weight:400;font-size:0.8125rem;”>(expand to edit)</span>
         </summary>
-        <div id="rec-preferences-section" style="margin-top:0.75rem;">
-        <p class="muted" style="font-size: 0.8125rem; margin-bottom: 0.75rem;">
-            These shape how we score and explain suggestions (industry focus, risk tolerance, Sharpe objective, loss aversion).
+        <div id=”rec-preferences-section” style=”margin-top:0.75rem;”>
+        <p class=”muted” style=”font-size: 0.8125rem; margin-bottom: 0.75rem;”>
+            These shape how we score and explain suggestions (industry focus, Sharpe objective, loss aversion).
         </p>
-        <div class="preferences-grid" id="rec-preferences-form" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-            <div class="form-group">
-                <label for="rec-pref-risk">Risk tolerance</label>
-                <select id="rec-pref-risk" class="form-select form-select--touch">
-                    <option value="conservative">Conservative</option>
-                    <option value="balanced" selected>Balanced</option>
-                    <option value="aggressive">Aggressive</option>
+        <div class=”preferences-grid” id=”rec-preferences-form” style=”display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;”>
+            <div class=”form-group”>
+                <label for=”rec-pref-risk”>Risk tolerance</label>
+                <select id=”rec-pref-risk” class=”form-select form-select--touch”>
+                    <option value=”conservative”>Conservative</option>
+                    <option value=”balanced” selected>Balanced</option>
+                    <option value=”aggressive”>Aggressive</option>
                 </select>
             </div>
             <div class="form-group">
@@ -122,11 +134,11 @@
     <hr style="border: none; border-top: 1px solid var(--border); margin: 1.25rem 0;" />
 
     <div style="display:flex; align-items:center; gap: 1rem; flex-wrap: wrap;">
-        <button type="button" id="run-recommendations-btn" class="btn btn-primary">Run</button>
+        <button type="button" id="rec-run-btn" class="btn btn-primary">Run Analysis</button>
         <span id="rec-run-loading" style="display:none; font-size:0.875rem; color:var(--text-muted);">
             Generating recommendations&hellip;
         </span>
-        <div id="rec-status" class="muted" style="font-size: 0.875rem;"></div>
+        <div id="rec-status" class="muted" style="font-size: 0.875rem;" aria-live="polite"></div>
     </div>
 </div>
 
@@ -145,27 +157,27 @@
 </div>
 
 <!-- Page state banners -->
-<div id="rec-steady-banner" style="display:none;" class="card" style="margin-top:1.25rem;background:var(--green-light,#f0fff4);border-left:3px solid #38a169;">
+<div id="rec-steady-banner" class="card" style="display:none;margin-top:1.25rem;background:var(--green-light,#f0fff4);border-left:3px solid var(--color-emerald,#38a169);">
     <div style="display:flex;align-items:flex-start;gap:0.75rem;">
-        <span class="material-symbols-rounded" style="color:#38a169;font-size:1.5rem;">check_circle</span>
+        <span class="material-symbols-rounded" style="color:var(--color-emerald,#38a169);font-size:1.5rem;">check_circle</span>
         <div>
             <strong>Portfolio is on track</strong>
             <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Your allocation is within your stated targets. No specific action needed this week.</p>
         </div>
     </div>
 </div>
-<div id="rec-volatile-banner" style="display:none;" class="card" style="margin-top:1.25rem;background:#fffbeb;border-left:3px solid #ecc94b;">
+<div id="rec-volatile-banner" class="card" style="display:none;margin-top:1.25rem;background:var(--amber-light,#fffbeb);border-left:3px solid var(--color-amber,#ecc94b);">
     <div style="display:flex;align-items:flex-start;gap:0.75rem;">
-        <span class="material-symbols-rounded" style="color:#ecc94b;font-size:1.5rem;">warning</span>
+        <span class="material-symbols-rounded" style="color:var(--color-amber,#ecc94b);font-size:1.5rem;">warning</span>
         <div>
             <strong>Markets are showing elevated volatility</strong>
             <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Recommendations are shown for informational purposes. Your long-term allocation plan has not changed.</p>
         </div>
     </div>
 </div>
-<div id="rec-first-run-banner" style="display:none;" class="card" style="margin-top:1.25rem;background:var(--surface,#f0f7ff);border-left:3px solid #135bec;">
+<div id="rec-first-run-banner" class="card" style="display:none;margin-top:1.25rem;background:var(--surface,#f0f7ff);border-left:3px solid var(--brand,#135bec);">
     <div style="display:flex;align-items:flex-start;gap:0.75rem;">
-        <span class="material-symbols-rounded" style="color:#135bec;font-size:1.5rem;">rocket_launch</span>
+        <span class="material-symbols-rounded" style="color:var(--brand,#135bec);font-size:1.5rem;">rocket_launch</span>
         <div>
             <strong>Getting started</strong>
             <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Save your preferences and run analysis to see ranked suggestions. With no holdings yet, you’ll get a starter list to explore—not a directive to buy. Not financial advice.</p>
@@ -184,10 +196,11 @@
 </div>
 
 <!-- Monte Carlo Scenario Modeller -->
-<div class="card" style="margin-top:1.25rem;">
-    <div class="page-header" style="margin-bottom:0.75rem;">
-        <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">show_chart</span> Scenario Modeller</h2>
-    </div>
+<details class="card" style="margin-top:1.25rem;" id="rec-scenario-details">
+    <summary style="cursor:pointer;list-style-position:outside;font-weight:600;display:flex;align-items:center;gap:0.4rem;">
+        <span class="material-symbols-rounded">show_chart</span> Scenario Modeller
+    </summary>
+    <div style="margin-top:0.75rem;">
     <p class="muted" style="font-size:0.8125rem;margin-bottom:1rem;">
         Illustrative projection using Monte Carlo simulation (1,000 paths).
         <span style="opacity:0.7;">Projections are illustrative only. Past returns do not guarantee future results. Not financial advice.</span>
@@ -224,10 +237,15 @@
             Actual results will differ. This is not financial advice.
         </p>
     </div>
-</div>
+    </div>
+</details>
 
 <!-- Watchlist Card -->
-<div class="card" style="margin-top:1.25rem;">
+<details class="card" style="margin-top:1.25rem;" id="rec-watchlist-details">
+    <summary style="cursor:pointer;list-style-position:outside;font-weight:600;display:flex;align-items:center;gap:0.4rem;">
+        <span class="material-symbols-rounded">visibility</span> Watchlist
+    </summary>
+    <div style="margin-top:0.75rem;">
     <div class="page-header" style="margin-bottom:0.75rem;">
         <h2 class="page-title" style="font-size:1.1rem;"><span class="material-symbols-rounded">visibility</span> Watchlist</h2>
         <button type="button" id="watchlist-add-btn" class="btn btn-sm btn-primary icon-btn-label"><span class="material-symbols-rounded">add</span> Add</button>
@@ -237,7 +255,8 @@
         <span style="opacity:0.7;">Price alerts are informational only.</span>
     </p>
     <div id="watchlist-list" class="muted">Loading watchlist...</div>
-</div>
+    </div>
+</details>
 
 <!-- Add to Watchlist Modal -->
 <div id="watchlist-modal-wrap" class="modal-wrap" style="display:none;" aria-hidden="true">
@@ -320,31 +339,18 @@
 <script nonce="{{ csp_nonce | default('') }}" src="/static/js/recommendations.js"></script>
 <script nonce="{{ csp_nonce | default('') }}">
 (function () {
-    // Wire the "Run" button inside the card to the same handler as the header button
-    var runCardBtn = document.getElementById('run-recommendations-btn');
-    var runHeaderBtn = document.getElementById('rec-run-btn');
+    var runBtn = document.getElementById('rec-run-btn');
     var loadingEl = document.getElementById('rec-run-loading');
 
-    function triggerRun() {
-        if (runHeaderBtn) runHeaderBtn.click();
-    }
-    if (runCardBtn) {
-        runCardBtn.addEventListener('click', triggerRun);
-    }
-
-    // Show/hide the loading indicator based on rec-run-btn disabled state
-    if (runHeaderBtn && loadingEl) {
-        var origClick = null;
+    if (runBtn && loadingEl) {
         var observer = new MutationObserver(function () {
-            if (runHeaderBtn.disabled) {
+            if (runBtn.disabled) {
                 loadingEl.style.display = 'inline';
-                if (runCardBtn) runCardBtn.disabled = true;
             } else {
                 loadingEl.style.display = 'none';
-                if (runCardBtn) runCardBtn.disabled = false;
             }
         });
-        observer.observe(runHeaderBtn, { attributes: true, attributeFilter: ['disabled'] });
+        observer.observe(runBtn, { attributes: true, attributeFilter: ['disabled'] });
     }
 
     // Score badge helper available for any inline rendering

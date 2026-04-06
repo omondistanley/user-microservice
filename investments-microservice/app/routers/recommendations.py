@@ -28,6 +28,7 @@ from app.core.config import (
     SENTIMENT_LOOKBACK_DAYS,
 )
 from app.core.dependencies import get_current_user_id
+from app.services.ai_audit_log_service import write_audit_entry
 from app.services.analyst_universe import get_security_info
 from app.services.finance_context_client import fetch_finance_context
 from app.services.recommendation_data_service import RecommendationDataService
@@ -108,6 +109,14 @@ async def run_recommendations(
         logger.exception("Recommendations run failed for user_id=%s: %s", user_id, exc)
         raise HTTPException(status_code=500, detail=msg)
     items = result.get("items") if isinstance(result, dict) else []
+    # Fire-and-forget audit log (EU AI Act transparency)
+    try:
+        from app.core.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+        _db_ctx = {"host": DB_HOST, "port": DB_PORT, "user": DB_USER, "password": DB_PASSWORD, "dbname": DB_NAME}
+        _run_id = str(result.get("run", {}).get("run_id") or result.get("run", {}).get("id") or "") if isinstance(result, dict) else ""
+        write_audit_entry(_db_ctx, user_id, _run_id or None, items or [])
+    except Exception:
+        pass
     try:
         score_vals = [float(i.get("score") or 0.0) for i in (items or []) if isinstance(i, dict)]
         conf_vals = [float(i.get("confidence") or 0.0) for i in (items or []) if isinstance(i, dict)]

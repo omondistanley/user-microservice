@@ -387,7 +387,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   scroll: { paddingHorizontal: theme.spacing.xl },
   heroCard: {
-    backgroundColor: theme.colors.inverseSurface,
+    backgroundColor: "#1e3a8a",
     borderRadius: theme.radii.xl + 4,
     padding: theme.spacing.xxl,
     overflow: "hidden",

@@ -1,0 +1,405 @@
+{% extends "layout.html" %}
+{% block body_class %}risk-profile-page{% endblock %}
+{% block title %}Risk Profile — pocketii{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Risk Profile</h1>
+    <p class="page-subtitle muted" style="margin-top:0.25rem;font-size:0.9rem;">Help us tailor investment recommendations to your goals and comfort level.</p>
+</div>
+
+<div class="grid-two-col" style="gap:1.5rem;align-items:start;">
+
+<!-- Wizard card -->
+<div class="card" style="grid-column:1/span 2;">
+    <!-- Step progress -->
+    <div id="rp-progress" style="display:flex;gap:0.4rem;margin-bottom:1.75rem;align-items:center;">
+        <div class="rp-step-dot rp-step-active" data-step="0"></div>
+        <div class="rp-step-line"></div>
+        <div class="rp-step-dot" data-step="1"></div>
+        <div class="rp-step-line"></div>
+        <div class="rp-step-dot" data-step="2"></div>
+        <div class="rp-step-line"></div>
+        <div class="rp-step-dot" data-step="3"></div>
+        <div class="rp-step-line"></div>
+        <div class="rp-step-dot" data-step="4"></div>
+        <div class="rp-step-line"></div>
+        <div class="rp-step-dot" data-step="5"></div>
+        <div class="rp-step-line"></div>
+        <div class="rp-step-dot" data-step="6"></div>
+        <span id="rp-step-label" class="muted" style="font-size:0.8125rem;margin-left:0.5rem;">Step 1 of 7</span>
+    </div>
+
+    <!-- Step 0: Risk tolerance -->
+    <div class="rp-step" id="rp-step-0">
+        <h2 class="section-title-sm" style="margin-bottom:0.5rem;">How would you describe your risk comfort?</h2>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1.25rem;">This shapes the volatility of suggestions we show you.</p>
+        <div class="rp-choice-group" id="rp-risk-tolerance">
+            <label class="rp-choice-card">
+                <input type="radio" name="risk_tolerance" value="conservative">
+                <span class="rp-choice-icon">🛡️</span>
+                <span class="rp-choice-label">Conservative</span>
+                <span class="rp-choice-hint">Preserve capital, low volatility</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="risk_tolerance" value="balanced">
+                <span class="rp-choice-icon">⚖️</span>
+                <span class="rp-choice-label">Balanced</span>
+                <span class="rp-choice-hint">Mix of growth and stability</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="risk_tolerance" value="aggressive">
+                <span class="rp-choice-icon">🚀</span>
+                <span class="rp-choice-label">Aggressive</span>
+                <span class="rp-choice-hint">Maximize growth, accept swings</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Step 1: Horizon -->
+    <div class="rp-step" id="rp-step-1" style="display:none;">
+        <h2 class="section-title-sm" style="margin-bottom:0.5rem;">How long is your investment horizon?</h2>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1.25rem;">Longer horizons can tolerate more short-term volatility.</p>
+        <div class="rp-choice-group" id="rp-horizon">
+            <label class="rp-choice-card">
+                <input type="radio" name="horizon_years" value="1">
+                <span class="rp-choice-icon">⏱️</span>
+                <span class="rp-choice-label">Under 2 years</span>
+                <span class="rp-choice-hint">Short-term stability needed</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="horizon_years" value="5">
+                <span class="rp-choice-icon">📅</span>
+                <span class="rp-choice-label">2–7 years</span>
+                <span class="rp-choice-hint">Medium-term balance</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="horizon_years" value="15">
+                <span class="rp-choice-icon">🌱</span>
+                <span class="rp-choice-label">8+ years</span>
+                <span class="rp-choice-hint">Long-term compounding</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Step 2: Liquidity needs -->
+    <div class="rp-step" id="rp-step-2" style="display:none;">
+        <h2 class="section-title-sm" style="margin-bottom:0.5rem;">How quickly might you need access to this money?</h2>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1.25rem;">Helps us avoid illiquid suggestions when you need flexibility.</p>
+        <div class="rp-choice-group" id="rp-liquidity">
+            <label class="rp-choice-card">
+                <input type="radio" name="liquidity_needs" value="immediate">
+                <span class="rp-choice-icon">💧</span>
+                <span class="rp-choice-label">Could need it soon</span>
+                <span class="rp-choice-hint">Within the next few months</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="liquidity_needs" value="within-1-year">
+                <span class="rp-choice-icon">💦</span>
+                <span class="rp-choice-label">Within a year</span>
+                <span class="rp-choice-hint">Some flexibility</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="liquidity_needs" value="long-term">
+                <span class="rp-choice-icon">🏔️</span>
+                <span class="rp-choice-label">Long-term lock-in OK</span>
+                <span class="rp-choice-hint">No near-term withdrawals planned</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Step 3: Loss aversion -->
+    <div class="rp-step" id="rp-step-3" style="display:none;">
+        <h2 class="section-title-sm" style="margin-bottom:0.5rem;">How do you feel about paper losses?</h2>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1.25rem;">Understanding your emotional response to drawdowns helps avoid panic-sell scenarios.</p>
+        <div class="rp-choice-group" id="rp-loss-aversion">
+            <label class="rp-choice-card">
+                <input type="radio" name="loss_aversion" value="low">
+                <span class="rp-choice-icon">😤</span>
+                <span class="rp-choice-label">Unfazed</span>
+                <span class="rp-choice-hint">I stay the course through dips</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="loss_aversion" value="moderate">
+                <span class="rp-choice-icon">😐</span>
+                <span class="rp-choice-label">Somewhat concerned</span>
+                <span class="rp-choice-hint">Losses bother me but I don't panic</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="loss_aversion" value="high">
+                <span class="rp-choice-icon">😰</span>
+                <span class="rp-choice-label">Very worried</span>
+                <span class="rp-choice-hint">A big loss would cause me serious stress</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Step 4: Sector preferences -->
+    <div class="rp-step" id="rp-step-4" style="display:none;">
+        <h2 class="section-title-sm" style="margin-bottom:0.5rem;">Any sectors you prefer or want to focus on?</h2>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1.25rem;">Select all that apply. Leave blank to get broad market suggestions.</p>
+        <div class="rp-checkbox-group" id="rp-sectors">
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="broad_market"> <span>Broad Market (ETFs)</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="technology"> <span>Technology</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="healthcare"> <span>Healthcare</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="financials"> <span>Financials</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="energy"> <span>Energy</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="consumer"> <span>Consumer</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="industrials"> <span>Industrials</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="bonds"> <span>Bonds / Fixed Income</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="real_estate"> <span>Real Estate (REITs)</span></label>
+            <label class="rp-check-card"><input type="checkbox" name="sector" value="international"> <span>International</span></label>
+        </div>
+    </div>
+
+    <!-- Step 5: Finance data consent -->
+    <div class="rp-step" id="rp-step-5" style="display:none;">
+        <h2 class="section-title-sm" style="margin-bottom:0.5rem;">Personalise with your financial data?</h2>
+        <p class="muted" style="font-size:0.875rem;margin-bottom:1.25rem;">When enabled, pocketii uses your actual income, expenses, goals and budgets to size position suggestions.</p>
+        <div class="rp-choice-group" id="rp-finance-data">
+            <label class="rp-choice-card">
+                <input type="radio" name="use_finance_data" value="true">
+                <span class="rp-choice-icon">🔗</span>
+                <span class="rp-choice-label">Yes — personalise with my data</span>
+                <span class="rp-choice-hint">More relevant suggestions, uses your pocketii data</span>
+            </label>
+            <label class="rp-choice-card">
+                <input type="radio" name="use_finance_data" value="false">
+                <span class="rp-choice-icon">🔒</span>
+                <span class="rp-choice-label">No — keep recommendations generic</span>
+                <span class="rp-choice-hint">Profile only, no budget/goal integration</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Step 6: Summary + save -->
+    <div class="rp-step" id="rp-step-6" style="display:none;">
+        <h2 class="section-title-sm" style="margin-bottom:0.75rem;">Your Risk Profile Summary</h2>
+        <div id="rp-summary" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.5rem;">
+            <div class="settings-item" style="padding:0.6rem 0.75rem;background:var(--surface,#f8fafc);border-radius:8px;">
+                <span class="stat-label">Risk tolerance</span>
+                <span class="stat-value" id="rp-sum-tolerance" style="font-size:0.9rem;">—</span>
+            </div>
+            <div class="settings-item" style="padding:0.6rem 0.75rem;background:var(--surface,#f8fafc);border-radius:8px;">
+                <span class="stat-label">Investment horizon</span>
+                <span class="stat-value" id="rp-sum-horizon" style="font-size:0.9rem;">—</span>
+            </div>
+            <div class="settings-item" style="padding:0.6rem 0.75rem;background:var(--surface,#f8fafc);border-radius:8px;">
+                <span class="stat-label">Liquidity needs</span>
+                <span class="stat-value" id="rp-sum-liquidity" style="font-size:0.9rem;">—</span>
+            </div>
+            <div class="settings-item" style="padding:0.6rem 0.75rem;background:var(--surface,#f8fafc);border-radius:8px;">
+                <span class="stat-label">Loss aversion</span>
+                <span class="stat-value" id="rp-sum-loss" style="font-size:0.9rem;">—</span>
+            </div>
+            <div class="settings-item" style="padding:0.6rem 0.75rem;background:var(--surface,#f8fafc);border-radius:8px;">
+                <span class="stat-label">Sector preferences</span>
+                <span class="stat-value" id="rp-sum-sectors" style="font-size:0.9rem;">—</span>
+            </div>
+            <div class="settings-item" style="padding:0.6rem 0.75rem;background:var(--surface,#f8fafc);border-radius:8px;">
+                <span class="stat-label">Use financial data</span>
+                <span class="stat-value" id="rp-sum-finance" style="font-size:0.9rem;">—</span>
+            </div>
+        </div>
+        <p class="form-hint">Not financial advice. This profile adjusts the suggestions on the Recommendations page only.</p>
+    </div>
+
+    <!-- Nav buttons -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.75rem;">
+        <button type="button" id="rp-back-btn" class="btn btn-ghost" style="display:none;">← Back</button>
+        <div style="flex:1;"></div>
+        <button type="button" id="rp-next-btn" class="btn btn-primary">Next →</button>
+        <button type="button" id="rp-save-btn" class="btn btn-primary" style="display:none;">
+            <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;">save</span> Save profile
+        </button>
+    </div>
+</div>
+
+<!-- Right card: current profile -->
+<div class="card" style="grid-column:1/span 2;margin-top:0.5rem;">
+    <h3 class="stat-label" style="margin-bottom:1rem;"><span class="icon-btn-label"><span class="material-symbols-rounded">history</span> Current saved profile</span></h3>
+    <div id="rp-current" class="muted" style="font-size:0.875rem;">Loading…</div>
+    <div style="margin-top:1rem;">
+        <a href="/recommendations" class="btn btn-ghost icon-btn-label" style="font-size:0.875rem;">
+            <span class="material-symbols-rounded">auto_awesome</span> View recommendations
+        </a>
+    </div>
+</div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce | default('') }}">
+(function () {
+    var API = window.API_BASE || '';
+    function authHeaders() {
+        var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+        return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+    }
+
+    var STEPS = 7;
+    var current = 0;
+    var state = {};
+
+    var HORIZON_LABELS = { '1': 'Under 2 years', '5': '2–7 years', '15': '8+ years' };
+    var LIQUIDITY_LABELS = { 'immediate': 'Could need it soon', 'within-1-year': 'Within a year', 'long-term': 'Long-term lock-in OK' };
+    var LOSS_LABELS = { 'low': 'Unfazed', 'moderate': 'Somewhat concerned', 'high': 'Very worried' };
+
+    function showStep(n) {
+        for (var i = 0; i < STEPS; i++) {
+            var s = document.getElementById('rp-step-' + i);
+            if (s) s.style.display = i === n ? '' : 'none';
+        }
+        document.querySelectorAll('.rp-step-dot').forEach(function (d) {
+            var si = parseInt(d.getAttribute('data-step'), 10);
+            d.classList.toggle('rp-step-active', si === n);
+            d.classList.toggle('rp-step-done', si < n);
+        });
+        document.getElementById('rp-step-label').textContent = 'Step ' + (n + 1) + ' of ' + STEPS;
+        document.getElementById('rp-back-btn').style.display = n > 0 ? '' : 'none';
+        document.getElementById('rp-next-btn').style.display = n < STEPS - 1 ? '' : 'none';
+        document.getElementById('rp-save-btn').style.display = n === STEPS - 1 ? '' : 'none';
+        if (n === STEPS - 1) populateSummary();
+    }
+
+    function populateSummary() {
+        document.getElementById('rp-sum-tolerance').textContent = state.risk_tolerance || '—';
+        var h = state.horizon_years ? HORIZON_LABELS[String(state.horizon_years)] || (state.horizon_years + ' years') : '—';
+        document.getElementById('rp-sum-horizon').textContent = h;
+        document.getElementById('rp-sum-liquidity').textContent = LIQUIDITY_LABELS[state.liquidity_needs] || state.liquidity_needs || '—';
+        document.getElementById('rp-sum-loss').textContent = LOSS_LABELS[state.loss_aversion] || state.loss_aversion || '—';
+        var prefs = (state.industry_preferences && state.industry_preferences.length) ? state.industry_preferences.join(', ') : 'None (broad)';
+        document.getElementById('rp-sum-sectors').textContent = prefs;
+        document.getElementById('rp-sum-finance').textContent = state.use_finance_data_for_recommendations ? 'Yes' : 'No';
+    }
+
+    function collectStep(n) {
+        if (n === 0) {
+            var v = document.querySelector('input[name="risk_tolerance"]:checked');
+            if (v) state.risk_tolerance = v.value;
+        } else if (n === 1) {
+            var v = document.querySelector('input[name="horizon_years"]:checked');
+            if (v) state.horizon_years = parseInt(v.value, 10);
+        } else if (n === 2) {
+            var v = document.querySelector('input[name="liquidity_needs"]:checked');
+            if (v) state.liquidity_needs = v.value;
+        } else if (n === 3) {
+            var v = document.querySelector('input[name="loss_aversion"]:checked');
+            if (v) state.loss_aversion = v.value;
+        } else if (n === 4) {
+            var checked = document.querySelectorAll('input[name="sector"]:checked');
+            state.industry_preferences = Array.from(checked).map(function (c) { return c.value; });
+        } else if (n === 5) {
+            var v = document.querySelector('input[name="use_finance_data"]:checked');
+            if (v) state.use_finance_data_for_recommendations = v.value === 'true';
+        }
+    }
+
+    function applyLoadedProfile(p) {
+        if (!p) return;
+        // Pre-select loaded values
+        if (p.risk_tolerance) {
+            var r = document.querySelector('input[name="risk_tolerance"][value="' + p.risk_tolerance + '"]');
+            if (r) r.checked = true;
+            state.risk_tolerance = p.risk_tolerance;
+        }
+        var hMap = { 1: '1', 5: '5', 15: '15' };
+        var hKey = p.horizon_years != null ? (hMap[p.horizon_years] || (p.horizon_years <= 2 ? '1' : p.horizon_years <= 7 ? '5' : '15')) : null;
+        if (hKey) {
+            var r2 = document.querySelector('input[name="horizon_years"][value="' + hKey + '"]');
+            if (r2) r2.checked = true;
+            state.horizon_years = parseInt(hKey, 10);
+        }
+        if (p.liquidity_needs) {
+            var r3 = document.querySelector('input[name="liquidity_needs"][value="' + p.liquidity_needs + '"]');
+            if (r3) r3.checked = true;
+            state.liquidity_needs = p.liquidity_needs;
+        }
+        if (p.loss_aversion) {
+            var r4 = document.querySelector('input[name="loss_aversion"][value="' + p.loss_aversion + '"]');
+            if (r4) r4.checked = true;
+            state.loss_aversion = p.loss_aversion;
+        }
+        if (p.industry_preferences && p.industry_preferences.length) {
+            p.industry_preferences.forEach(function (sec) {
+                var cb = document.querySelector('input[name="sector"][value="' + sec + '"]');
+                if (cb) cb.checked = true;
+            });
+            state.industry_preferences = p.industry_preferences;
+        }
+        var fdVal = p.use_finance_data_for_recommendations ? 'true' : 'false';
+        var r5 = document.querySelector('input[name="use_finance_data"][value="' + fdVal + '"]');
+        if (r5) r5.checked = true;
+        state.use_finance_data_for_recommendations = !!p.use_finance_data_for_recommendations;
+        // Render current profile card
+        renderCurrentProfile(p);
+    }
+
+    function renderCurrentProfile(p) {
+        var el = document.getElementById('rp-current');
+        if (!el) return;
+        var rt = p.risk_tolerance || 'balanced';
+        var hy = p.horizon_years != null ? p.horizon_years + ' years' : '—';
+        var liq = LIQUIDITY_LABELS[p.liquidity_needs] || p.liquidity_needs || '—';
+        var la = LOSS_LABELS[p.loss_aversion] || p.loss_aversion || '—';
+        var sec = (p.industry_preferences && p.industry_preferences.length) ? p.industry_preferences.join(', ') : 'Broad market';
+        var fd = p.use_finance_data_for_recommendations ? 'Yes' : 'No';
+        var badgeColor = rt === 'aggressive' ? 'var(--color-danger,#ef4444)' : rt === 'conservative' ? 'var(--color-emerald,#38a169)' : 'var(--brand,#135bec)';
+        el.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">' +
+            '<span class="badge" style="background:' + badgeColor + ';color:#fff;">' + rt + '</span>' +
+            '<span class="badge badge-neutral">Horizon: ' + hy + '</span>' +
+            '<span class="badge badge-neutral">Loss aversion: ' + la + '</span>' +
+            '</div>' +
+            '<p style="font-size:0.875rem;margin:0 0 0.25rem;">Sectors: <strong>' + sec + '</strong></p>' +
+            '<p style="font-size:0.875rem;margin:0;">Personalised with financial data: <strong>' + fd + '</strong></p>';
+    }
+
+    // Load existing profile
+    fetch(API + '/api/v1/risk-profile', { headers: authHeaders() })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (p) { if (p) applyLoadedProfile(p); })
+        .catch(function () {});
+
+    // Step navigation
+    document.getElementById('rp-next-btn').addEventListener('click', function () {
+        collectStep(current);
+        if (current < STEPS - 1) { current++; showStep(current); }
+    });
+    document.getElementById('rp-back-btn').addEventListener('click', function () {
+        if (current > 0) { current--; showStep(current); }
+    });
+
+    // Save
+    document.getElementById('rp-save-btn').addEventListener('click', function () {
+        collectStep(current);
+        var btn = document.getElementById('rp-save-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        fetch(API + '/api/v1/risk-profile', {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify(state)
+        })
+            .then(function (r) {
+                if (r.ok) return r.json();
+                return r.json().then(function (d) { throw new Error((d && d.detail) || 'Failed'); });
+            })
+            .then(function (p) {
+                window.showToast && window.showToast('Risk profile saved.', 'success');
+                renderCurrentProfile(p);
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;">check</span> Saved!';
+                setTimeout(function () {
+                    btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;">save</span> Save profile';
+                }, 2000);
+            })
+            .catch(function (e) {
+                window.showToast && window.showToast(e.message || 'Save failed.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;">save</span> Save profile';
+            });
+    });
+
+    showStep(0);
+})();
+</script>
+{% endblock %}

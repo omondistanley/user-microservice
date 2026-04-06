@@ -253,3 +253,14 @@ def augment_explanation_for_detail(
 
     expl["analyst_note_detail"] = build_analyst_note(symbol, expl)
     expl["analyst_note"] = expl["analyst_note_detail"]
+
+    # Surface factor_contributions at the top level so the UI can render SHAP bars
+    # without digging into score_breakdown (which varies by model type).
+    sb = expl.get("score_breakdown")
+    if isinstance(sb, dict):
+        fc = sb.get("factor_contributions")
+        if fc and isinstance(fc, dict):
+            expl["factor_contributions"] = fc
+        mv = sb.get("model_version")
+        if mv:
+            expl["model_version"] = mv

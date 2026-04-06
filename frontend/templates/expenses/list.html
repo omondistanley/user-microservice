@@ -12,7 +12,7 @@
 <div id="expenses-added-msg" class="auth-alert auth-alert--success" style="display:none;margin-bottom:16px;"></div>
 
 <!-- Stats row -->
-<div class="stat-row section-block" id="expenses-stats-row">
+<div class="grid-4 mb-24" id="expenses-stats-row">
     <div class="stat-card">
         <div class="stat-label">Total Spent</div>
         <div class="stat-value" id="stat-total-spent">—</div>
@@ -401,7 +401,7 @@
             .then(function(d) {
                 var list = (d && d.items) || [];
                 if (!list.length) {
-                    mListEl.innerHTML = '<li style="padding:28px;text-align:center;color:var(--s400);font-size:13px;">No expenses found.</li>';
+                    mListEl.innerHTML = '<li><div class="empty-state-inline"><span class="material-symbols-rounded empty-icon">receipt_long</span><span class="empty-title">No expenses found</span><span class="empty-body">Try adjusting filters, or add your first expense.</span><a href="/expenses/add" class="btn btn-primary" style="margin-top:0.5rem;">+ Add expense</a></div></li>';
                     return;
                 }
                 mListEl.innerHTML = list.map(function(item) {

@@ -1,31 +1,128 @@
 {% extends "layout.html" %}
 {% block body_class %}welcome-page{% endblock %}
-{% block title %}Home — Expense Tracker{% endblock %}
-{% block back_link %}
-<div class="container"><p class="page-back-wrap"><a href="/landing" class="page-back-link" aria-label="Back to home">← Back</a></p></div>
-{% endblock %}
+{% block title %}Welcome — pocketii{% endblock %}
+{% block back_link %}{% endblock %}
 {% block content %}
-<div class="container">
-    <section class="welcome-section">
-        <h1 id="welcome-title">Expense Tracker</h1>
-        <p class="lead" id="welcome-lead">Manage your spending in one place. Sign up or log in to get started.</p>
-        <div id="welcome-ctas">
-            <a href="/register" class="btn btn-primary">Register</a>
-            <a href="/login" class="btn btn-secondary">Login</a>
-            <a href="/expenses" class="btn btn-secondary">Expenses</a>
+<div class="container" style="max-width:540px;margin:0 auto;padding:2rem 1rem;">
+
+    <!-- Returning user fast-path (hidden by default, shown via JS) -->
+    <div id="welcome-returning" style="display:none;text-align:center;padding:3rem 1rem;">
+        <div style="font-size:2.5rem;margin-bottom:0.75rem;">👋</div>
+        <h1 id="welcome-title" style="font-size:1.5rem;margin-bottom:0.5rem;">Welcome back</h1>
+        <p class="muted" id="welcome-lead" style="margin-bottom:1.5rem;">Pick up where you left off.</p>
+        <div id="welcome-ctas" style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;">
+            <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
         </div>
-    </section>
+    </div>
+
+    <!-- New-user 3-step onboarding -->
+    <div id="welcome-onboard">
+        <!-- Progress dots -->
+        <div class="onboard-dots" id="onboard-dots">
+            <div class="onboard-dot onboard-dot--active" data-step="0"></div>
+            <div class="onboard-dot" data-step="1"></div>
+            <div class="onboard-dot" data-step="2"></div>
+        </div>
+
+        <!-- Step 0: hero -->
+        <div class="onboard-step onboard-step--active" id="onboard-0">
+            <div class="onboard-icon">💰</div>
+            <h1 style="font-size:1.75rem;font-weight:800;margin:0;">Meet pocketii</h1>
+            <p class="muted" style="font-size:1rem;max-width:380px;line-height:1.6;">
+                Your all-in-one personal finance hub. Track spending, plan budgets, monitor investments, and get AI-powered insights — all in one place.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:0.6rem;width:100%;max-width:320px;">
+                <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--surface,#f8fafc);border-radius:10px;">
+                    <span class="material-symbols-rounded" style="color:var(--brand,#135bec);">receipt_long</span>
+                    <span style="font-size:0.9rem;">Track expenses &amp; income</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--surface,#f8fafc);border-radius:10px;">
+                    <span class="material-symbols-rounded" style="color:var(--color-emerald,#38a169);">trending_up</span>
+                    <span style="font-size:0.9rem;">Monitor investments &amp; net worth</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--surface,#f8fafc);border-radius:10px;">
+                    <span class="material-symbols-rounded" style="color:var(--color-amber,#ecc94b);">auto_awesome</span>
+                    <span style="font-size:0.9rem;">AI-powered recommendations</span>
+                </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;margin-top:0.5rem;">
+                <a href="/register" class="btn btn-primary" style="min-width:140px;">Get started</a>
+                <a href="/login" class="btn btn-secondary" style="min-width:140px;">Sign in</a>
+            </div>
+            <button type="button" class="btn btn-ghost" onclick="goOnboardStep(1)" style="font-size:0.875rem;margin-top:0.25rem;">See how it works →</button>
+        </div>
+
+        <!-- Step 1: connect bank -->
+        <div class="onboard-step" id="onboard-1">
+            <div class="onboard-icon">🏦</div>
+            <h2 style="font-size:1.5rem;font-weight:800;margin:0;">Step 1 — Connect your bank</h2>
+            <p class="muted" style="font-size:0.9375rem;max-width:380px;line-height:1.6;">
+                Link a bank account via Plaid or Teller to automatically import transactions. Your credentials are never stored — we use secure OAuth tokens.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:0.6rem;width:100%;max-width:320px;text-align:left;">
+                <div style="padding:0.75rem;background:var(--surface,#f8fafc);border-radius:10px;font-size:0.875rem;">
+                    <strong>🔒 Bank-grade security</strong><br>
+                    <span class="muted">Read-only access. We can see transactions, not move money.</span>
+                </div>
+                <div style="padding:0.75rem;background:var(--surface,#f8fafc);border-radius:10px;font-size:0.875rem;">
+                    <strong>🤖 Auto-categorisation</strong><br>
+                    <span class="muted">Transactions are tagged automatically using AI and Plaid categories.</span>
+                </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;margin-top:0.5rem;">
+                <a href="/register" class="btn btn-primary" style="min-width:160px;">Create account first</a>
+                <button type="button" class="btn btn-ghost" onclick="goOnboardStep(2)">Skip for now →</button>
+            </div>
+            <button type="button" class="btn btn-ghost" onclick="goOnboardStep(0)" style="font-size:0.8125rem;color:var(--text-muted);">← Back</button>
+        </div>
+
+        <!-- Step 2: risk profile + first goal -->
+        <div class="onboard-step" id="onboard-2">
+            <div class="onboard-icon">🎯</div>
+            <h2 style="font-size:1.5rem;font-weight:800;margin:0;">Step 2 — Set your first goal</h2>
+            <p class="muted" style="font-size:0.9375rem;max-width:380px;line-height:1.6;">
+                Goals keep you accountable. Whether it's an emergency fund, a holiday, or retirement — pocketii tracks your progress automatically.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:0.6rem;width:100%;max-width:320px;text-align:left;">
+                <div style="padding:0.75rem;background:var(--surface,#f8fafc);border-radius:10px;font-size:0.875rem;">
+                    <strong>⚡ AI Recommendations</strong><br>
+                    <span class="muted">After registering, complete your risk profile for personalised investment picks.</span>
+                </div>
+                <div style="padding:0.75rem;background:var(--surface,#f8fafc);border-radius:10px;font-size:0.875rem;">
+                    <strong>📊 Monthly digest</strong><br>
+                    <span class="muted">Get a monthly email with your net worth change and top actions.</span>
+                </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;margin-top:0.5rem;">
+                <a href="/register" class="btn btn-primary" style="min-width:160px;">Create free account</a>
+                <a href="/login" class="btn btn-secondary">Sign in</a>
+            </div>
+            <button type="button" class="btn btn-ghost" onclick="goOnboardStep(1)" style="font-size:0.8125rem;color:var(--text-muted);">← Back</button>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
 <script nonce="{{ csp_nonce | default('') }}">
 (function() {
+    // Returning user fast-path
     if (window.Auth && window.Auth.isLoggedIn && window.Auth.isLoggedIn()) {
-        var lead = document.getElementById('welcome-lead');
-        var ctas = document.getElementById('welcome-ctas');
-        if (lead) lead.textContent = 'Expense Tracker -manage finances:).';
-        if (ctas) ctas.innerHTML = '<a href="/expenses" class="btn btn-primary">Go to Expenses</a>';
+        document.getElementById('welcome-onboard').style.display = 'none';
+        document.getElementById('welcome-returning').style.display = '';
+        return;
     }
+
+    window.goOnboardStep = function(n) {
+        for (var i = 0; i < 3; i++) {
+            var s = document.getElementById('onboard-' + i);
+            if (s) s.className = 'onboard-step' + (i === n ? ' onboard-step--active' : '');
+        }
+        document.querySelectorAll('.onboard-dot').forEach(function(d) {
+            var si = parseInt(d.getAttribute('data-step'), 10);
+            d.className = 'onboard-dot' + (si === n ? ' onboard-dot--active' : si < n ? ' onboard-dot--done' : '');
+        });
+    };
 })();
 </script>
 {% endblock %}

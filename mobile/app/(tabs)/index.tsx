@@ -150,6 +150,8 @@ export default function DashboardScreen() {
 
   const [totalBalance, setTotalBalance] = useState<number | null>(null);
   const [momPct, setMomPct] = useState<number | null>(null);
+  const [heroIncome, setHeroIncome] = useState<number | null>(null);
+  const [heroExpense, setHeroExpense] = useState<number | null>(null);
 
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
   const [expenseSummaryByCategory, setExpenseSummaryByCategory] = useState<ExpenseSummaryItem[]>([]);
@@ -248,6 +250,8 @@ export default function DashboardScreen() {
       const incT = toNumber(cThis?.income_total);
       const expT = toNumber(cThis?.expense_total);
       const netT = incT !== null && expT !== null ? incT - expT : null;
+      setHeroIncome(incT);
+      setHeroExpense(expT);
       if (cLastRes.ok && cLast) {
         const incL = toNumber(cLast?.income_total);
         const expL = toNumber(cLast?.expense_total);
@@ -440,17 +444,26 @@ export default function DashboardScreen() {
         ) : (
           <>
             <View style={styles.hero} testID="e2e-dashboard-hero">
-              <View style={styles.heroBlob} />
               <View style={{ zIndex: 1 }}>
-                <Text style={styles.heroKicker}>TOTAL BALANCE</Text>
+                <Text style={styles.heroKicker}>RUNNING BALANCE</Text>
                 <Text style={styles.heroAmount}>{totalBalance === null ? "—" : fmtMoney(totalBalance)}</Text>
                 <View style={styles.heroBadge}>
-                  <MaterialCommunityIcons name="trending-up" size={16} color="#4ade80" />
+                  <MaterialCommunityIcons name="trending-up" size={16} color="#6EE7B7" />
                   <Text style={styles.heroBadgeText}>
                     {momPct === null
                       ? "No month-over-month baseline yet"
                       : `${momPct >= 0 ? "+" : ""}${momPct.toFixed(1)}% this month`}
                   </Text>
+                </View>
+                <View style={styles.heroStats}>
+                  <View style={styles.heroStatItem}>
+                    <Text style={styles.heroStatLabel}>INCOME</Text>
+                    <Text style={styles.heroStatValue}>{heroIncome === null ? "—" : fmtMoney(heroIncome)}</Text>
+                  </View>
+                  <View style={styles.heroStatItem}>
+                    <Text style={styles.heroStatLabel}>EXPENSES</Text>
+                    <Text style={styles.heroStatValue}>{heroExpense === null ? "—" : fmtMoney(heroExpense)}</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -710,25 +723,17 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   errorText: { color: theme.colors.error, fontFamily: "Inter_600SemiBold", marginTop: 12 },
 
   hero: {
-    backgroundColor: "#0f172a",
+    backgroundColor: "#1e3a8a",
     borderRadius: R3,
     padding: theme.spacing.xxl,
     overflow: "hidden",
-  },
-  heroBlob: {
-    position: "absolute",
-    right: -40,
-    bottom: -40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: `${theme.colors.primary}33`,
   },
   heroKicker: {
     color: "rgba(255,255,255,0.6)",
     fontSize: 10,
     fontFamily: "Inter_700Bold",
     letterSpacing: 2,
+    textTransform: "uppercase" as const,
   },
   heroAmount: {
     color: "#fff",
@@ -739,18 +744,42 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
   },
   heroBadge: {
     marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
     gap: 8,
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.1)",
+    alignSelf: "flex-start" as const,
+    backgroundColor: "rgba(255,255,255,0.12)",
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: theme.radii.full,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.15)",
   },
-  heroBadgeText: { color: "#4ade80", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  heroBadgeText: { color: "#6EE7B7", fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  heroStats: {
+    flexDirection: "row" as const,
+    gap: 10,
+    marginTop: 16,
+  },
+  heroStatItem: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 10,
+    padding: 10,
+  },
+  heroStatLabel: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "rgba(255,255,255,0.5)",
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
+  },
+  heroStatValue: {
+    fontSize: 17,
+    fontFamily: "Inter_800ExtraBold",
+    color: "#fff",
+    marginTop: 4,
+  },
   getStartedCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: R3,

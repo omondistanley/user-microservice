@@ -120,6 +120,35 @@
         </button>
     </div>
 
+    <!-- iOS Shortcuts -->
+    <div class="card">
+        <h2 class="stat-label" style="margin-bottom:14px;"><span class="icon-btn-label"><span class="material-symbols-rounded">ios_share</span> iOS Shortcuts</span></h2>
+        <p class="form-hint" style="margin-bottom:1rem;">
+            Add expenses in one tap from Siri or the iOS Shortcuts app.
+            Your API token is used to authenticate each request — keep it private.
+        </p>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+            <input type="text" id="shortcuts-token-display" class="form-input" readonly
+                style="font-family:monospace;font-size:0.8125rem;flex:1;opacity:0.7;cursor:default;"
+                value="Click 'Show token' to reveal">
+            <button type="button" class="btn btn-ghost" id="shortcuts-show-token">Show token</button>
+            <button type="button" class="btn btn-ghost icon-btn-label" id="shortcuts-copy-token">
+                <span class="material-symbols-rounded">content_copy</span> Copy
+            </button>
+        </div>
+        <p class="form-hint" style="margin-bottom:1rem;">
+            Endpoint: <code style="font-size:0.8125rem;">POST /api/v1/shortcuts/transaction</code><br>
+            Body: <code style="font-size:0.8125rem;">{"amount": 4.50, "description": "Coffee", "category": "food"}</code>
+        </p>
+        <a href="#" id="shortcuts-install-link" class="btn btn-secondary icon-btn-label" target="_blank" rel="noopener">
+            <span class="material-symbols-rounded">download</span> Download iCloud Shortcut
+        </a>
+        <p class="form-hint" style="margin-top:0.5rem;opacity:0.7;">
+            The shortcut prompts for amount and description, then calls the endpoint above.
+            Requires iOS 16.4+.
+        </p>
+    </div>
+
     <!-- Save -->
     <div class="row-gap-md">
         <button type="submit" class="btn btn-primary icon-btn-label" id="settings-save-btn"><span class="material-symbols-rounded">save</span> Save settings</button>
@@ -223,6 +252,45 @@
     });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
     else load();
+})();
+</script>
+<script nonce="{{ csp_nonce | default('') }}">
+(function() {
+    var tokenRevealed = false;
+    var showBtn = document.getElementById('shortcuts-show-token');
+    var copyBtn = document.getElementById('shortcuts-copy-token');
+    var tokenInput = document.getElementById('shortcuts-token-display');
+    var installLink = document.getElementById('shortcuts-install-link');
+    // Set install link (placeholder — replace with real iCloud Shortcut URL when published)
+    if (installLink) installLink.href = 'https://www.icloud.com/shortcuts/pocketii-quick-expense';
+    if (showBtn) {
+        showBtn.addEventListener('click', function() {
+            if (!tokenRevealed) {
+                var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+                if (t && tokenInput) {
+                    tokenInput.value = t;
+                    tokenInput.style.opacity = '1';
+                    tokenRevealed = true;
+                    showBtn.textContent = 'Hide token';
+                }
+            } else {
+                if (tokenInput) { tokenInput.value = 'Token hidden'; tokenInput.style.opacity = '0.7'; }
+                tokenRevealed = false;
+                showBtn.textContent = 'Show token';
+            }
+        });
+    }
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            var t = window.Auth && window.Auth.getToken && window.Auth.getToken();
+            if (!t) { window.showToast && window.showToast('No token — sign in first.', 'warning'); return; }
+            navigator.clipboard && navigator.clipboard.writeText(t).then(function() {
+                window.showToast && window.showToast('Token copied to clipboard.', 'success');
+            }).catch(function() {
+                window.showToast && window.showToast('Copy failed — use Show token instead.', 'error');
+            });
+        });
+    }
 })();
 </script>
 {% endblock %}

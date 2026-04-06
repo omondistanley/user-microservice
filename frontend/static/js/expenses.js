@@ -19,7 +19,6 @@
     };
     return doFetch().then(function(r) {
       if (!r.ok) {
-        // Try to surface backend detail (FastAPI uses `detail`).
         return r.json().catch(function() {
           return null;
         }).then(function(data) {
