@@ -69,32 +69,32 @@
     </p>
 
     <!-- Risk profile chips (always visible) -->
-    <div style=”margin-bottom:1rem;”>
-        <p style=”font-size:0.8125rem;color:var(--text-muted);margin-bottom:0.5rem;”>Risk profile</p>
-        <div class=”rec-risk-chips” style=”display:flex;gap:0.5rem;flex-wrap:wrap;” role=”group” aria-label=”Risk tolerance”>
-            <button type=”button” class=”rec-risk-chip” data-risk=”conservative”>Conservative</button>
-            <button type=”button” class=”rec-risk-chip rec-risk-chip--active” data-risk=”balanced”>Balanced</button>
-            <button type=”button” class=”rec-risk-chip” data-risk=”aggressive”>Aggressive</button>
+    <div style="margin-bottom:1rem;">
+        <p style="font-size:0.8125rem;color:var(--text-muted);margin-bottom:0.5rem;">Risk profile</p>
+        <div class="rec-risk-chips" style="display:flex;gap:0.5rem;flex-wrap:wrap;" role="group" aria-label="Risk tolerance">
+            <button type="button" class="rec-risk-chip" data-risk="conservative">Conservative</button>
+            <button type="button" class="rec-risk-chip rec-risk-chip--active" data-risk="balanced">Balanced</button>
+            <button type="button" class="rec-risk-chip" data-risk="aggressive">Aggressive</button>
         </div>
     </div>
 
-    <!-- Preferences: collapsible “drawer” (native details) -->
-    <details id=”rec-preferences-details” class=”rec-prefs-details” style=”margin-bottom:1rem;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;background:var(--surface-alt,#f8fafc);”>
-        <summary style=”cursor:pointer;font-weight:600;list-style-position:outside;padding:0.25rem 0;”>
-            <span class=”material-symbols-rounded” style=”font-size:1.1rem;vertical-align:middle;”>tune</span>
-            More preferences <span class=”muted” style=”font-weight:400;font-size:0.8125rem;”>(expand to edit)</span>
+    <!-- Preferences: collapsible "drawer" (native details) -->
+    <details id="rec-preferences-details" class="rec-prefs-details" style="margin-bottom:1rem;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem 0.75rem;background:var(--surface-alt,#f8fafc);">
+        <summary style="cursor:pointer;font-weight:600;list-style-position:outside;padding:0.25rem 0;">
+            <span class="material-symbols-rounded" style="font-size:1.1rem;vertical-align:middle;">tune</span>
+            More preferences <span class="muted" style="font-weight:400;font-size:0.8125rem;">(expand to edit)</span>
         </summary>
-        <div id=”rec-preferences-section” style=”margin-top:0.75rem;”>
-        <p class=”muted” style=”font-size: 0.8125rem; margin-bottom: 0.75rem;”>
+        <div id="rec-preferences-section" style="margin-top:0.75rem;">
+        <p class="muted" style="font-size: 0.8125rem; margin-bottom: 0.75rem;">
             These shape how we score and explain suggestions (industry focus, Sharpe objective, loss aversion).
         </p>
-        <div class=”preferences-grid” id=”rec-preferences-form” style=”display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;”>
-            <div class=”form-group”>
-                <label for=”rec-pref-risk”>Risk tolerance</label>
-                <select id=”rec-pref-risk” class=”form-select form-select--touch”>
-                    <option value=”conservative”>Conservative</option>
-                    <option value=”balanced” selected>Balanced</option>
-                    <option value=”aggressive”>Aggressive</option>
+        <div class="preferences-grid" id="rec-preferences-form" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+                <label for="rec-pref-risk">Risk tolerance</label>
+                <select id="rec-pref-risk" class="form-select form-select--touch">
+                    <option value="conservative">Conservative</option>
+                    <option value="balanced" selected>Balanced</option>
+                    <option value="aggressive">Aggressive</option>
                 </select>
             </div>
             <div class="form-group">
@@ -180,7 +180,7 @@
         <span class="material-symbols-rounded" style="color:var(--brand,#135bec);font-size:1.5rem;">rocket_launch</span>
         <div>
             <strong>Getting started</strong>
-            <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Save your preferences and run analysis to see ranked suggestions. With no holdings yet, you’ll get a starter list to explore—not a directive to buy. Not financial advice.</p>
+            <p class="muted" style="font-size:0.875rem;margin-top:0.25rem;">Save your preferences and run analysis to see ranked suggestions. With no holdings yet, you'll get a starter list to explore - not a directive to buy. Not financial advice.</p>
         </div>
     </div>
 </div>

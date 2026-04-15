@@ -26,6 +26,7 @@ from app.core.config import (
     RECOMMENDATIONS_SENTIMENT_CACHE_TTL_SECONDS,
     REDIS_URL,
     SENTIMENT_LOOKBACK_DAYS,
+    QUOTE_CACHE_MAX_AGE_SECONDS,
 )
 from app.core.dependencies import get_current_user_id
 from app.services.ai_audit_log_service import write_audit_entry
@@ -490,6 +491,43 @@ def compute_recommendations_page_state(
     return "active"
 
 
+def _to_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _build_proposal_block(score: Any, confidence: Any, current_weight: Any) -> Dict[str, Any]:
+    """
+    Lightweight proposal block for UI guidance.
+    This is descriptive context, not a trade instruction.
+    """
+    score_val = max(0.0, min(1.0, _to_float(score, 0.0)))
+    conf_val = max(0.0, min(1.0, _to_float(confidence, 0.0)))
+    cur = max(0.0, _to_float(current_weight, 0.0))
+    # Conservative sizing heuristic with confidence scaling; capped to prevent oversized suggestions.
+    target = min(0.15, round(score_val * 0.12 * (0.6 + 0.4 * conf_val), 4))
+    delta = round(target - cur, 4)
+    if score_val < 0.35:
+        action = "review_or_reduce"
+    elif delta > 0.01:
+        action = "consider_incremental_increase"
+    elif delta < -0.01:
+        action = "consider_trimming"
+    else:
+        action = "hold_near_target"
+    return {
+        "action": action,
+        "current_weight": round(cur, 4),
+        "target_weight": target,
+        "delta_from_current": delta,
+        "turnover_estimate": round(abs(delta), 4),
+        "confidence_used": round(conf_val, 4),
+        "method": "score_weight_heuristic_v1",
+    }
+
+
 @router.get("/recommendations/latest", response_model=dict)
 async def latest_recommendations(
     user_id: int = Depends(get_current_user_id),
@@ -555,6 +593,19 @@ async def latest_recommendations(
             row["consensus"] = expl.get("consensus")
             row["data_badges"] = expl.get("data_badges") if isinstance(expl.get("data_badges"), list) else []
             row["why_shown_one_line"] = expl.get("why_shown_one_line") or ""
+            data_freshness = expl.get("data_freshness") if isinstance(expl.get("data_freshness"), dict) else {}
+            row["data_freshness"] = {
+                "provider": data_freshness.get("provider") or "unknown",
+                "stale_seconds": data_freshness.get("stale_seconds"),
+                "as_of": data_freshness.get("as_of"),
+                "ttl_seconds": QUOTE_CACHE_MAX_AGE_SECONDS,
+            }
+            rm = expl.get("risk_metrics") if isinstance(expl.get("risk_metrics"), dict) else {}
+            row["proposal"] = _build_proposal_block(
+                row.get("score"),
+                row.get("confidence"),
+                rm.get("weight"),
+            )
         summary_items.append(row)
 
     if enrich and summary_items:
@@ -582,6 +633,11 @@ async def latest_recommendations(
     ps = run.get("portfolio_snapshot") if isinstance(run, dict) else None
     if isinstance(ps, dict):
         portfolio = ps
+        portfolio.setdefault("data_freshness", {})
+        if isinstance(portfolio.get("data_freshness"), dict):
+            portfolio["data_freshness"].setdefault("provider", "portfolio_snapshot")
+            portfolio["data_freshness"].setdefault("as_of", portfolio.get("snapshot_date") or run.get("created_at"))
+            portfolio["data_freshness"].setdefault("ttl_seconds", RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS)
 
     page_state = compute_recommendations_page_state(user_id, run, portfolio, total_items)
 
@@ -624,6 +680,12 @@ async def latest_recommendations(
         "run": run,
         "items": summary_items,
         "portfolio": portfolio,
+        "metadata": {
+            "as_of": run.get("created_at") if isinstance(run, dict) else None,
+            "source": "recommendation_run_latest",
+            "ttl_seconds": RECOMMENDATIONS_EXPLAIN_CACHE_TTL_SECONDS,
+            "scoring_mode": ((run.get("artifacts") or {}).get("scoring_mode") if isinstance(run, dict) else None),
+        },
         "page_state": page_state,
         "action_queue": action_queue,
         "pagination": {

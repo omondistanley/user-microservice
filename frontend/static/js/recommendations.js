@@ -214,7 +214,12 @@
       if (listEl.setAttribute) listEl.setAttribute("data-run-id", "");
       return;
     }
-    statusEl.textContent = "Latest run at " + (run.created_at || "\u2014");
+    var metadata = payload && payload.metadata || {};
+    var asOf = metadata.as_of || run.created_at || "\u2014";
+    var statusBits = ["Latest run at " + asOf];
+    if (metadata.source) statusBits.push("source: " + metadata.source);
+    if (metadata.ttl_seconds != null) statusBits.push("ttl: " + metadata.ttl_seconds + "s");
+    statusEl.textContent = statusBits.join(" \u00b7 ");
     var html = '<div class="rec-cards-grid">';
     if (!items.length) {
       html += '<div class="empty-state-inline"><span class="material-symbols-rounded empty-icon">auto_awesome</span><span class="empty-title">No recommendations on this page</span><span class="empty-body">Try a different page or regenerate recommendations with updated preferences.</span></div>';
@@ -273,6 +278,14 @@
         if (it.consensus && it.consensus.detail) {
           var cl = it.consensus.label || "Consensus";
           html += '<p class="muted" style="font-size:0.78rem;margin:0.25rem 0;"><strong>' + escapeHtml(String(cl)) + "</strong> " + escapeHtml(String(it.consensus.detail)) + "</p>";
+        }
+        if (it.proposal && typeof it.proposal === "object") {
+          var p = it.proposal;
+          var deltaPct = p.delta_from_current != null ? (Number(p.delta_from_current) * 100).toFixed(2) + "%" : "\u2014";
+          html += '<p class="muted" style="font-size:0.78rem;margin:0.25rem 0;"><strong>Proposal</strong> ' +
+            escapeHtml(String((p.action || "hold_near_target")).replace(/_/g, " ")) +
+            " \u00b7 delta " + escapeHtml(deltaPct) +
+            "</p>";
         }
         html += '<div class="rec-card-market muted" style="font-size:0.8125rem;display:flex;flex-wrap:wrap;gap:0.75rem;margin:0.5rem 0;">';
         html += "<span>Last " + lastPrice + "</span><span>Day " + escapeHtml(changePct) + "</span><span>1M " + escapeHtml(trend1m) + "</span>";

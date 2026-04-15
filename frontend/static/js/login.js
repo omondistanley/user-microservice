@@ -115,7 +115,12 @@
       if (e.target && e.target.id === "login-form") {
         e.preventDefault();
         e.stopPropagation();
-        doLogin();
+        doLogin("login-submit-btn", "email", "password", "login-message");
+      }
+      if (e.target && e.target.id === "login-form-mobile") {
+        e.preventDefault();
+        e.stopPropagation();
+        doLogin("login-submit-btn-mobile", "email-m", "password-m", "login-message-mobile");
       }
     });
     var toggle = document.getElementById("login-password-toggle");

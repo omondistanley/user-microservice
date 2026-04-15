@@ -30,6 +30,14 @@ type RecommendationItem = {
   bull_case?: string;
   bear_case?: string;
   data_badges?: unknown[];
+  data_freshness?: { provider?: string; stale_seconds?: number | null; as_of?: string | null };
+  proposal?: {
+    action?: string;
+    current_weight?: number;
+    target_weight?: number;
+    delta_from_current?: number;
+    turnover_estimate?: number;
+  };
 };
 
 type ExplainDetail = {
@@ -43,6 +51,7 @@ type LatestResponse = {
   run?: { run_id?: string; id?: string; created_at?: string };
   items?: RecommendationItem[];
   portfolio?: Record<string, unknown>;
+  metadata?: { as_of?: string; source?: string; ttl_seconds?: number; scoring_mode?: string };
   ui_insights?: Record<string, unknown>;
   page_state?: string;
   pagination?: { page: number; page_size: number; total_items: number; total_pages: number };
@@ -506,6 +515,22 @@ export default function RecommendationsScreen() {
                     {it.full_name ? <Text style={styles.fullName}>{it.full_name}</Text> : null}
                     <Text style={styles.subText}>{it.why_shown_one_line ?? ""}</Text>
                     {it.sector ? <Text style={styles.metaText}>Sector: {it.sector}</Text> : null}
+                    {it.proposal?.action ? (
+                      <Text style={styles.metaText}>
+                        Proposal: {String(it.proposal.action).replace(/_/g, " ")}
+                        {typeof it.proposal.delta_from_current === "number"
+                          ? ` (${(it.proposal.delta_from_current * 100).toFixed(2)}% delta)`
+                          : ""}
+                      </Text>
+                    ) : null}
+                    {it.data_freshness?.provider ? (
+                      <Text style={styles.metaText}>
+                        Data: {it.data_freshness.provider}
+                        {typeof it.data_freshness.stale_seconds === "number"
+                          ? ` · stale ${Math.round(it.data_freshness.stale_seconds)}s`
+                          : ""}
+                      </Text>
+                    ) : null}
                   </View>
                   <View style={{ alignItems: "flex-end", minWidth: 72 }}>
                     <Text style={styles.scoreText}>Score: {it.score ?? "—"}</Text>

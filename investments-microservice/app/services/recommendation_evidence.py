@@ -77,6 +77,7 @@ def score_breakdown_lines(expl: Dict[str, Any]) -> List[str]:
         ("heuristic_score", "Heuristic score component"),
         ("combined", "Combined score (after weighting)"),
         ("model_score", "Model adjustment term"),
+        ("scoring_scope", "Scoring scope"),
         ("base_score", "Base / Sharpe-related term"),
         ("weight_penalty", "Concentration (weight) penalty"),
         ("volatility_penalty", "Volatility vs tolerance penalty"),
@@ -117,7 +118,7 @@ def risk_return_lines(expl: Dict[str, Any]) -> List[str]:
     w = rm.get("weight")
     if sh is not None and "N/A" not in str(sh).upper():
         lines.append(
-            f"Portfolio-level Sharpe (approx., from available history): {_fmt_num(sh)} — higher suggests better return per unit of volatility."
+            f"Portfolio-level Sharpe (approx., from available history): {_fmt_num(sh)} - this is a portfolio proxy, not a symbol-level expected return forecast."
         )
     elif sh is not None:
         lines.append(str(sh))
@@ -136,6 +137,11 @@ def risk_return_lines(expl: Dict[str, Any]) -> List[str]:
         lines.append(
             f"This position's weight in the portfolio: {_fmt_num(pct, 2)}% "
             "(concentration affects the score)."
+        )
+    sb = expl.get("score_breakdown") if isinstance(expl.get("score_breakdown"), dict) else {}
+    if sb and sb.get("type") == "holding":
+        lines.append(
+            "Holding ranking is generated from a portfolio-level base signal plus position-specific policy adjustments."
         )
     krc = expl.get("key_risk_contributors")
     if isinstance(krc, list) and krc:

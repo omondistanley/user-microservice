@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 import sys
@@ -53,6 +53,12 @@ def test_apple_wallet_webhook_creates_expense_with_transport_hint(monkeypatch):
         def update_apple_wallet_last_sync(self, user_id, ts):
             pass
 
+        def get_recent_apple_wallet_expense_match(self, **kwargs):
+            return None
+
+        def get_recent_apple_wallet_income_match(self, **kwargs):
+            return None
+
     class FakeExpense:
         expense_id = uuid4()
 
@@ -101,6 +107,12 @@ def test_apple_wallet_webhook_creates_income_when_classified(monkeypatch):
 
         def update_apple_wallet_last_sync(self, user_id, ts):
             pass
+
+        def get_recent_apple_wallet_expense_match(self, **kwargs):
+            return None
+
+        def get_recent_apple_wallet_income_match(self, **kwargs):
+            return None
 
         def create_income(self, data):
             assert data["user_id"] == 88
@@ -155,6 +167,12 @@ def test_apple_wallet_webhook_income_dedup_returns_already_recorded(monkeypatch)
         def create_income(self, data):
             raise AssertionError("create_income should not run on dedup")
 
+        def get_recent_apple_wallet_expense_match(self, **kwargs):
+            return None
+
+        def get_recent_apple_wallet_income_match(self, **kwargs):
+            return None
+
     class FakeExpenseResource:
         def create(self, *args, **kwargs):
             raise AssertionError("expense create should not run on income dedup")
@@ -182,3 +200,70 @@ def test_apple_wallet_webhook_income_dedup_returns_already_recorded(monkeypatch)
     assert body["flow_type"] == "income"
     assert body["income_type"] == "salary"
     assert body["income_id"] == str(existing_income_id)
+
+
+def test_apple_wallet_webhook_dedup_without_transaction_id(monkeypatch):
+    existing_expense_id = uuid4()
+
+    class FakeDataService:
+        def get_recent_apple_wallet_expense_match(self, **kwargs):
+            return {"expense_id": existing_expense_id}
+
+        def get_recent_apple_wallet_income_match(self, **kwargs):
+            return None
+
+        def update_apple_wallet_last_sync(self, user_id, ts):
+            pass
+
+    class FakeExpenseResource:
+        def create(self, *args, **kwargs):
+            raise AssertionError("expense create should not run on heuristic dedupe")
+
+    monkeypatch.setattr(webhook_router, "APPLE_WALLET_WEBHOOK_SECRET", "sec4")
+    monkeypatch.setattr(webhook_router, "APPLE_WALLET_WEBHOOK_USER_ID", "100")
+    monkeypatch.setattr(webhook_router, "_get_expense_data_service", lambda: FakeDataService())
+    monkeypatch.setattr(webhook_router, "_get_expense_resource", lambda: FakeExpenseResource())
+
+    r = client.post(
+        "/api/v1/apple-wallet/webhook",
+        json={
+            "merchant": "Coffee Shop",
+            "amount": 8.25,
+            "currency": "USD",
+            "date": "2026-03-20",
+            "note": "latte",
+        },
+        headers={"X-Webhook-Secret": "sec4"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "already_recorded"
+    assert body["dedupe_type"] == "heuristic_without_transaction_id"
+    assert body["expense_id"] == str(existing_expense_id)
+
+
+def test_apple_wallet_health_endpoint(monkeypatch):
+    class FakeDataService:
+        def get_apple_wallet_sync_health(self, user_id, lookback_hours):
+            assert user_id == 77
+            assert lookback_hours == 24
+            return {
+                "lookback_hours": 24,
+                "window_start": datetime(2026, 3, 20, 9, 0, tzinfo=timezone.utc),
+                "last_sync_at": datetime(2026, 3, 20, 11, 0, tzinfo=timezone.utc),
+                "expenses_created": 4,
+                "income_created": 1,
+                "total_created": 5,
+            }
+
+    monkeypatch.setattr(webhook_router, "APPLE_WALLET_WEBHOOK_SECRET", "sec-health")
+    monkeypatch.setattr(webhook_router, "APPLE_WALLET_WEBHOOK_USER_ID", "77")
+    monkeypatch.setattr(webhook_router, "_get_expense_data_service", lambda: FakeDataService())
+
+    r = client.get("/api/v1/apple-wallet/health", headers={"X-Webhook-Secret": "sec-health"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["counters"]["total_created"] == 5
+    assert body["counters"]["expenses_created"] == 4
+    assert body["counters"]["income_created"] == 1
+    assert body["last_sync_at"] is not None

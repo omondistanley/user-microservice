@@ -105,6 +105,12 @@ async def monte_carlo(
 
     return {
         **result,
+        "model": {
+            "type": "lognormal_iid_monthly",
+            "paths": 1000,
+            "seed": 42,
+            "note": "Deterministic seed is used for reproducible educational scenarios.",
+        },
         "assumptions": {
             "initial_value": initial_value,
             "monthly_contribution": monthly_contribution,

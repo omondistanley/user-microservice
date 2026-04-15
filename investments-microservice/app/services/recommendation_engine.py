@@ -369,6 +369,7 @@ def _detect_holdings_etf_overlap(held_symbols: set) -> List[Dict[str, Any]]:
 
 import threading as _threading
 _lgbm_lock = _threading.Lock()
+MIN_LGBM_SAMPLES = 8
 
 
 def _lgbm_rerank(
@@ -389,14 +390,23 @@ def _lgbm_rerank(
       where diversification_factor = 1 - (weight - 0.1).clamp(0, 0.9)
     This encodes: higher Sharpe is good, concentration is bad, TLH bonus is good.
     """
+    fit_summary: Dict[str, Any] = {
+        "status": "skipped",
+        "mode": "none",
+        "reason": "uninitialized",
+        "sample_count": len(heuristic_items or []),
+        "label_type": "synthetic_heuristic_distillation",
+    }
     try:
         import lightgbm as lgb
         import numpy as np
     except ImportError:
-        return {}
+        fit_summary["reason"] = "lightgbm_not_installed"
+        return {"__fit_summary": fit_summary}
 
     if not heuristic_items:
-        return {}
+        fit_summary["reason"] = "no_holdings_rows"
+        return {"__fit_summary": fit_summary}
 
     rows = []
     labels = []
@@ -417,8 +427,9 @@ def _lgbm_rerank(
     X = np.array(rows, dtype=np.float32)
     y = np.array(labels, dtype=np.float32)
 
-    if len(X) < 2:
-        return {}
+    if len(X) < MIN_LGBM_SAMPLES:
+        fit_summary["reason"] = f"insufficient_samples_requires_{MIN_LGBM_SAMPLES}"
+        return {"__fit_summary": fit_summary}
 
     try:
         params = {
@@ -426,12 +437,15 @@ def _lgbm_rerank(
             "num_leaves": 4,
             "n_estimators": 20,
             "learning_rate": 0.1,
-            "min_child_samples": 1,
+            "min_child_samples": 2,
             "verbose": -1,
         }
         model = lgb.LGBMRegressor(**params)
         model.fit(X, y)
         preds = model.predict(X)
+        fit_summary["status"] = "trained"
+        fit_summary["mode"] = "in_sample_refit"
+        fit_summary["reason"] = "trained_on_current_batch"
 
         # SHAP TreeExplainer for per-feature attributions
         shap_values_all = None
@@ -455,9 +469,11 @@ def _lgbm_rerank(
                 "model_score": float(np.clip(preds[idx], 0.0, 1.0)),
                 "shap_values": shap_row,
             }
+        result["__fit_summary"] = fit_summary
         return result
     except Exception:
-        return {}
+        fit_summary["reason"] = "fit_failed"
+        return {"__fit_summary": fit_summary}
 
 
 class RecommendationEngine:
@@ -771,6 +787,9 @@ class RecommendationEngine:
 
         # Stage 2: LightGBM reranker (legacy online fitting path).
         lgbm_scores = _lgbm_rerank(heuristic_items, vol_annual, hhi, tlh_symbols)
+        lgbm_fit_summary = {}
+        if isinstance(lgbm_scores, dict):
+            lgbm_fit_summary = lgbm_scores.pop("__fit_summary", {}) or {}
         quant_scores: Dict[str, Dict[str, Any]] = {}
         quant_enabled = bool(RECOMMENDATIONS_QUANT_MODEL_ENABLED)
         if quant_enabled:
@@ -843,6 +862,19 @@ class RecommendationEngine:
                 "tlh_bonus": str(round(tlh_bonus, 4)) if tlh_loss > 0 else "0",
                 "tlh_harvestable_loss": str(round(tlh_loss, 2)) if tlh_loss > 0 else "0",
                 "model_source": model_source,
+                "model_fit_summary": (
+                    lgbm_fit_summary
+                    if model_source == "lightgbm"
+                    else {
+                        "status": "skipped",
+                        "mode": "none",
+                        "reason": (
+                            "offline_quant_artifact_active"
+                            if model_source == "offline_quant_artifact"
+                            else (lgbm_fit_summary.get("reason") or "lightgbm_not_used")
+                        ),
+                    }
+                ),
                 "shap_values": lgbm_out["shap_values"] if lgbm_out else None,
                 "factor_contributions": quant_out.get("factor_contributions") if quant_out else None,
                 "uncertainty_bucket": quant_out.get("uncertainty_bucket") if quant_out else "unknown",
@@ -851,12 +883,17 @@ class RecommendationEngine:
                     if quant_out
                     else (RECOMMENDATIONS_QUANT_MODEL_VERSION if quant_enabled else "heuristic+analytics-v1")
                 ),
+                "scoring_scope": "portfolio_level_base_signal_plus_position_adjustments",
                 "combined": str(combined),
-                "description": "Holding score from portfolio Sharpe, position weight, and volatility vs risk tolerance.",
+                "description": (
+                    "Holding score uses a portfolio-level Sharpe proxy as the base signal, then applies "
+                    "position-specific penalties/bonuses (weight, volatility policy, TLH, and model adjustment). "
+                    "This is not a per-ticker forward return forecast."
+                ),
             }
 
             why_selected = [
-                "Risk-adjusted score based on portfolio Sharpe ratio and current position weight.",
+                "Base signal comes from portfolio-level risk-adjusted performance, then adjusted for this holding's weight and policy controls.",
             ]
             if risk.get("risk_tolerance"):
                 why_selected.append(f"Your risk tolerance ({risk.get('risk_tolerance')}) is reflected in the score.")

@@ -2616,6 +2616,133 @@ class ExpenseDataService:
         finally:
             conn.close()
 
+    def get_recent_apple_wallet_expense_match(
+        self,
+        user_id: int,
+        merchant: str,
+        amount: Decimal,
+        tx_date: date,
+        currency: str,
+        lookback_hours: int = 36,
+    ) -> Optional[Dict]:
+        """Best-effort duplicate detector when transaction_id is unavailable."""
+        since = datetime.now(timezone.utc) - timedelta(hours=max(1, lookback_hours))
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT *
+                FROM "{SCHEMA}"."{TABLE}"
+                WHERE user_id = %s
+                  AND deleted_at IS NULL
+                  AND source = 'apple_wallet'
+                  AND date = %s
+                  AND currency = %s
+                  AND amount = %s
+                  AND created_at >= %s
+                  AND LOWER(description) LIKE %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (
+                    user_id,
+                    tx_date,
+                    _normalize_currency(currency),
+                    amount,
+                    since,
+                    f"{(merchant or '').strip().lower()}%",
+                ),
+            )
+            row = cur.fetchone()
+            return _dict_row(row)
+        finally:
+            conn.close()
+
+    def get_recent_apple_wallet_income_match(
+        self,
+        user_id: int,
+        merchant: str,
+        amount: Decimal,
+        tx_date: date,
+        currency: str,
+        lookback_hours: int = 36,
+    ) -> Optional[Dict]:
+        """Best-effort duplicate detector when transaction_id is unavailable."""
+        since = datetime.now(timezone.utc) - timedelta(hours=max(1, lookback_hours))
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT *
+                FROM "{SCHEMA}"."{INCOME_TABLE}"
+                WHERE user_id = %s
+                  AND deleted_at IS NULL
+                  AND date = %s
+                  AND currency = %s
+                  AND amount = %s
+                  AND created_at >= %s
+                  AND LOWER(source_label) = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (
+                    user_id,
+                    tx_date,
+                    _normalize_currency(currency),
+                    amount,
+                    since,
+                    (merchant or "").strip().lower(),
+                ),
+            )
+            row = cur.fetchone()
+            return _dict_row(row)
+        finally:
+            conn.close()
+
+    def get_apple_wallet_sync_health(self, user_id: int, lookback_hours: int = 24) -> Dict[str, Any]:
+        """Lightweight sync health counters for Apple Wallet ingestion."""
+        since = datetime.now(timezone.utc) - timedelta(hours=max(1, lookback_hours))
+        conn = self._conn_autocommit()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT COUNT(*)::int AS c
+                FROM "{SCHEMA}"."{TABLE}"
+                WHERE user_id = %s
+                  AND deleted_at IS NULL
+                  AND source = 'apple_wallet'
+                  AND created_at >= %s
+                """,
+                (user_id, since),
+            )
+            expense_count = int((cur.fetchone() or {}).get("c") or 0)
+            cur.execute(
+                f"""
+                SELECT COUNT(*)::int AS c
+                FROM "{SCHEMA}"."{INCOME_TABLE}"
+                WHERE user_id = %s
+                  AND deleted_at IS NULL
+                  AND apple_wallet_transaction_id IS NOT NULL
+                  AND created_at >= %s
+                """,
+                (user_id, since),
+            )
+            income_count = int((cur.fetchone() or {}).get("c") or 0)
+            last_sync = self.get_apple_wallet_last_sync(user_id)
+            return {
+                "lookback_hours": int(lookback_hours),
+                "window_start": since,
+                "expenses_created": expense_count,
+                "income_created": income_count,
+                "total_created": expense_count + income_count,
+                "last_sync_at": last_sync,
+            }
+        finally:
+            conn.close()
+
     def list_unified_ledger(
         self,
         user_id: int,

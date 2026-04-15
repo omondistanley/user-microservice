@@ -135,6 +135,44 @@ async def apple_wallet_webhook(
                 "classifier_source": classification.source,
             }
 
+    # Secondary dedupe for Shortcut payloads missing transaction_id.
+    if not body.transaction_id:
+        existing_expense = eds.get_recent_apple_wallet_expense_match(
+            user_id=user_id,
+            merchant=body.merchant,
+            amount=amount_abs,
+            tx_date=tx_date,
+            currency=(body.currency or "USD").upper(),
+        )
+        if existing_expense:
+            return {
+                "status": "already_recorded",
+                "dedupe_type": "heuristic_without_transaction_id",
+                "flow_type": "expense",
+                "category_hint": classification.category_hint if classification.flow_type == "expense" else "expense_other",
+                "expense_id": str(existing_expense["expense_id"]),
+                "classifier_confidence": float(classification.confidence) if classification.confidence is not None else None,
+                "classifier_source": classification.source,
+            }
+        existing_income = eds.get_recent_apple_wallet_income_match(
+            user_id=user_id,
+            merchant=body.merchant,
+            amount=amount_abs,
+            tx_date=tx_date,
+            currency=(body.currency or "USD").upper(),
+        )
+        if existing_income:
+            return {
+                "status": "already_recorded",
+                "dedupe_type": "heuristic_without_transaction_id",
+                "flow_type": "income",
+                "category_hint": "income_salary_other",
+                "income_type": str(existing_income.get("income_type") or "other"),
+                "income_id": str(existing_income["income_id"]),
+                "classifier_confidence": float(classification.confidence) if classification.confidence is not None else None,
+                "classifier_source": classification.source,
+            }
+
     description_parts = [body.merchant.strip()]
     if body.note:
         description_parts.append(body.note.strip())
@@ -277,5 +315,41 @@ async def apple_wallet_since_last_sync(
             "expense": total_expense,
             "income": total_income,
             "net": round(total_income - total_expense, 2),
+        },
+    }
+
+
+@router.get("/health")
+async def apple_wallet_sync_health(
+    lookback_hours: int = 24,
+    x_webhook_secret: Optional[str] = Header(default=None, alias="X-Webhook-Secret"),
+):
+    """Sync health snapshot for Shortcut ingestion monitoring."""
+    if APPLE_WALLET_WEBHOOK_SECRET and x_webhook_secret != APPLE_WALLET_WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid or missing webhook secret")
+
+    user_id = _resolve_user_id(None)
+    if user_id is None:
+        raise HTTPException(status_code=503, detail="Apple Wallet not configured")
+
+    eds = _get_expense_data_service()
+    health = eds.get_apple_wallet_sync_health(user_id, lookback_hours=max(1, min(168, lookback_hours)))
+    last_sync = health.get("last_sync_at")
+    stale = True
+    hours_since_last_sync = None
+    if isinstance(last_sync, datetime):
+        hours_since_last_sync = round((datetime.now(timezone.utc) - last_sync).total_seconds() / 3600.0, 2)
+        stale = hours_since_last_sync > 24
+    return {
+        "user_id": user_id,
+        "lookback_hours": health.get("lookback_hours"),
+        "window_start": health.get("window_start").isoformat() if health.get("window_start") else None,
+        "last_sync_at": last_sync.isoformat() if isinstance(last_sync, datetime) else None,
+        "hours_since_last_sync": hours_since_last_sync,
+        "is_stale": stale,
+        "counters": {
+            "expenses_created": int(health.get("expenses_created") or 0),
+            "income_created": int(health.get("income_created") or 0),
+            "total_created": int(health.get("total_created") or 0),
         },
     }

@@ -86,7 +86,13 @@ def train_quant_ranker(rows: List[Dict[str, Any]], model_version: str) -> QuantM
             intercept=0.0,
             means=[0.0] * len(FEATURE_NAMES),
             stds=[1.0] * len(FEATURE_NAMES),
-            backtest={"samples": int(len(x)), "r2": 0.0, "mae": 0.0, "turnover_proxy": 0.0},
+            backtest={
+                "samples": int(len(x)),
+                "validation_mode": "not_enough_samples",
+                "r2_in_sample_training_set": 0.0,
+                "mae_in_sample_training_set": 0.0,
+                "turnover_proxy": 0.0,
+            },
         )
     means = x.mean(axis=0)
     stds = x.std(axis=0)
@@ -119,8 +125,10 @@ def train_quant_ranker(rows: List[Dict[str, Any]], model_version: str) -> QuantM
         stds=[float(x) for x in stds.tolist()],
         backtest={
             "samples": int(len(x)),
-            "r2": round(r2, 4),
-            "mae": round(mae, 4),
+            "validation_mode": "in_sample_training_set",
+            "label_type": "synthetic_heuristic_distillation",
+            "r2_in_sample_training_set": round(r2, 4),
+            "mae_in_sample_training_set": round(mae, 4),
             "turnover_proxy": round(turnover_proxy, 4),
         },
     )

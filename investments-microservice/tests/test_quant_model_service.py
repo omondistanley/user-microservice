@@ -25,7 +25,10 @@ def test_train_quant_ranker_produces_backtest_metrics():
     artifact = train_quant_ranker(rows, "quant-ranker-v1")
     assert artifact.model_version == "quant-ranker-v1"
     assert artifact.backtest["samples"] == 40
-    assert "r2" in artifact.backtest
+    assert artifact.backtest["validation_mode"] == "in_sample_training_set"
+    assert "r2_in_sample_training_set" in artifact.backtest
+    assert "mae_in_sample_training_set" in artifact.backtest
+    assert artifact.backtest["label_type"] == "synthetic_heuristic_distillation"
     assert len(artifact.coef) == len(artifact.feature_names)
 
 

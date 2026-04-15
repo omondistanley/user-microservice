@@ -32,6 +32,12 @@ from app.core.config import (
     GROQ_MAX_TOKENS,
     GROQ_MODEL,
     GROQ_TIMEOUT_SECONDS,
+    OPENROUTER_API_BASE,
+    OPENROUTER_API_KEY,
+    OPENROUTER_HTTP_REFERER,
+    OPENROUTER_MODEL,
+    OPENROUTER_TIMEOUT_SECONDS,
+    OPENROUTER_X_TITLE,
 )
 
 logger = logging.getLogger("investments_ai_explainer")
@@ -194,6 +200,70 @@ async def _generic_generate(payload: Dict[str, Any]) -> Optional[str]:
 
 def _groq_configured() -> bool:
     return bool(GROQ_API_BASE and GROQ_API_KEY and GROQ_MODEL)
+
+
+def _openrouter_configured() -> bool:
+    return bool(OPENROUTER_API_BASE and OPENROUTER_API_KEY and OPENROUTER_MODEL)
+
+
+async def _openrouter_generate(payload: Dict[str, Any]) -> Optional[str]:
+    """Call OpenRouter chat completions endpoint. Returns raw narrative or None."""
+    if not _openrouter_configured():
+        return None
+    system, user = build_prompt(payload)
+    url = f"{OPENROUTER_API_BASE.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    if OPENROUTER_HTTP_REFERER:
+        headers["HTTP-Referer"] = OPENROUTER_HTTP_REFERER
+    if OPENROUTER_X_TITLE:
+        headers["X-Title"] = OPENROUTER_X_TITLE
+    body = {
+        "model": OPENROUTER_MODEL,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "max_tokens": 150,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=float(OPENROUTER_TIMEOUT_SECONDS)) as client:
+            resp = await client.post(url, json=body, headers=headers)
+        if resp.status_code in (401, 403):
+            _set_provider_cooldown("openrouter", _AUTH_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "openrouter",
+                f"AI explainer OpenRouter auth failed ({resp.status_code}); cooling down provider.",
+            )
+            return None
+        if resp.status_code == 422:
+            _set_provider_cooldown("openrouter", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "openrouter",
+                "AI explainer OpenRouter request invalid (422); cooling down provider.",
+            )
+            return None
+        if resp.status_code == 429:
+            _set_provider_cooldown("openrouter", _RATE_LIMIT_COOLDOWN_SECONDS)
+            _log_provider_fail_once(
+                "openrouter",
+                "AI explainer OpenRouter rate limited (429); cooling down provider.",
+            )
+            return None
+        resp.raise_for_status()
+        data = resp.json() or {}
+        choice = (data.get("choices") or [None])[0]
+        if not choice:
+            return None
+        msg = choice.get("message") or {}
+        text = msg.get("content") or ""
+        return text.strip() or None
+    except Exception as exc:
+        _set_provider_cooldown("openrouter", _DEFAULT_PROVIDER_COOLDOWN_SECONDS)
+        _log_provider_fail_once("openrouter", f"AI explainer OpenRouter call failed: {exc}")
+        return None
 
 
 async def _groq_generate(payload: Dict[str, Any]) -> Optional[str]:
@@ -378,8 +448,8 @@ def _fallback_narrative(payload: Dict[str, Any]) -> str:
 
 
 def is_enabled() -> bool:
-    """True if any of generic, Groq, or Brave is configured."""
-    return _generic_configured() or _groq_configured() or _brave_configured()
+    """True if any configured narrative provider is available."""
+    return _openrouter_configured() or _generic_configured() or _groq_configured() or _brave_configured()
 
 
 # ---------------------------------------------------------------------------
@@ -490,12 +560,14 @@ async def generate_narrative(
 
     order = [p.strip().lower() for p in (AI_EXPLAINER_PROVIDER_ORDER or "").split(",") if p.strip()]
     if not order:
-        order = ["groq", "brave", "generic"]
+        order = ["openrouter", "groq", "brave", "generic"]
     for name in order:
         if _provider_on_cooldown(name):
             continue
         raw: Optional[str] = None
-        if name == "groq":
+        if name == "openrouter":
+            raw = await _openrouter_generate(payload)
+        elif name == "groq":
             raw = await _groq_generate(payload)
         elif name == "brave":
             raw = await _brave_generate(payload)

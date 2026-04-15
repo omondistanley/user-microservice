@@ -200,9 +200,6 @@ PostgreSQL (4 separate DBs) + Redis (caching & rate limiting)
 
 Sources live under `frontend/src/ts/` and compile with ESBuild via `npm run build:js` (see `frontend/scripts/build-js.mjs`). Run `npm run typecheck` and `npm run build:js` from `frontend/` before deploy when TS changes; templates load emitted files under `frontend/static/js/` and `frontend/static/sw.js`. Strict typing is enabled for `auth.ts`; other page modules use `// @ts-nocheck` until types are narrowed incrementally.
 
-### Stitch → template map (mobile parity target)
-
-Use the Stitch `code.html` references as the mobile (`md:hidden` / narrow viewport) hierarchy target; desktop keeps existing `md:` layouts. Primary mapping: `dashboard_v5` → `dashboard.html`, `expenses_list_v4` → expenses list templates, `investments_overview_2` / `investments_v3` → `investments.html`, `portfolio_recommendations_v3` → `recommendations.html`, `integrations_hub_v3` → `settings/integrations.html`, `settings_v3` → `settings.html`, `login_create_account_v2` → `login.html` / `register.html`, `budgets_v3` → `budgets/list.html`, `analytics_overview_v2_2` → `analytics.html`, `financial_insights_v2` → `insights.html`, `financial_reports_v3` → `reports.html`, `net_worth_breakdown_v2` / `net_worth_overview_2` → `net_worth.html`, `goal_detail_v2` / `goals_list_v2` → goal templates, `household_management` → `household.html`, `transactions_v3` → transactions views, `profile_v4` → `profile.html`, `landing_page` → `landing.html`, `link_bank_account` / `link_bank_confirmation` → link-bank flow templates.
 
 ### Mobile journey (summary)
 

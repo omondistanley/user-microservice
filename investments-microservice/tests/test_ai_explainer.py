@@ -50,10 +50,11 @@ def test_post_process_truncates_long_text(monkeypatch):
 @pytest.mark.asyncio
 async def test_generate_narrative_returns_first_success(monkeypatch):
     """When first provider returns text, router returns it and provider name."""
-    monkeypatch.setattr("app.services.ai_explainer._groq_configured", lambda: True)
-    with patch("app.services.ai_explainer._groq_generate", new_callable=AsyncMock) as m:
+    monkeypatch.setattr("app.services.ai_explainer.AI_EXPLAINER_PROVIDER_ORDER", "openrouter,groq,brave,generic")
+    monkeypatch.setattr("app.services.ai_explainer._openrouter_configured", lambda: True)
+    with patch("app.services.ai_explainer._openrouter_generate", new_callable=AsyncMock) as m:
         m.return_value = "Clean summary of risk."
         narrative, provider = await generate_narrative({"risk_metrics": {"sharpe": "0.5"}})
         assert m.called
         assert narrative == "Clean summary of risk."
-        assert provider == "groq"
+        assert provider == "openrouter"

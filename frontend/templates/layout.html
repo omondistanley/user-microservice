@@ -288,7 +288,7 @@
     </div>
 
     <!-- PUBLIC MAIN CONTENT -->
-    <main class="main-content main-content-public" id="main-content" tabindex="-1" style="{% if _use_app_shell %}display:none;{% endif %}">
+    <main class="main-content main-content-public" id="main-content-public" tabindex="-1" style="{% if _use_app_shell %}display:none;{% endif %}">
         {{ self.back_link() }}
         {{ self.content() }}
     </main>
@@ -478,15 +478,65 @@
             if (moreSheet) moreSheet.setAttribute('aria-hidden', 'true');
         }
 
+        var lastSheetFocus = null;
+        var sheetFocusCleanup = null;
+
+        function getFocusableNodes(container) {
+            if (!container) return [];
+            return Array.prototype.slice.call(
+                container.querySelectorAll('a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')
+            ).filter(function(el) {
+                return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+            });
+        }
+
+        function trapSheetFocus(sheet) {
+            if (!sheet) return;
+            if (sheetFocusCleanup) {
+                sheetFocusCleanup();
+                sheetFocusCleanup = null;
+            }
+            var focusable = getFocusableNodes(sheet);
+            var initial = focusable[0] || sheet;
+            if (!sheet.hasAttribute('tabindex')) {
+                sheet.setAttribute('tabindex', '-1');
+            }
+            window.requestAnimationFrame(function() { initial.focus(); });
+            function onKeydown(ev) {
+                if (ev.key !== 'Tab') return;
+                var nodes = getFocusableNodes(sheet);
+                if (!nodes.length) {
+                    ev.preventDefault();
+                    sheet.focus();
+                    return;
+                }
+                var first = nodes[0];
+                var last = nodes[nodes.length - 1];
+                if (ev.shiftKey && document.activeElement === first) {
+                    ev.preventDefault();
+                    last.focus();
+                } else if (!ev.shiftKey && document.activeElement === last) {
+                    ev.preventDefault();
+                    first.focus();
+                }
+            }
+            sheet.addEventListener('keydown', onKeydown);
+            sheetFocusCleanup = function() {
+                sheet.removeEventListener('keydown', onKeydown);
+            };
+        }
+
         function openSheet(sheetId, overlayId) {
             var sheet = document.getElementById(sheetId);
             var overlay = document.getElementById(overlayId);
             if (!sheet || !overlay) return;
+            lastSheetFocus = document.activeElement;
             overlay.classList.add('active');
             sheet.classList.add('active');
             sheet.setAttribute('aria-hidden', 'false');
             overlay.setAttribute('aria-hidden', 'false');
             document.body.style.overflow = 'hidden';
+            trapSheetFocus(sheet);
         }
 
         function closeSheet(sheetId, overlayId) {
@@ -498,6 +548,13 @@
             sheet.setAttribute('aria-hidden', 'true');
             overlay.setAttribute('aria-hidden', 'true');
             document.body.style.overflow = '';
+            if (sheetFocusCleanup) {
+                sheetFocusCleanup();
+                sheetFocusCleanup = null;
+            }
+            if (lastSheetFocus && typeof lastSheetFocus.focus === 'function') {
+                lastSheetFocus.focus();
+            }
         }
 
         function closeAllSheets() {
